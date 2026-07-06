@@ -109,6 +109,14 @@ module.exports = {
       if (subcommand === 'setup') {
         const guild = interaction.guild;
 
+        // Check if the bot has permission to manage channels
+        const botMember = guild.members.me || await guild.members.fetch(interaction.client.user.id).catch(() => null);
+        if (botMember && !botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
+          return await interaction.editReply({
+            content: '❌ **Setup Failed**: The bot is missing the **Manage Channels** permission in this server. Please grant this permission to the bot or its role in Server Settings and try running the command again.'
+          });
+        }
+
         const channelsToCreate = [
           { name: '💵-soul-bots', topic: 'Claim daily souls here with /checkin' },
           { name: '💵-soul-currency-logs', topic: 'Chat activity milestone log announcements' },
@@ -165,6 +173,12 @@ module.exports = {
       }
     } catch (error) {
       console.error(`Error executing admin subcommand ${subcommand} on server ${serverId}:`, error);
+      // Send a friendly error message back to the user
+      if (interaction.deferred || interaction.replied) {
+        return await interaction.editReply({
+          content: `❌ An error occurred: ${error.message || 'Unknown error'}. Please check that the bot has all required permissions.`
+        }).catch(() => null);
+      }
       throw error;
     }
   }
