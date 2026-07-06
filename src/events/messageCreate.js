@@ -60,22 +60,16 @@ module.exports = {
           const caughtEmbed = new EmbedBuilder()
             .setColor('#00ffaa')
             .setTitle('🎉 Soul Coin Caught! 🎉')
-            .setDescription(`**${message.author.username}** claimed the Soul Coin!\n\nReward: **${drop.value}** ${currencyIcon} ${currencyName}`)
+            .setDescription(`**${message.author.username}** claimed the Soul Coin!\n\nReward: **${drop.value}** <:Soul_Head:1523605643158618214>`)
             .setTimestamp();
 
           await dropMsg.edit({ embeds: [caughtEmbed] }).catch(() => {});
         }
 
         // Send congratulatory reply
-        const congratulateEmbed = new EmbedBuilder()
-          .setColor('#00ffaa')
-          .setTitle('💰 Coins Claimed!')
-          .setDescription(`Congratulations ${message.author}! You caught the Soul Coin and added **${drop.value}** ${currencyIcon} ${currencyName} to your wallet!`)
-          .addFields({ name: 'New Balance', value: `💰 **${awardResult.newBalance}** ${currencyIcon} ${currencyName}` })
-          .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
-          .setTimestamp();
+        const congratulateText = `Congratulations ${message.author}! You caught the Soul Coin and added **${drop.value}** <:Soul_Head:1523605643158618214> to your wallet!\n**New Balance**: **${awardResult.newBalance}** <:Soul_Head:1523605643158618214>`;
 
-        await message.reply({ embeds: [congratulateEmbed] }).catch(() => {});
+        await message.reply({ content: congratulateText }).catch(() => {});
       } catch (err) {
         console.error(`Error claiming drop for user ${userId}:`, err);
       }
