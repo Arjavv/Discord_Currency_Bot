@@ -225,12 +225,13 @@
                 <span class="command-name">/admin <span class="required-param">&lt;subcommand&gt;</span></span>
                 <span class="command-tag admin-tag">Admin</span>
               </div>
-              <span class="command-short-desc">Administrative controls for settings and cycle resets.</span>
+              <span class="command-short-desc">Administrative controls for settings, setup, and cycle resets.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Set server-wide currency options or reset the cycle. Restricted to Server Administrators.</p>
+              <p>Set server-wide currency options, initialize channels, or reset cycles. Restricted to Server Administrators only. The bot validates administrator permissions both inside Discord interface rules and secondary runtime checks on execution.</p>
               <ul class="admin-subcommands">
+                <li><code>setup</code>: Automatically creates the category "Soul Currency" and the necessary channels (<code>#💵-soul-bots</code>, <code>#💵-soul-currency-logs</code>, <code>#💵-soul-leaderboard</code>, <code>#💵-soul-casino</code>) with set topics if they do not exist.</li>
                 <li><code>set-currency-name &lt;name&gt;</code>: Customizes the display name of the currency server-wide (default is <em>Souls</em>).</li>
                 <li><code>set-currency-icon &lt;icon&gt;</code>: Sets a new custom emoji tag as the balance symbol.</li>
                 <li><code>reset-cycle</code>: Closes current monthly cycle, archives the rankings, and resets all balances & message counters to 0 server-wide.</li>
