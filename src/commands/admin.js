@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = require('discord.js');
 const { updateServerSetting, resetCycle, getServerSettings } = require('../database/queries');
 
 module.exports = {
@@ -30,6 +30,11 @@ module.exports = {
       subcommand
         .setName('reset-cycle')
         .setDescription('Close current cycle, archive rankings, and reset all balances to 0 for a new cycle')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('setup')
+        .setDescription('Create the Soul Currency channels and category in this server')
     ),
 
   async execute(interaction) {
@@ -96,6 +101,64 @@ module.exports = {
             { name: 'Active Cycle Status', value: 'New cycle started successfully!', inline: false }
           )
           .setFooter({ text: `Note: rankings were archived under Cycle ID #${result.oldCycleId}` })
+          .setTimestamp();
+
+        return await interaction.editReply({ embeds: [embed] });
+      }
+
+      if (subcommand === 'setup') {
+        const guild = interaction.guild;
+
+        const channelsToCreate = [
+          { name: '💵-soul-bots', topic: 'Claim daily souls here with /checkin' },
+          { name: '💵-soul-currency-logs', topic: 'Chat activity milestone log announcements' },
+          { name: '💵-soul-leaderboard', topic: 'Check current active rankings here with /leaderboard' },
+          { name: '💵-soul-casino', topic: 'Play coin flips with /casino flip' }
+        ];
+
+        const currentChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
+
+        // Find or create category
+        let category = currentChannels.find(
+          c => c.name.toLowerCase() === 'soul currency' && c.type === ChannelType.GuildCategory
+        );
+
+        if (!category) {
+          category = await guild.channels.create({
+            name: 'Soul Currency',
+            type: ChannelType.GuildCategory
+          });
+        }
+
+        const updatedChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
+        const created = [];
+        const skipped = [];
+
+        for (const ch of channelsToCreate) {
+          const exists = updatedChannels.find(
+            c => c.name.toLowerCase() === ch.name.toLowerCase() && c.type === ChannelType.GuildText
+          );
+          if (!exists) {
+            await guild.channels.create({
+              name: ch.name,
+              type: ChannelType.GuildText,
+              topic: ch.topic,
+              parent: category.id
+            });
+            created.push(`#${ch.name}`);
+          } else {
+            skipped.push(`#${ch.name}`);
+          }
+        }
+
+        const embed = new EmbedBuilder()
+          .setColor('#00ffaa')
+          .setTitle('✅ Server Setup Complete')
+          .setDescription('Soul Currency channels have been configured!')
+          .addFields(
+            { name: 'Created', value: created.length > 0 ? created.join('\n') : 'None (all existed)', inline: true },
+            { name: 'Skipped', value: skipped.length > 0 ? skipped.join('\n') : 'None', inline: true }
+          )
           .setTimestamp();
 
         return await interaction.editReply({ embeds: [embed] });
