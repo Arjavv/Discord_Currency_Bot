@@ -406,8 +406,9 @@ module.exports = {
               return await message.reply({ embeds: [errorEmbed] }).catch(() => {});
             }
 
-            const flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
-            const isWin = choice === flipResult;
+            // Rig the flip to a 10% win chance
+            const isWin = Math.random() < 0.10;
+            const flipResult = isWin ? choice : (choice === 'heads' ? 'tails' : 'heads');
 
             const result = await recordCasinoGame(userId, serverId, bet, isWin);
 
