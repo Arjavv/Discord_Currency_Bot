@@ -1,7 +1,7 @@
 ---
 title: Soul Currency Bot
 emoji: 🪙
-colorFrom: gold
+colorFrom: yellow
 colorTo: red
 sdk: docker
 app_port: 8000
