@@ -21,7 +21,7 @@ module.exports = {
         private: false 
       },
       { 
-        name: 'soul-admin', 
+        name: 'admin-logs', 
         topic: 'Administrative logs and configuration settings for the Soul Currency system.',
         private: true 
       }
@@ -31,19 +31,19 @@ module.exports = {
       // 1. Fetch all channels in the guild
       const currentChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
 
-      // 2. Find or create the "Soul Currency" category dropdown
+      // 2. Find or create the "Soul" category dropdown
       let category = currentChannels.find(
-        c => c.name.toLowerCase() === 'soul currency' && c.type === ChannelType.GuildCategory
+        c => c.name.toLowerCase() === 'soul' && c.type === ChannelType.GuildCategory
       );
 
       if (!category) {
-        console.log(`[Onboarding] Creating category "Soul Currency" in server: ${guild.name}`);
+        console.log(`[Onboarding] Creating category "Soul" in server: ${guild.name}`);
         category = await guild.channels.create({
-          name: 'Soul Currency',
+          name: 'Soul',
           type: ChannelType.GuildCategory
         });
       } else {
-        console.log(`[Onboarding] Category "Soul Currency" already exists in server: ${guild.name}.`);
+        console.log(`[Onboarding] Category "Soul" already exists in server: ${guild.name}.`);
       }
 
       // Refresh channels list to include newly created category if necessary
@@ -59,7 +59,7 @@ module.exports = {
         );
 
         if (!exists) {
-          console.log(`[Onboarding] Creating #${ch.name} inside "Soul Currency" in server: ${guild.name}`);
+          console.log(`[Onboarding] Creating #${ch.name} inside "Soul" in server: ${guild.name}`);
           
           const options = {
             name: ch.name,

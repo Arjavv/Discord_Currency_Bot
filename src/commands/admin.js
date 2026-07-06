@@ -49,11 +49,11 @@ module.exports = {
     const subcommand = interaction.options.getSubcommand();
     const serverId = interaction.guildId;
 
-    // Restrict all subcommands EXCEPT setup to the #soul-admin channel
+    // Restrict all subcommands EXCEPT setup to the #admin-logs channel
     if (subcommand !== 'setup') {
-      if (!interaction.channel || interaction.channel.name.toLowerCase() !== 'soul-admin') {
+      if (!interaction.channel || interaction.channel.name.toLowerCase() !== 'admin-logs') {
         return await interaction.reply({
-          content: '❌ This administrative command can only be used in the **#soul-admin** channel.',
+          content: '❌ This administrative command can only be used in the **#admin-logs** channel.',
           ephemeral: true
         });
       }
@@ -135,7 +135,7 @@ module.exports = {
             private: false 
           },
           { 
-            name: 'soul-admin', 
+            name: 'admin-logs', 
             topic: 'Administrative logs and configuration settings for the Soul Currency system.',
             private: true 
           }
@@ -145,12 +145,12 @@ module.exports = {
 
         // Find or create category
         let category = currentChannels.find(
-          c => c.name.toLowerCase() === 'soul currency' && c.type === ChannelType.GuildCategory
+          c => c.name.toLowerCase() === 'soul' && c.type === ChannelType.GuildCategory
         );
 
         if (!category) {
           category = await guild.channels.create({
-            name: 'Soul Currency',
+            name: 'Soul',
             type: ChannelType.GuildCategory
           });
         }
