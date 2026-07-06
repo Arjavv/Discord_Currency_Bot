@@ -53,6 +53,16 @@ if (fs.existsSync(eventsPath)) {
   }
 }
 
+// Start HTTP health check server instantly on boot for hosting platforms (Hugging Face/Koyeb)
+const http = require('http');
+const port = process.env.PORT || 8000;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Soul Currency Bot is online!\n');
+}).listen(port, () => {
+  console.log(`Health check server listening on port ${port}`);
+});
+
 // Main Boot Sequence
 async function startBot() {
   try {
@@ -62,16 +72,6 @@ async function startBot() {
     // 2. Log in to Discord
     console.log('Logging in to Discord...');
     await client.login(token);
-
-    // 3. Start health check server for hosting platform (Koyeb/Render)
-    const http = require('http');
-    const port = process.env.PORT || 8000;
-    http.createServer((req, res) => {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('Soul Currency Bot is online!\n');
-    }).listen(port, () => {
-      console.log(`Health check server listening on port ${port}`);
-    });
   } catch (error) {
     console.error('Failed to start the bot:', error);
     process.exit(1);
