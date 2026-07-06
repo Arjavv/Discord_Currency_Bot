@@ -27,10 +27,10 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    // 1. Enforce channel restriction to #💵-soul-casino
-    if (!interaction.channel || !interaction.channel.name.toLowerCase().includes('soul-casino')) {
+    // 1. Enforce channel restriction to #soul-bot
+    if (!interaction.channel || interaction.channel.name.toLowerCase() !== 'soul-bot') {
       return await interaction.reply({
-        content: '❌ This command can only be used in the **#💵-soul-casino** channel.',
+        content: '❌ This command can only be used in the **#soul-bot** channel.',
         ephemeral: true
       });
     }

@@ -118,10 +118,7 @@ module.exports = {
         }
 
         const channelsToCreate = [
-          { name: '💵-soul-bots', topic: 'Claim daily souls here with /checkin' },
-          { name: '💵-soul-currency-logs', topic: 'Chat activity milestone log announcements' },
-          { name: '💵-soul-leaderboard', topic: 'Check current active rankings here with /leaderboard' },
-          { name: '💵-soul-casino', topic: 'Play coin flips with /casino flip' }
+          { name: 'soul-bot', topic: 'Command usage (/checkin, /balance, /leaderboard, /casino), admin logs, and active chat milestone rewards.' }
         ];
 
         const currentChannels = await guild.channels.fetch().catch(() => guild.channels.cache);

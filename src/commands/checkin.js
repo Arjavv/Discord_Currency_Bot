@@ -6,9 +6,9 @@ module.exports = {
     .setName('checkin')
     .setDescription('Claim your daily currency reward (once every 24 hours)'),
   async execute(interaction) {
-    if (!interaction.channel || !interaction.channel.name.toLowerCase().includes('soul-bots')) {
+    if (!interaction.channel || interaction.channel.name.toLowerCase() !== 'soul-bot') {
       return await interaction.reply({
-        content: '❌ This command can only be used in the **#💵-soul-bots** channel.',
+        content: '❌ This command can only be used in the **#soul-bot** channel.',
         ephemeral: true
       });
     }

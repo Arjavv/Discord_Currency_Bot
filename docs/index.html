@@ -80,7 +80,7 @@
           <div class="rule-icon"><i class="fa-solid fa-calendar-check"></i></div>
           <h3 class="rule-title">Daily Allowance</h3>
           <p class="rule-desc">Claim your daily reward of <span class="white-text">20 Souls</span> once every 24 hours. Keep your streak alive to inflate your balance!</p>
-          <div class="rule-channel-lock"><i class="fa-solid fa-lock"></i> Locked to: <code>#💵-soul-bots</code></div>
+          <div class="rule-channel-lock"><i class="fa-solid fa-lock"></i> Locked to: <code>#soul-bot</code></div>
         </div>
 
         <!-- Rule 2: Active Chatting -->
@@ -94,7 +94,7 @@
             <li><i class="fa-solid fa-font"></i> <strong>Quality Check:</strong> Minimum 5 words per message.</li>
             <li><i class="fa-solid fa-gauge-high"></i> <strong>Daily Cap:</strong> Max 20 Souls earned per day.</li>
           </ul>
-          <div class="rule-channel-lock"><i class="fa-solid fa-bullhorn"></i> Announced in: <code>#💵-soul-currency-logs</code></div>
+          <div class="rule-channel-lock"><i class="fa-solid fa-bullhorn"></i> Announced in: <code>#soul-bot</code></div>
         </div>
 
         <!-- Rule 3: Casino Games -->
@@ -102,7 +102,7 @@
           <div class="rule-icon"><i class="fa-solid fa-dice"></i></div>
           <h3 class="rule-title">Casino Flips</h3>
           <p class="rule-desc">Risk your Souls in double-or-nothing coin flips! Predict heads or tails correctly to double your bet amount.</p>
-          <div class="rule-channel-lock"><i class="fa-solid fa-lock"></i> Locked to: <code>#💵-soul-casino</code></div>
+          <div class="rule-channel-lock"><i class="fa-solid fa-lock"></i> Locked to: <code>#soul-bot</code></div>
         </div>
       </div>
     </div>
@@ -150,7 +150,7 @@
                 <strong>Syntax:</strong> <code>/checkin</code>
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in <code>#💵-soul-bots</code> (ephemeral block in other channels).
+                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code> (ephemeral block in other channels).
               </div>
             </div>
           </div>
@@ -171,7 +171,7 @@
                 <strong>Syntax:</strong> <code>/balance [user: @username]</code>
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in <code>#💵-soul-bots</code>.
+                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
               </div>
             </div>
           </div>
@@ -192,7 +192,7 @@
                 <strong>Syntax:</strong> <code>/leaderboard</code>
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in <code>#💵-soul-leaderboard</code>.
+                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
               </div>
             </div>
           </div>
@@ -213,7 +213,7 @@
                 <strong>Syntax:</strong> <code>/casino flip choice:[Heads/Tails] bet:[positive integer]</code>
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in <code>#💵-soul-casino</code>.
+                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
               </div>
             </div>
           </div>
@@ -231,7 +231,7 @@
             <div class="command-details">
               <p>Set server-wide currency options, initialize channels, or reset cycles. Restricted to Server Administrators only. The bot validates administrator permissions both inside Discord interface rules and secondary runtime checks on execution.</p>
               <ul class="admin-subcommands">
-                <li><code>setup</code>: Automatically creates the category "Soul Currency" and the necessary channels (<code>#💵-soul-bots</code>, <code>#💵-soul-currency-logs</code>, <code>#💵-soul-leaderboard</code>, <code>#💵-soul-casino</code>) with set topics if they do not exist.</li>
+                <li><code>setup</code>: Automatically creates the category "Soul Currency" and the <code>#soul-bot</code> channel if they do not exist.</li>
                 <li><code>set-currency-name &lt;name&gt;</code>: Customizes the display name of the currency server-wide (default is <em>Souls</em>).</li>
                 <li><code>set-currency-icon &lt;icon&gt;</code>: Sets a new custom emoji tag as the balance symbol.</li>
                 <li><code>reset-cycle</code>: Closes current monthly cycle, archives the rankings, and resets all balances & message counters to 0 server-wide.</li>

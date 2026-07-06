@@ -23,9 +23,9 @@ module.exports = {
         if (result.awardedMilestone) {
           console.log(`[Activity Earning] User ${message.author.tag} (${userId}) reached milestone: ${result.totalMessages} messages. Awarded ${result.amountAwarded} coins.`);
 
-          // Find the log channel containing 'soul-currency-logs' or 'soul-currency_logs'
+          // Find the log channel named 'soul-bot'
           const logChannel = message.guild.channels.cache.find(
-            c => (c.name.toLowerCase().includes('soul-currency-logs') || c.name.toLowerCase().includes('soul-currency_logs')) && c.isTextBased()
+            c => c.name.toLowerCase() === 'soul-bot' && c.isTextBased()
           );
 
           if (logChannel) {
