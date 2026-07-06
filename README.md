@@ -1,3 +1,13 @@
+---
+title: Soul Currency Bot
+emoji: 🪙
+colorFrom: gold
+colorTo: red
+sdk: docker
+app_port: 8000
+pinned: false
+---
+
 # Discord Engagement & Currency Bot (ApexGold)
 
 ApexGold is a modular Discord server engagement bot built with **Node.js**, **discord.js (v14)**, and **PostgreSQL** as the database. It features a daily check-in system, automated rate-limited message activity earnings, monthly leaderboard rankings, and administrator customization commands.
