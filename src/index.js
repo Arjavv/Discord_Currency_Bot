@@ -56,7 +56,7 @@ if (fs.existsSync(eventsPath)) {
 // Serve the docs/ website, admin dashboard, and endpoints
 const express = require('express');
 const session = require('express-session');
-const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect } = require('./database/queries');
+const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, getShopPrices, setShopPrice } = require('./database/queries');
 const { getBotControlState } = require('./utils/botControl');
 
 const app = express();
@@ -206,6 +206,53 @@ app.get('/api/servers-info', requireLogin, async (req, res) => {
   }
 });
 
+// Cache variables for public top servers
+let publicTopServersCache = null;
+let publicTopServersLastUpdate = 0;
+const PUBLIC_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+
+// Public top-servers standings leaderboard (Unprotected, cached 1h)
+app.get('/api/public/top-servers', async (req, res) => {
+  const now = Date.now();
+  if (publicTopServersCache && (now - publicTopServersLastUpdate < PUBLIC_CACHE_DURATION)) {
+    return res.json(publicTopServersCache);
+  }
+
+  try {
+    const dbRes = await pool.query(`
+      SELECT 
+        u.server_id,
+        COALESCE(SUM(g.coin_balance), 0) as total_coins
+      FROM users u
+      JOIN users g ON g.discord_id = u.discord_id AND g.server_id = 'GLOBAL'
+      WHERE u.server_id != 'GLOBAL' AND u.server_id NOT LIKE '9999%'
+      GROUP BY u.server_id
+      ORDER BY total_coins DESC
+      LIMIT 10
+    `);
+
+    const servers = await Promise.all(dbRes.rows.map(async (row) => {
+      const guild = client.guilds.cache.get(row.server_id);
+      return {
+        name: guild ? guild.name : `Server ${row.server_id}`,
+        icon: guild && guild.icon ? guild.iconURL({ size: 64 }) : null,
+        totalCoins: parseInt(row.total_coins, 10) || 0
+      };
+    }));
+
+    publicTopServersCache = servers;
+    publicTopServersLastUpdate = now;
+    res.json(servers);
+  } catch (err) {
+    console.error('Error fetching public top servers standings:', err);
+    if (publicTopServersCache) {
+      return res.json(publicTopServersCache); // Serve stale cache if db error
+    }
+    res.status(500).json({ error: 'Failed to fetch standings' });
+  }
+});
+
+
 // Per-server admin override from web panel (Protected)
 app.patch('/api/server/:serverId', requireLogin, async (req, res) => {
   const { serverId } = req.params;
@@ -272,6 +319,24 @@ app.patch('/api/server/:serverId/feature-overrides', requireLogin, async (req, r
   } catch (err) {
     console.error('Error updating feature overrides:', err);
     res.status(500).json({ error: 'Failed to update feature overrides' });
+  }
+});
+
+// Per-server shop prices PATCH (Protected)
+app.patch('/api/server/:serverId/shop-prices', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  const prices = req.body; // { dumbbell: 150, vest: 150, ... }
+  try {
+    for (const [itemId, price] of Object.entries(prices)) {
+      if (price !== null && price !== undefined && price !== '') {
+        await setShopPrice(serverId, itemId, parseInt(price, 10));
+      }
+    }
+    const updated = await getShopPrices(serverId);
+    res.json({ success: true, shopPrices: updated });
+  } catch (err) {
+    console.error('Error updating shop prices:', err);
+    res.status(500).json({ error: 'Failed to update shop prices' });
   }
 });
 

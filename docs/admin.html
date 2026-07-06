@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -288,6 +288,22 @@
         </div>
         <button class="save-btn" id="save-params-btn"><i class="fa-solid fa-floppy-disk"></i> Save Parameters</button>
       </div>
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-tags" style="color:var(--violet)"></i> Global Shop Pricing</div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Configure default shop prices applied across all servers by default.</p>
+        <div class="input-grid">
+          <div class="input-group"><label>Dumbbell (Weekly STR)</label><input type="number" id="p-price-dumbbell" placeholder="150"></div>
+          <div class="input-group"><label>Vest (Weekly DEF)</label><input type="number" id="p-price-vest" placeholder="150"></div>
+          <div class="input-group"><label>Shoes (Weekly SPD)</label><input type="number" id="p-price-shoes" placeholder="150"></div>
+          <div class="input-group"><label>Tome (Weekly MAG)</label><input type="number" id="p-price-tome" placeholder="150"></div>
+          <div class="input-group"><label>Rage Elixir (+15 STR)</label><input type="number" id="p-price-rage" placeholder="300"></div>
+          <div class="input-group"><label>Aegis Serum (+15 DEF)</label><input type="number" id="p-price-aegis" placeholder="300"></div>
+          <div class="input-group"><label>Adrenaline Pill (+15 SPD)</label><input type="number" id="p-price-adrenaline" placeholder="300"></div>
+          <div class="input-group"><label>Mana Elixir (+15 MAG)</label><input type="number" id="p-price-mana" placeholder="300"></div>
+          <div class="input-group"><label>Divine Shield (Block Rob)</label><input type="number" id="p-price-shield" placeholder="500"></div>
+        </div>
+        <button class="save-btn" id="save-global-prices-btn"><i class="fa-solid fa-floppy-disk"></i> Save Global Shop Prices</button>
+      </div>
     </div>
 
     <!-- PANEL 2: SERVER ANALYTICS -->
@@ -497,6 +513,16 @@ async function loadSettings() {
     $('p-msg-milestone').value = s.message_milestone || '';
     $('p-max-fight-bet').value = s.max_fight_bet || '';
     $('p-duel-cooldown').value = s.duel_cooldown_hours || '';
+
+    $('p-price-dumbbell').value = s.price_dumbbell || '';
+    $('p-price-vest').value = s.price_vest || '';
+    $('p-price-shoes').value = s.price_shoes || '';
+    $('p-price-tome').value = s.price_tome || '';
+    $('p-price-rage').value = s.price_rage || '';
+    $('p-price-aegis').value = s.price_aegis || '';
+    $('p-price-adrenaline').value = s.price_adrenaline || '';
+    $('p-price-mana').value = s.price_mana || '';
+    $('p-price-shield').value = s.price_shield || '';
   } catch (e) { console.error('Settings error:', e); }
 }
 
@@ -530,6 +556,20 @@ $('save-params-btn').onclick = () => saveBtn($('save-params-btn'), () =>
     message_milestone: $('p-msg-milestone').value,
     max_fight_bet: $('p-max-fight-bet').value,
     duel_cooldown_hours: $('p-duel-cooldown').value
+  })
+);
+
+$('save-global-prices-btn').onclick = () => saveBtn($('save-global-prices-btn'), () =>
+  api('/api/settings', 'POST', {
+    price_dumbbell: $('p-price-dumbbell').value,
+    price_vest: $('p-price-vest').value,
+    price_shoes: $('p-price-shoes').value,
+    price_tome: $('p-price-tome').value,
+    price_rage: $('p-price-rage').value,
+    price_aegis: $('p-price-aegis').value,
+    price_adrenaline: $('p-price-adrenaline').value,
+    price_mana: $('p-price-mana').value,
+    price_shield: $('p-price-shield').value
   })
 );
 
@@ -654,6 +694,23 @@ async function loadServerDetail(serverId) {
         <button class="save-btn" id="save-sv-features-btn" style="margin-top:14px"><i class="fa-solid fa-floppy-disk"></i> Save Server Feature Overrides</button>
       </div>
 
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-tags" style="color:var(--amber)"></i> Shop Pricing Overrides</div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Set custom item prices override for this server. Values are fallback-merged with global settings.</p>
+        <div class="input-grid">
+          <div class="input-group"><label>Dumbbell (Weekly STR)</label><input type="number" id="sv-price-dumbbell" value="${d.shopPrices.dumbbell || 150}"></div>
+          <div class="input-group"><label>Vest (Weekly DEF)</label><input type="number" id="sv-price-vest" value="${d.shopPrices.vest || 150}"></div>
+          <div class="input-group"><label>Shoes (Weekly SPD)</label><input type="number" id="sv-price-shoes" value="${d.shopPrices.shoes || 150}"></div>
+          <div class="input-group"><label>Tome (Weekly MAG)</label><input type="number" id="sv-price-tome" value="${d.shopPrices.tome || 150}"></div>
+          <div class="input-group"><label>Rage Elixir (+15 STR)</label><input type="number" id="sv-price-rage" value="${d.shopPrices.rage || 300}"></div>
+          <div class="input-group"><label>Aegis Serum (+15 DEF)</label><input type="number" id="sv-price-aegis" value="${d.shopPrices.aegis || 300}"></div>
+          <div class="input-group"><label>Adrenaline Pill (+15 SPD)</label><input type="number" id="sv-price-adrenaline" value="${d.shopPrices.adrenaline || 300}"></div>
+          <div class="input-group"><label>Mana Elixir (+15 MAG)</label><input type="number" id="sv-price-mana" value="${d.shopPrices.mana || 300}"></div>
+          <div class="input-group"><label>Divine Shield (Block Rob)</label><input type="number" id="sv-price-shield" value="${d.shopPrices.shield || 500}"></div>
+        </div>
+        <button class="save-btn" id="save-sv-prices-btn" style="margin-top:14px"><i class="fa-solid fa-floppy-disk"></i> Save Shop Price Overrides</button>
+      </div>
+
       <div class="section" style="margin-top:0">
         <div class="section-title"><i class="fa-solid fa-gear"></i> Drop Settings Override</div>
         <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
@@ -687,6 +744,20 @@ async function loadServerDetail(serverId) {
       document.querySelectorAll('[data-sv-feature]').forEach(inp => { overrides[inp.dataset.svFeature] = inp.checked; });
       return api(`/api/server/${serverId}/feature-overrides`, 'PATCH', overrides);
     });
+
+    $('save-sv-prices-btn').onclick = () => saveBtn($('save-sv-prices-btn'), () =>
+      api(`/api/server/${serverId}/shop-prices`, 'PATCH', {
+        dumbbell: $('sv-price-dumbbell').value,
+        vest: $('sv-price-vest').value,
+        shoes: $('sv-price-shoes').value,
+        tome: $('sv-price-tome').value,
+        rage: $('sv-price-rage').value,
+        aegis: $('sv-price-aegis').value,
+        adrenaline: $('sv-price-adrenaline').value,
+        mana: $('sv-price-mana').value,
+        shield: $('sv-price-shield').value
+      })
+    );
 
     $('save-sv-drops-btn').onclick = () => saveBtn($('save-sv-drops-btn'), () =>
       api(`/api/server/${serverId}`, 'PATCH', { auto_drops_enabled: $('sv-auto-drops').checked })

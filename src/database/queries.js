@@ -1074,7 +1074,7 @@ async function setGlobalSetting(key, value) {
 async function getShopPrices(serverId) {
   try {
     const globalSettings = await getGlobalSettings();
-    return {
+    const fallbackPrices = {
       dumbbell: parseInt(globalSettings.price_dumbbell, 10) || 150,
       vest: parseInt(globalSettings.price_vest, 10) || 150,
       shoes: parseInt(globalSettings.price_shoes, 10) || 150,
@@ -1084,6 +1084,28 @@ async function getShopPrices(serverId) {
       adrenaline: parseInt(globalSettings.price_adrenaline, 10) || 300,
       mana: parseInt(globalSettings.price_mana, 10) || 300,
       shield: parseInt(globalSettings.price_shield, 10) || 500
+    };
+
+    if (!serverId || serverId === 'GLOBAL') {
+      return fallbackPrices;
+    }
+
+    const res = await pool.query('SELECT item_id, price FROM shop_prices WHERE server_id = $1', [serverId]);
+    const serverPrices = {};
+    res.rows.forEach(r => {
+      serverPrices[r.item_id] = parseInt(r.price, 10);
+    });
+
+    return {
+      dumbbell: serverPrices.dumbbell !== undefined ? serverPrices.dumbbell : fallbackPrices.dumbbell,
+      vest: serverPrices.vest !== undefined ? serverPrices.vest : fallbackPrices.vest,
+      shoes: serverPrices.shoes !== undefined ? serverPrices.shoes : fallbackPrices.shoes,
+      tome: serverPrices.tome !== undefined ? serverPrices.tome : fallbackPrices.tome,
+      rage: serverPrices.rage !== undefined ? serverPrices.rage : fallbackPrices.rage,
+      aegis: serverPrices.aegis !== undefined ? serverPrices.aegis : fallbackPrices.aegis,
+      adrenaline: serverPrices.adrenaline !== undefined ? serverPrices.adrenaline : fallbackPrices.adrenaline,
+      mana: serverPrices.mana !== undefined ? serverPrices.mana : fallbackPrices.mana,
+      shield: serverPrices.shield !== undefined ? serverPrices.shield : fallbackPrices.shield
     };
   } catch (error) {
     console.error(`Error in getShopPrices:`, error);
@@ -1300,15 +1322,18 @@ async function getServerDetail(serverId) {
     const overrides = {};
     overridesRes.rows.forEach(r => { overrides[r.feature] = r.enabled; });
 
+    const shopPrices = await getShopPrices(serverId);
+
     return {
       topMembers: topRes.rows.map((r, i) => ({ rank: i+1, discordId: r.discord_id, balance: parseInt(r.coin_balance,10)||0 })),
       recentTransactions: txRes.rows.map(r => ({ userId: r.user_id, amount: r.amount, source: r.source, at: r.created_at })),
       activityChart: actRes.rows.map(r => ({ day: r.day, activeUsers: parseInt(r.active_users,10)||0 })),
-      featureOverrides: overrides
+      featureOverrides: overrides,
+      shopPrices
     };
   } catch (e) {
     console.error('Error in getServerDetail:', e);
-    return { topMembers: [], recentTransactions: [], activityChart: [], featureOverrides: {} };
+    return { topMembers: [], recentTransactions: [], activityChart: [], featureOverrides: {}, shopPrices: {} };
   }
 }
 
