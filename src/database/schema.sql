@@ -76,3 +76,52 @@ ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS drop_channel_id VARCHAR(64)
 
 -- Migration: Add last_rob_at to users table if not exists
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_rob_at TIMESTAMP;
+
+-- 7. User Stats table (Stores base stats and weekly training upgrades)
+CREATE TABLE IF NOT EXISTS user_stats (
+    discord_id VARCHAR(64) NOT NULL,
+    server_id VARCHAR(64) NOT NULL,
+    base_strength INT NOT NULL DEFAULT 50,
+    base_defense INT NOT NULL DEFAULT 50,
+    base_speed INT NOT NULL DEFAULT 50,
+    base_magic INT NOT NULL DEFAULT 50,
+    
+    boost_strength INT NOT NULL DEFAULT 0,
+    boost_defense INT NOT NULL DEFAULT 0,
+    boost_speed INT NOT NULL DEFAULT 0,
+    boost_magic INT NOT NULL DEFAULT 0,
+    
+    last_weekly_reset TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (discord_id, server_id),
+    FOREIGN KEY (discord_id, server_id) REFERENCES users (discord_id, server_id) ON DELETE CASCADE
+);
+
+-- 8. Table for active 24-hour consumables
+CREATE TABLE IF NOT EXISTS active_boosts (
+    id SERIAL PRIMARY KEY,
+    discord_id VARCHAR(64) NOT NULL,
+    server_id VARCHAR(64) NOT NULL,
+    stat_type VARCHAR(16) NOT NULL, -- 'strength', 'defense', 'speed', 'magic'
+    amount INT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    FOREIGN KEY (discord_id, server_id) REFERENCES users (discord_id, server_id) ON DELETE CASCADE
+);
+
+-- 9. Table for non-expiring inventories (like Divine Shield)
+CREATE TABLE IF NOT EXISTS user_inventory (
+    discord_id VARCHAR(64) NOT NULL,
+    server_id VARCHAR(64) NOT NULL,
+    item_id VARCHAR(64) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    PRIMARY KEY (discord_id, server_id, item_id),
+    FOREIGN KEY (discord_id, server_id) REFERENCES users (discord_id, server_id) ON DELETE CASCADE
+);
+
+-- 10. Table for custom shop item prices per server
+CREATE TABLE IF NOT EXISTS shop_prices (
+    server_id VARCHAR(64) NOT NULL,
+    item_id VARCHAR(64) NOT NULL,
+    price INT NOT NULL,
+    PRIMARY KEY (server_id, item_id)
+);
+

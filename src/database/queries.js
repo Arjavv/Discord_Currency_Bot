@@ -709,6 +709,13 @@ async function attemptRob(robberId, targetId, serverId) {
     `;
     await client.query(updateRobTimeQuery, [robberId, serverId]);
 
+    // Check target's Divine Shield
+    const hasShield = await checkAndConsumeShield(client, targetId, serverId);
+    if (hasShield) {
+      await client.query('COMMIT');
+      return { success: false, reason: 'shield_blocked' };
+    }
+
     // 6. Roll the dice! (30% success chance)
     const isSuccess = Math.random() < 0.30;
 
@@ -781,6 +788,354 @@ async function cleanupOldRecords() {
   }
 }
 
+/**
+ * Checks if target has a Divine Shield, consumes 1 and returns true.
+ */
+async function checkAndConsumeShield(client, discordId, serverId) {
+  const selectRes = await client.query(`
+    SELECT quantity FROM user_inventory
+    WHERE discord_id = $1 AND server_id = $2 AND item_id = 'shield' FOR UPDATE
+  `, [discordId, serverId]);
+
+  if (selectRes.rows.length > 0 && selectRes.rows[0].quantity > 0) {
+    const qty = selectRes.rows[0].quantity;
+    if (qty > 1) {
+      await client.query(`
+        UPDATE user_inventory SET quantity = quantity - 1
+        WHERE discord_id = $1 AND server_id = $2 AND item_id = 'shield'
+      `, [discordId, serverId]);
+    } else {
+      await client.query(`
+        DELETE FROM user_inventory
+        WHERE discord_id = $1 AND server_id = $2 AND item_id = 'shield'
+      `, [discordId, serverId]);
+    }
+    return true; // Shield consumed
+  }
+  return false; // No shield
+}
+
+/**
+ * Determines if Sunday midnight has passed since lastResetDate.
+ */
+function isWeeklyResetDue(lastResetDate) {
+  const now = new Date();
+  const lastReset = new Date(lastResetDate);
+  
+  // Find the Sunday midnight immediately following lastReset
+  const nextSunday = new Date(lastReset);
+  nextSunday.setDate(lastReset.getDate() + (7 - lastReset.getDay()));
+  nextSunday.setHours(0, 0, 0, 0);
+  
+  if (nextSunday.getTime() <= lastReset.getTime()) {
+    nextSunday.setDate(nextSunday.getDate() + 7);
+  }
+  
+  return now.getTime() >= nextSunday.getTime();
+}
+
+/**
+ * Ensures user stats record exists and handles weekly reset.
+ */
+async function ensureUserStats(client, discordId, serverId) {
+  const executor = client || pool;
+
+  // Make sure user exists in main table first
+  if (client) {
+    await ensureUserExists(client, discordId, serverId);
+  } else {
+    const c = await pool.connect();
+    try {
+      await ensureUserExists(c, discordId, serverId);
+    } finally {
+      c.release();
+    }
+  }
+
+  // Fetch stats row with lock if inside a transaction
+  let res;
+  if (client) {
+    res = await executor.query(`
+      SELECT last_weekly_reset FROM user_stats 
+      WHERE discord_id = $1 AND server_id = $2 FOR UPDATE
+    `, [discordId, serverId]);
+  } else {
+    res = await executor.query(`
+      SELECT last_weekly_reset FROM user_stats 
+      WHERE discord_id = $1 AND server_id = $2
+    `, [discordId, serverId]);
+  }
+
+  if (res.rows.length === 0) {
+    await executor.query(`
+      INSERT INTO user_stats (discord_id, server_id, last_weekly_reset)
+      VALUES ($1, $2, NOW())
+      ON CONFLICT (discord_id, server_id) DO NOTHING
+    `, [discordId, serverId]);
+  } else {
+    const row = res.rows[0];
+    if (isWeeklyResetDue(row.last_weekly_reset)) {
+      await executor.query(`
+        UPDATE user_stats
+        SET boost_strength = 0, boost_defense = 0, boost_speed = 0, boost_magic = 0, last_weekly_reset = NOW()
+        WHERE discord_id = $1 AND server_id = $2
+      `, [discordId, serverId]);
+      console.log(`[Weekly Reset] Reset training boosts for user ${discordId} on server ${serverId}.`);
+    }
+  }
+}
+
+/**
+ * Gets total active stats (Base + Weekly Upgrades + 24h Potion Buffs).
+ */
+async function getUserStats(discordId, serverId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await ensureUserStats(client, discordId, serverId);
+
+    // Fetch stats
+    const statsRes = await client.query(`
+      SELECT base_strength, base_defense, base_speed, base_magic,
+             boost_strength, boost_defense, boost_speed, boost_magic,
+             last_weekly_reset
+      FROM user_stats
+      WHERE discord_id = $1 AND server_id = $2
+    `, [discordId, serverId]);
+
+    const stats = statsRes.rows[0] || {
+      base_strength: 50, base_defense: 50, base_speed: 50, base_magic: 50,
+      boost_strength: 0, boost_defense: 0, boost_speed: 0, boost_magic: 0,
+      last_weekly_reset: new Date()
+    };
+
+    // Prune expired boosts
+    await client.query(`
+      DELETE FROM active_boosts 
+      WHERE expires_at < NOW() AND discord_id = $1 AND server_id = $2
+    `, [discordId, serverId]);
+
+    // Sum active 24h boosts
+    const activeRes = await client.query(`
+      SELECT stat_type, SUM(amount) as total_amount
+      FROM active_boosts
+      WHERE discord_id = $1 AND server_id = $2
+      GROUP BY stat_type
+    `, [discordId, serverId]);
+
+    const activeBuffs = { strength: 0, defense: 0, speed: 0, magic: 0 };
+    activeRes.rows.forEach(r => {
+      activeBuffs[r.stat_type] = parseInt(r.total_amount, 10) || 0;
+    });
+
+    // Get active boosts detail
+    const detailedBoostsRes = await client.query(`
+      SELECT stat_type, amount, expires_at
+      FROM active_boosts
+      WHERE discord_id = $1 AND server_id = $2
+      ORDER BY expires_at ASC
+    `, [discordId, serverId]);
+
+    const total = {
+      strength: stats.base_strength + stats.boost_strength + activeBuffs.strength,
+      defense: stats.base_defense + stats.boost_defense + activeBuffs.defense,
+      speed: stats.base_speed + stats.boost_speed + activeBuffs.speed,
+      magic: stats.base_magic + stats.boost_magic + activeBuffs.magic
+    };
+
+    await client.query('COMMIT');
+
+    return {
+      base: {
+        strength: stats.base_strength,
+        defense: stats.base_defense,
+        speed: stats.base_speed,
+        magic: stats.base_magic
+      },
+      weekly: {
+        strength: stats.boost_strength,
+        defense: stats.boost_defense,
+        speed: stats.boost_speed,
+        magic: stats.boost_magic
+      },
+      activeBuffs,
+      total,
+      detailedBoosts: detailedBoostsRes.rows,
+      lastWeeklyReset: stats.last_weekly_reset
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in getUserStats for user ${discordId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+const DEFAULT_PRICES = {
+  dumbbell: 150,
+  vest: 150,
+  shoes: 150,
+  tome: 150,
+  rage: 300,
+  aegis: 300,
+  adrenaline: 300,
+  mana: 300,
+  shield: 500
+};
+
+/**
+ * Gets customized item prices for a server, falls back to default.
+ */
+async function getShopPrices(serverId) {
+  try {
+    const res = await pool.query('SELECT item_id, price FROM shop_prices WHERE server_id = $1', [serverId]);
+    const prices = { ...DEFAULT_PRICES };
+    res.rows.forEach(r => {
+      if (prices[r.item_id] !== undefined) {
+        prices[r.item_id] = r.price;
+      }
+    });
+    return prices;
+  } catch (error) {
+    console.error(`Error in getShopPrices for server ${serverId}:`, error);
+    return DEFAULT_PRICES;
+  }
+}
+
+/**
+ * Sets custom item price for a server.
+ */
+async function setShopPrice(serverId, itemId, price) {
+  const query = `
+    INSERT INTO shop_prices (server_id, item_id, price)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (server_id, item_id)
+    DO UPDATE SET price = $3
+    RETURNING *
+  `;
+  const res = await pool.query(query, [serverId, itemId, price]);
+  return res.rows[0];
+}
+
+/**
+ * Fetches non-expiring user inventory.
+ */
+async function getUserInventory(discordId, serverId) {
+  try {
+    const res = await pool.query(`
+      SELECT item_id, quantity FROM user_inventory
+      WHERE discord_id = $1 AND server_id = $2
+    `, [discordId, serverId]);
+
+    const inventory = {};
+    res.rows.forEach(r => {
+      inventory[r.item_id] = r.quantity;
+    });
+    return inventory;
+  } catch (error) {
+    console.error(`Error in getUserInventory for user ${discordId}:`, error);
+    return {};
+  }
+}
+
+/**
+ * Deducts currency and applies upgrades / elixirs / shields.
+ */
+async function purchaseShopItem(discordId, serverId, itemId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const prices = await getShopPrices(serverId);
+    const cost = prices[itemId];
+    if (cost === undefined) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'invalid_item' };
+    }
+
+    // Ensure stats exist
+    await ensureUserStats(client, discordId, serverId);
+
+    // Get user wallet balance with lock
+    const balanceRes = await client.query(`
+      SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = $2 FOR UPDATE
+    `, [discordId, serverId]);
+
+    if (balanceRes.rows.length === 0 || balanceRes.rows[0].coin_balance < cost) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'insufficient_funds', cost };
+    }
+
+    // Deduct coins
+    await client.query(`
+      UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = $3
+    `, [cost, discordId, serverId]);
+
+    // Log transaction
+    await client.query(`
+      INSERT INTO transactions (user_id, server_id, amount, source)
+      VALUES ($1, $2, $3, $4)
+    `, [discordId, serverId, -cost, `buy_${itemId}`]);
+
+    let effectMsg = '';
+    if (['dumbbell', 'vest', 'shoes', 'tome'].includes(itemId)) {
+      // Weekly training (+5)
+      let field = '';
+      if (itemId === 'dumbbell') field = 'boost_strength';
+      else if (itemId === 'vest') field = 'boost_defense';
+      else if (itemId === 'shoes') field = 'boost_speed';
+      else if (itemId === 'tome') field = 'boost_magic';
+
+      await client.query(`
+        UPDATE user_stats
+        SET ${field} = ${field} + 5
+        WHERE discord_id = $1 AND server_id = $2
+      `, [discordId, serverId]);
+
+      effectMsg = '+5 training boost applied';
+    } else if (['rage', 'aegis', 'adrenaline', 'mana'].includes(itemId)) {
+      // 24h Potion (+15)
+      let type = '';
+      if (itemId === 'rage') type = 'strength';
+      else if (itemId === 'aegis') type = 'defense';
+      else if (itemId === 'adrenaline') type = 'speed';
+      else if (itemId === 'mana') type = 'magic';
+
+      await client.query(`
+        INSERT INTO active_boosts (discord_id, server_id, stat_type, amount, expires_at)
+        VALUES ($1, $2, $3, 15, NOW() + INTERVAL '24 hours')
+      `, [discordId, serverId, type]);
+
+      effectMsg = '+15 potion effect applied for 24 hours';
+    } else if (itemId === 'shield') {
+      // Inventory shield
+      await client.query(`
+        INSERT INTO user_inventory (discord_id, server_id, item_id, quantity)
+        VALUES ($1, $2, 'shield', 1)
+        ON CONFLICT (discord_id, server_id, item_id)
+        DO UPDATE SET quantity = user_inventory.quantity + 1
+      `, [discordId, serverId]);
+
+      effectMsg = 'Divine Shield added to your inventory';
+    }
+
+    const finalBalanceRes = await client.query(`
+      SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = $2
+    `, [discordId, serverId]);
+    const newBalance = finalBalanceRes.rows[0].coin_balance;
+
+    await client.query('COMMIT');
+    return { success: true, newBalance, cost, message: effectMsg };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in purchaseShopItem:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
@@ -795,5 +1150,12 @@ module.exports = {
   awardDropCoins,
   transferCoins,
   attemptRob,
-  cleanupOldRecords
+  cleanupOldRecords,
+  ensureUserStats,
+  getUserStats,
+  getShopPrices,
+  setShopPrice,
+  getUserInventory,
+  purchaseShopItem
 };
+

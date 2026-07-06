@@ -13,7 +13,12 @@ const {
   updateDropChannel,
   awardDropCoins,
   transferCoins,
-  attemptRob
+  attemptRob,
+  getUserStats,
+  getShopPrices,
+  setShopPrice,
+  getUserInventory,
+  purchaseShopItem
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 
@@ -96,10 +101,8 @@ module.exports = {
       try {
         const settings = await getServerSettings(serverId);
         const currencyName = settings.currency_name;
-        const currencyIcon = settings.currency_icon_url;
-
-        // --- 1. ADMIN COMMANDS ---
-        if (['setup', 'set-name', 'set-icon', 'reset-cycle', 'set-drop-channel', 'force-drop'].includes(commandName)) {
+        const currencyIcon = settings.currency_icon_         // --- 1. ADMIN COMMANDS ---
+        if (['setup', 'set-name', 'set-icon', 'reset-cycle', 'set-drop-channel', 'force-drop', 'set-price'].includes(commandName)) {
           // Check administrator permission
           if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => { });
@@ -304,10 +307,27 @@ module.exports = {
               return message.reply('❌ **Error**: Failed to send drop message. Please check permissions.').catch(() => { });
             }
           }
+
+          if (commandName === 'set-price') {
+            const itemId = args[0];
+            const priceVal = parseInt(args[1], 10);
+
+            const validItems = ['dumbbell', 'vest', 'shoes', 'tome', 'rage', 'aegis', 'adrenaline', 'mana', 'shield'];
+            if (!itemId || !validItems.includes(itemId) || isNaN(priceVal) || priceVal < 0) {
+              return message.reply(`❌ **Usage**: \`s set-price <item_id> <price>\`\nValid Item IDs: ${validItems.map(i => `\`${i}\``).join(', ')}`).catch(() => { });
+            }
+
+            await setShopPrice(serverId, itemId, priceVal);
+            const embed = new EmbedBuilder()
+              .setColor('#00ffaa')
+              .setTitle('⚙️ Price Updated')
+              .setDescription(`The price for **${itemId}** has been set to **${priceVal}** ${currencyIcon} ${currencyName}.`);
+            return await message.reply({ embeds: [embed] }).catch(() => { });
+          }
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist'].includes(commandName)) {
           // Lock user commands to #soul-bot
           if (!message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
@@ -322,6 +342,10 @@ module.exports = {
                 { name: '💰 `s daily`', value: 'Claim your daily allowance of Souls (resets every 24 hours).' },
                 { name: '🏦 `s cash`', value: 'Check your wallet balance (or tag another user to check theirs).' },
                 { name: '🏆 `s lb`', value: 'View the top 10 richest users in the current monthly cycle.' },
+                { name: '📊 `s stats [@user]`', value: 'Check stats (Strength, Defense, Speed, Magic). Others are hidden as `???`.' },
+                { name: '🛒 `s shop`', value: 'Browse stat training boosters, 24-hour elixirs, and shields.' },
+                { name: '🛍️ `s buy <item>`', value: 'Purchase upgrades or items from the shop.' },
+                { name: '⚔️ `s fight @user <bet>`', value: 'Challenge a player to a mystery stat clash! Winner takes the pot.' },
                 { name: '🎁 `s gift @user <amount>`', value: 'Send Souls to another user from your wallet.' },
                 { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
                 { name: '🚀 `s crash <amount>`', value: 'Watch the multiplier rise and cash out before it crashes! Higher risk, higher reward.' },
@@ -539,6 +563,332 @@ module.exports = {
             }
 
             return await message.reply({ content: outputText }).catch(() => { });
+          }
+
+          if (['stats', 'profile'].includes(commandName)) {
+            const targetUser = message.mentions.users.first() || message.author;
+            const isSelf = targetUser.id === message.author.id;
+            
+            const stats = await getUserStats(targetUser.id, serverId);
+            
+            const embed = new EmbedBuilder()
+              .setAuthor({
+                name: `${targetUser.username}'s Profile`,
+                iconURL: targetUser.displayAvatarURL({ dynamic: true })
+              })
+              .setTimestamp();
+
+            if (isSelf) {
+              embed.setColor('#ffd700')
+                .setTitle('📊 Your Core Stats')
+                .setDescription(
+                  `⚔️ **Strength:** \`${stats.total.strength}\` (Base: ${stats.base.strength} | Weekly: +${stats.weekly.strength} | Potion: +${stats.activeBuffs.strength})\n` +
+                  `🛡️ **Defense:** \`${stats.total.defense}\` (Base: ${stats.base.defense} | Weekly: +${stats.weekly.defense} | Potion: +${stats.activeBuffs.defense})\n` +
+                  `⚡ **Speed:** \`${stats.total.speed}\` (Base: ${stats.base.speed} | Weekly: +${stats.weekly.speed} | Potion: +${stats.activeBuffs.speed})\n` +
+                  `🔮 **Magic:** \`${stats.total.magic}\` (Base: ${stats.base.magic} | Weekly: +${stats.weekly.magic} | Potion: +${stats.activeBuffs.magic})\n`
+                );
+
+              // Add Divine Shield info
+              const inventory = await getUserInventory(targetUser.id, serverId);
+              const shieldCount = inventory.shield || 0;
+              embed.addFields({ name: '🎒 Inventory', value: `🛡️ **Divine Shield:** \`${shieldCount}\``, inline: false });
+
+              // Active potions
+              if (stats.detailedBoosts.length > 0) {
+                const potionList = stats.detailedBoosts.map(b => {
+                  const timeLeftMs = new Date(b.expires_at).getTime() - Date.now();
+                  const hoursLeft = (timeLeftMs / (1000 * 60 * 60)).toFixed(1);
+                  return `🧪 **+15 ${b.stat_type.charAt(0).toUpperCase() + b.stat_type.slice(1)} Buff** (Expires in ${hoursLeft}h)`;
+                }).join('\n');
+                embed.addFields({ name: '🧪 Active Potion Buffs', value: potionList, inline: false });
+              }
+            } else {
+              embed.setColor('#777777')
+                .setTitle(`📊 ${targetUser.username}'s Core Stats`)
+                .setDescription(
+                  `⚔️ **Strength:** \`???\`\n` +
+                  `🛡️ **Defense:** \`???\`\n` +
+                  `⚡ **Speed:** \`???\`\n` +
+                  `🔮 **Magic:** \`???\`\n\n` +
+                  `*Stats of other players are hidden to keep battles mysterious!*`
+                );
+
+              // Show active items (without showing the exact boost numbers)
+              if (stats.detailedBoosts.length > 0) {
+                const activeNames = [...new Set(stats.detailedBoosts.map(b => {
+                  let elixirName = '';
+                  if (b.stat_type === 'strength') elixirName = 'Rage Elixir';
+                  else if (b.stat_type === 'defense') elixirName = 'Aegis Serum';
+                  else if (b.stat_type === 'speed') elixirName = 'Adrenaline Pill';
+                  else if (b.stat_type === 'magic') elixirName = 'Mana Elixir';
+                  return `🧪 ${elixirName}`;
+                }))].join('\n');
+                embed.addFields({ name: '🧪 Active Potion Effects', value: activeNames, inline: false });
+              }
+            }
+
+            return await message.reply({ embeds: [embed] }).catch(() => { });
+          }
+
+          if (commandName === 'shop') {
+            const prices = await getShopPrices(serverId);
+            const embed = new EmbedBuilder()
+              .setColor('#ffd700')
+              .setTitle(`🛒 The Soul Shop`)
+              .setDescription(`Enhance your stats or buy defense systems! Prices can be configured by server administrators.`)
+              .addFields(
+                {
+                  name: '🏋️ Category A: Weekly Upgrades (Resets Sunday Midnight)',
+                  value: 
+                    `🏋️ **Iron Dumbbell** (ID: \`dumbbell\`) — **${prices.dumbbell}** ${currencyIcon}\n` +
+                    `*Effect: +5 Strength ⚔️*\n\n` +
+                    `🛡️ **Kevlar Vest** (ID: \`vest\`) — **${prices.vest}** ${currencyIcon}\n` +
+                    `*Effect: +5 Defense 🛡️*\n\n` +
+                    `👟 **Running Shoes** (ID: \`shoes\`) — **${prices.shoes}** ${currencyIcon}\n` +
+                    `*Effect: +5 Speed ⚡*\n\n` +
+                    `📘 **Ancient Tome** (ID: \`tome\`) — **${prices.tome}** ${currencyIcon}\n` +
+                    `*Effect: +5 Magic 🔮*`
+                },
+                {
+                  name: '🧪 Category B: 24-Hour Consumables',
+                  value:
+                    `🧪 **Rage Elixir** (ID: \`rage\`) — **${prices.rage}** ${currencyIcon}\n` +
+                    `*Effect: +15 Strength ⚔️ for 24 hours.*\n\n` +
+                    `🧪 **Aegis Serum** (ID: \`aegis\`) — **${prices.aegis}** ${currencyIcon}\n` +
+                    `*Effect: +15 Defense 🛡️ for 24 hours.*\n\n` +
+                    `💊 **Adrenaline Pill** (ID: \`adrenaline\`) — **${prices.adrenaline}** ${currencyIcon}\n` +
+                    `*Effect: +15 Speed ⚡ for 24 hours.*\n\n` +
+                    `🧪 **Mana Elixir** (ID: \`mana\`) — **${prices.mana}** ${currencyIcon}\n` +
+                    `*Effect: +15 Magic 🔮 for 24 hours.*`
+                },
+                {
+                  name: '🛡️ Category C: Utility Items',
+                  value:
+                    `🔮 **Divine Shield** (ID: \`shield\`) — **${prices.shield}** ${currencyIcon}\n` +
+                    `*Effect: Automatically blocks 1 robbery attempt. Consumed on use.*`
+                }
+              )
+              .setFooter({ text: 'Usage: s buy <item_id> (e.g. s buy dumbbell)' })
+              .setTimestamp();
+
+            return await message.reply({ embeds: [embed] }).catch(() => { });
+          }
+
+          if (commandName === 'buy') {
+            const itemId = args[0];
+            if (!itemId) {
+              return message.reply('❌ **Usage**: `s buy <item_id>` (check IDs using `s shop`)').catch(() => { });
+            }
+
+            const result = await purchaseShopItem(userId, serverId, itemId);
+            if (result.success) {
+              const embed = new EmbedBuilder()
+                .setColor('#00ffaa')
+                .setTitle('🛒 Purchase Successful!')
+                .setDescription(`Successfully bought **${itemId}** for **${result.cost}** ${currencyIcon} ${currencyName}.`)
+                .addFields(
+                  { name: 'Effect', value: `✨ ${result.message}` },
+                  { name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` }
+                )
+                .setTimestamp();
+              return await message.reply({ embeds: [embed] }).catch(() => { });
+            } else {
+              if (result.reason === 'insufficient_funds') {
+                return sendTempMessage(message.channel, `❌ Insufficient funds! You need **${result.cost}** ${currencyIcon} to buy this item.`);
+              } else if (result.reason === 'invalid_item') {
+                return sendTempMessage(message.channel, `❌ Invalid Item ID! Use \`s shop\` to check valid item IDs.`);
+              } else {
+                return sendTempMessage(message.channel, '❌ An error occurred processing your purchase.');
+              }
+            }
+          }
+
+          if (commandName === 'fight') {
+            const targetUser = message.mentions.users.first();
+            let bet = parseInt(args[1], 10);
+
+            if (!targetUser || isNaN(bet) || bet <= 0) {
+              return message.reply('❌ **Usage**: `s fight @user <bet_amount>`').catch(() => { });
+            }
+
+            if (targetUser.id === userId) {
+              return sendTempMessage(message.channel, '❌ You cannot fight yourself!');
+            }
+
+            if (targetUser.bot) {
+              return sendTempMessage(message.channel, '❌ You cannot fight bots!');
+            }
+
+            // Verify challenger balance
+            const balanceInfo = await getUserBalance(userId, serverId);
+            if (balanceInfo.balance < bet) {
+              return sendTempMessage(message.channel, `❌ Insufficient coins! You need at least **${bet}** ${currencyIcon} to initiate this duel.`);
+            }
+
+            // Verify defender balance
+            const targetBal = await getUserBalance(targetUser.id, serverId);
+            if (targetBal.balance < bet) {
+              return sendTempMessage(message.channel, `❌ Opponent doesn't have enough coins! ${targetUser.username} needs at least **${bet}** ${currencyIcon} to accept.`);
+            }
+
+            const buttonIdAccept = `fight_accept_${userId}_${targetUser.id}_${Date.now()}`;
+            const buttonIdDecline = `fight_decline_${userId}_${targetUser.id}_${Date.now()}`;
+
+            const row = new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId(buttonIdAccept).setLabel('Accept Challenge').setStyle(ButtonStyle.Success).setEmoji('⚔️'),
+              new ButtonBuilder().setCustomId(buttonIdDecline).setLabel('Decline').setStyle(ButtonStyle.Danger)
+            );
+
+            const challengeEmbed = new EmbedBuilder()
+              .setColor('#ffaa00')
+              .setTitle('⚔️ Duel Challenge!')
+              .setDescription(`${message.author} has challenged ${targetUser} to a stat showdown for **${bet}** ${currencyIcon} ${currencyName}!\n\nBoth players' stats in a random category will be compared. Loser gets eliminated!`)
+              .setFooter({ text: 'The challenged player has 30 seconds to accept.' })
+              .setTimestamp();
+
+            const challengeMsg = await message.reply({ embeds: [challengeEmbed], components: [row] });
+
+            // Button collector
+            const collector = challengeMsg.createMessageComponentCollector({
+              componentType: ComponentType.Button,
+              time: 30000,
+              filter: (i) => i.user.id === targetUser.id
+            });
+
+            let duelActive = false;
+
+            collector.on('collect', async (buttonInteraction) => {
+              if (buttonInteraction.customId === buttonIdDecline) {
+                collector.stop('declined');
+                return;
+              }
+
+              if (buttonInteraction.customId === buttonIdAccept) {
+                duelActive = true;
+                collector.stop('accepted');
+                await buttonInteraction.deferUpdate();
+
+                // Re-verify balances
+                const challengerBal = await getUserBalance(userId, serverId);
+                const defenderBal = await getUserBalance(targetUser.id, serverId);
+
+                if (challengerBal.balance < bet || defenderBal.balance < bet) {
+                  return await challengeMsg.edit({
+                    content: '❌ Duel cancelled: One of the players no longer has enough coins.',
+                    embeds: [],
+                    components: []
+                  }).catch(() => {});
+                }
+
+                // Deduct bets upfront
+                await recordCasinoGame(userId, serverId, bet, false);
+                await recordCasinoGame(targetUser.id, serverId, bet, false);
+
+                // Pick random category
+                const categories = [
+                  { name: 'Strength', icon: '⚔️', key: 'strength' },
+                  { name: 'Defense', icon: '🛡️', key: 'defense' },
+                  { name: 'Speed', icon: '⚡', key: 'speed' },
+                  { name: 'Magic', icon: '🔮', key: 'magic' }
+                ];
+                const category = categories[Math.floor(Math.random() * categories.length)];
+
+                // Fetch stats
+                const challengerStats = await getUserStats(userId, serverId);
+                const defenderStats = await getUserStats(targetUser.id, serverId);
+
+                const cVal = challengerStats.total[category.key];
+                const dVal = defenderStats.total[category.key];
+
+                // Showdown animated loading embeds
+                const showdownEmbed = new EmbedBuilder()
+                  .setColor('#ff3300')
+                  .setTitle('⚔️ DUEL STARTED ⚔️')
+                  .setDescription(
+                    `📊 **Chosen Clash Category:** **${category.icon} ${category.name}**\n\n` +
+                    `🔴 **${message.author.username}**: \`??? ${category.name}\`\n` +
+                    `🔵 **${targetUser.username}**: \`??? ${category.name}\`\n\n` +
+                    `*Calculating showdown results...*`
+                  )
+                  .setTimestamp();
+
+                await challengeMsg.edit({ embeds: [showdownEmbed], components: [] }).catch(() => {});
+
+                // Delay for suspense
+                setTimeout(async () => {
+                  let winnerId, loserId, winnerName, loserName, tie = false;
+                  let winVal, loseVal;
+
+                  if (cVal > dVal) {
+                    winnerId = userId;
+                    winnerName = message.author.username;
+                    loserId = targetUser.id;
+                    loserName = targetUser.username;
+                    winVal = cVal;
+                    loseVal = dVal;
+                  } else if (dVal > cVal) {
+                    winnerId = targetUser.id;
+                    winnerName = targetUser.username;
+                    loserId = userId;
+                    loserName = message.author.username;
+                    winVal = dVal;
+                    loseVal = cVal;
+                  } else {
+                    tie = true;
+                  }
+
+                  if (tie) {
+                    // Refund bets
+                    await recordCasinoGame(userId, serverId, bet, true);
+                    await recordCasinoGame(targetUser.id, serverId, bet, true);
+
+                    const tieEmbed = new EmbedBuilder()
+                      .setColor('#ffd700')
+                      .setTitle('🤝 DUEL RESULT: TIE!')
+                      .setDescription(
+                        `📊 **Clash Category:** **${category.icon} ${category.name}**\n\n` +
+                        `🔴 **${message.author.username}**: \`${cVal} ${category.name}\`\n` +
+                        `🔵 **${targetUser.username}**: \`${dVal} ${category.name}\`\n\n` +
+                        `It was a perfect match! All bets have been refunded.`
+                      )
+                      .setTimestamp();
+
+                    await challengeMsg.edit({ embeds: [tieEmbed] }).catch(() => {});
+                  } else {
+                    // Winnings pot
+                    const pot = bet * 2;
+                    await recordCasinoGame(winnerId, serverId, pot, true);
+
+                    const winEmbed = new EmbedBuilder()
+                      .setColor('#00ffaa')
+                      .setTitle('🏆 DUEL RESULT: VICTORY!')
+                      .setDescription(
+                        `📊 **Clash Category:** **${category.icon} ${category.name}**\n\n` +
+                        `👑 **Winner**: <@${winnerId}> (\`${winVal} ${category.name}\`)\n` +
+                        `💀 **Loser**: <@${loserId}> (\`${loseVal} ${category.name}\`)\n\n` +
+                        `<@${winnerId}> claimed the pot of **${pot}** ${currencyIcon} ${currencyName}!`
+                      )
+                      .setTimestamp();
+
+                    await challengeMsg.edit({ embeds: [winEmbed] }).catch(() => {});
+
+                    // Send the kill command for the loser to trigger server gif bot
+                    await message.channel.send(`!kill <@${loserId}>`).catch(() => {});
+                  }
+                }, 3000);
+              }
+            });
+
+            collector.on('end', async (collected, reason) => {
+              if (!duelActive) {
+                const expiredEmbed = new EmbedBuilder()
+                  .setColor('#555555')
+                  .setTitle('⚔️ Challenge Expired')
+                  .setDescription(reason === 'declined' ? `The challenge was declined by ${targetUser}.` : `The challenge from ${message.author} was not accepted in time.`)
+                  .setTimestamp();
+                await challengeMsg.edit({ embeds: [expiredEmbed], components: [] }).catch(() => {});
+              }
+            });
           }
 
           if (commandName === 'crash') {
