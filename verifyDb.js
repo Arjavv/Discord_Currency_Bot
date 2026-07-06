@@ -1,5 +1,4 @@
-const db = require('./src/database/db');
-const { initDatabase, getPool } = db;
+const { initDatabase, pool } = require('./src/database/db');
 require('dotenv').config();
 
 const TEST_SERVER = '999999999999999999';
@@ -269,28 +268,23 @@ function setupMockDatabase() {
     release: () => {}
   };
 
-  const mockPool = {
-    query: async (sql, params) => mockQueryExecutor(sql, params),
-    connect: async () => mockClient,
-    end: async () => {}
-  };
-  // Override the pool reference in the db module
-  db.__mockPool = mockPool;
+  pool.query = async (sql, params) => mockQueryExecutor(sql, params);
+  pool.connect = async () => mockClient;
+  pool.end = async () => {};
 }
 
 async function runTests() {
   console.log('--- STARTING DATABASE INTEGRATION TESTS ---');
   
   let useMock = false;
-  let pool;
   try {
+    const testClient = await pool.connect();
+    testClient.release();
     await initDatabase();
-    pool = db.pool;
     console.log('✔ Real database initialized.');
   } catch (err) {
     useMock = true;
     setupMockDatabase();
-    pool = db.__mockPool;
   }
 
   const {

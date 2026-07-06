@@ -1,9 +1,3 @@
-// Prefer IPv4 over IPv6 for outbound network connections (prevents Supabase connect ENETUNREACH in IPv4-only environments)
-const dns = require('dns');
-if (typeof dns.setDefaultResultOrder === 'function') {
-  dns.setDefaultResultOrder('ipv4first');
-}
-
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -59,7 +53,7 @@ if (fs.existsSync(eventsPath)) {
   }
 }
 
-// Start HTTP health check server instantly on boot for hosting platforms (Hugging Face/Koyeb)
+// Start HTTP health check server for hosting platforms (Render/Koyeb)
 const http = require('http');
 const port = process.env.PORT || 8000;
 http.createServer((req, res) => {

@@ -1,11 +1,7 @@
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
-const dns = require('dns');
-const { promisify } = require('util');
 require('dotenv').config();
-
-const dnsLookup = promisify(dns.lookup);
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -14,44 +10,15 @@ if (!connectionString) {
   process.exit(1);
 }
 
-let pool;
+// Create pg connection pool
+const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false }
+});
 
-/**
- * Creates the pg Pool, resolving the hostname to IPv4 first.
- * This prevents ENETUNREACH errors on IPv4-only hosts (e.g. Hugging Face Spaces).
- */
-async function createPool() {
-  if (pool) return pool;
-
-  let finalConnectionString = connectionString;
-
-  try {
-    const url = new URL(connectionString);
-    const hostname = url.hostname;
-
-    // Resolve hostname to IPv4 address
-    const { address } = await dnsLookup(hostname, { family: 4 });
-    console.log(`Resolved database host ${hostname} -> ${address} (IPv4)`);
-
-    // Replace hostname with resolved IPv4 address in connection string
-    url.hostname = address;
-    finalConnectionString = url.toString();
-  } catch (err) {
-    console.warn('DNS IPv4 resolution failed, falling back to original connection string:', err.message);
-  }
-
-  pool = new Pool({
-    connectionString: finalConnectionString,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 10000,
-  });
-
-  pool.on('error', (err) => {
-    console.error('Unexpected error on idle client:', err);
-  });
-
-  return pool;
-}
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client:', err);
+});
 
 /**
  * Initializes the database by executing schema.sql.
@@ -64,8 +31,7 @@ async function initDatabase() {
 
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
 
-  const activePool = await createPool();
-  const client = await activePool.connect();
+  const client = await pool.connect();
   try {
     console.log('Running database migrations...');
     await client.query('BEGIN');
@@ -81,18 +47,7 @@ async function initDatabase() {
   }
 }
 
-/**
- * Returns the active pool (creates it if needed).
- */
-async function getPool() {
-  return createPool();
-}
-
 module.exports = {
-  get pool() {
-    // Synchronous access for existing query code — pool will be set after createPool() runs
-    return pool;
-  },
-  getPool,
+  pool,
   initDatabase
 };
