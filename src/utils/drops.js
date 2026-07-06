@@ -29,7 +29,7 @@ async function triggerDrop(client, guildId, channel) {
         { name: 'Value', value: `💰 **1 - 50** ${currencyIcon} ${currencyName}`, inline: true }
       )
       .setTimestamp()
-      .setFooter({ text: 'Expires in 5 minutes if unclaimed.' });
+      // Footer removed – drop does not expire
 
     const dropMsg = await channel.send({ embeds: [embed] }).catch(err => {
       console.error(`Failed to send drop message to channel ${channel.id}:`, err);
@@ -44,24 +44,8 @@ async function triggerDrop(client, guildId, channel) {
       clearTimeout(oldDrop.timeoutId);
     }
 
-    // Set 5-minute expiration timer
-    const timeoutId = setTimeout(async () => {
-      if (activeDrops.has(channel.id) && activeDrops.get(channel.id).messageId === dropMsg.id) {
-        activeDrops.delete(channel.id);
-        lastDropTimes.set(channel.id, Date.now()); // Cooldown starts after fade away
-
-        const expiredEmbed = new EmbedBuilder()
-          .setColor('#555555')
-          .setTitle('☠️ The Soul Coin has faded away... ☠️')
-          .setDescription('No one caught the Soul Coin in time. It has returned to the abyss.')
-          .setTimestamp();
-
-        await dropMsg.edit({ embeds: [expiredEmbed] }).catch(() => {});
-        
-        // Auto drops continuation
-        scheduleNextDrop(client, guildId, channel.id);
-      }
-    }, 5 * 60 * 1000);
+    // Drop stays active indefinitely until caught
+    const timeoutId = null;
 
     activeDrops.set(channel.id, {
       value: dropValue,
@@ -81,7 +65,7 @@ async function triggerDrop(client, guildId, channel) {
             .setTitle('📦 Drop Spawned')
             .setDescription(`A random Soul Coin drop has just spawned in <#${channel.id}>!`)
             .addFields(
-              { name: 'Next Scheduled Drop', value: '10 minutes after this drop is caught or expires.' }
+              { name: 'Next Scheduled Drop', value: '10 minutes after this drop is caught.' }
             )
             .setTimestamp();
           await adminLogs.send({ embeds: [logEmbed] }).catch(() => {});

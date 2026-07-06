@@ -1,5 +1,5 @@
-const { 
-  recordMessageActivity, 
+const {
+  recordMessageActivity,
   getServerSettings,
   updateServerSetting,
   checkInUser,
@@ -19,7 +19,7 @@ const { activeDrops, triggerDrop, scheduleNextDrop } = require('../utils/drops')
 // Helper to send a temporary message that deletes itself after 5 seconds
 const sendTempMessage = (channel, content) => {
   channel.send(content).then(msg => {
-    setTimeout(() => msg.delete().catch(() => {}), 5000);
+    setTimeout(() => msg.delete().catch(() => { }), 5000);
   }).catch(err => console.error('Failed to send temp message:', err));
 };
 
@@ -37,14 +37,14 @@ module.exports = {
     // --- DROP CATCH INTERCEPT ---
     if (activeDrops.has(message.channel.id) && content.toLowerCase() === 'soul') {
       const drop = activeDrops.get(message.channel.id);
-      
+
       // Delete immediately to prevent double catch race conditions
       activeDrops.delete(message.channel.id);
 
       // Set cooldown start time to now (catch time)
       // We schedule the next drop rather than just setting a time
       scheduleNextDrop(message.client, serverId, message.channel.id);
-      
+
       if (drop.timeoutId) {
         clearTimeout(drop.timeoutId);
       }
@@ -65,13 +65,13 @@ module.exports = {
             .setDescription(`**${message.author.username}** claimed the Soul Coin!\n\nReward: **${drop.value}** <:Soul_Head:1523605643158618214>`)
             .setTimestamp();
 
-          await dropMsg.edit({ embeds: [caughtEmbed] }).catch(() => {});
+          await dropMsg.edit({ embeds: [caughtEmbed] }).catch(() => { });
         }
 
         // Send congratulatory reply
         const congratulateText = `Congratulations ${message.author}! You caught the Soul Coin and added **${drop.value}** <:Soul_Head:1523605643158618214> to your wallet!\n**New Balance**: **${awardResult.newBalance}** <:Soul_Head:1523605643158618214>`;
 
-        await message.reply({ content: congratulateText }).catch(() => {});
+        await message.reply({ content: congratulateText }).catch(() => { });
       } catch (err) {
         console.error(`Error claiming drop for user ${userId}:`, err);
       }
@@ -93,7 +93,7 @@ module.exports = {
         if (['setup', 'set-name', 'set-icon', 'reset-cycle', 'set-drop-channel', 'force-drop'].includes(commandName)) {
           // Check administrator permission
           if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-            return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => {});
+            return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => { });
           }
 
           // setup, set-drop-channel, and force-drop can be run anywhere; other admin commands are restricted to #soul-logs
@@ -108,19 +108,19 @@ module.exports = {
             // Check if the bot has permission to manage channels
             const botMember = message.guild.members.me || await message.guild.members.fetch(message.client.user.id).catch(() => null);
             if (botMember && !botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
-              return message.reply('❌ **Setup Failed**: The bot is missing the **Manage Channels** permission in this server. Please grant this permission to the bot or its role in Server Settings and try again.').catch(() => {});
+              return message.reply('❌ **Setup Failed**: The bot is missing the **Manage Channels** permission in this server. Please grant this permission to the bot or its role in Server Settings and try again.').catch(() => { });
             }
 
             const channelsToCreate = [
-              { 
-                name: 'soul-bot', 
+              {
+                name: 'soul-bot',
                 topic: 'Command usage (s daily, s cash, s lb, s flip) and active chat milestone rewards.',
-                private: false 
+                private: false
               },
-              { 
-                name: 'soul-logs', 
+              {
+                name: 'soul-logs',
                 topic: 'Administrative logs and configuration settings for the Soul Currency system.',
-                private: true 
+                private: true
               }
             ];
 
@@ -179,33 +179,33 @@ module.exports = {
               )
               .setTimestamp();
 
-            return await message.reply({ embeds: [embed] }).catch(() => {});
+            return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
           if (commandName === 'set-name') {
             const newName = args.join(' ');
             if (!newName) {
-              return message.reply('❌ **Usage**: `s set-name <new_name>`').catch(() => {});
+              return message.reply('❌ **Usage**: `s set-name <new_name>`').catch(() => { });
             }
             const updated = await updateServerSetting(serverId, newName, null);
             const embed = new EmbedBuilder()
               .setColor('#00ffaa')
               .setTitle('⚙️ Setting Updated')
               .setDescription(`Currency name has been successfully updated to **${updated.currency_name}**.`);
-            return await message.reply({ embeds: [embed] }).catch(() => {});
+            return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
           if (commandName === 'set-icon') {
             const newIcon = args[0];
             if (!newIcon) {
-              return message.reply('❌ **Usage**: `s set-icon <emoji>`').catch(() => {});
+              return message.reply('❌ **Usage**: `s set-icon <emoji>`').catch(() => { });
             }
             const updated = await updateServerSetting(serverId, null, newIcon);
             const embed = new EmbedBuilder()
               .setColor('#00ffaa')
               .setTitle('⚙️ Setting Updated')
               .setDescription(`Currency icon has been successfully updated to ${updated.currency_icon_url}.`);
-            return await message.reply({ embeds: [embed] }).catch(() => {});
+            return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
           if (commandName === 'reset-cycle') {
@@ -220,7 +220,7 @@ module.exports = {
               )
               .setFooter({ text: `Note: rankings were archived under Cycle ID #${result.oldCycleId}` })
               .setTimestamp();
-            return await message.reply({ embeds: [embed] }).catch(() => {});
+            return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
           if (commandName === 'set-drop-channel') {
@@ -249,14 +249,14 @@ module.exports = {
             }
 
             if (!targetChannelId) {
-              return message.reply('❌ **Error**: Channel not found in this server. Usage: `s set-drop-channel [channel_name/mention/id]`').catch(() => {});
+              return message.reply('❌ **Error**: Channel not found in this server. Usage: `s set-drop-channel [channel_name/mention/id]`').catch(() => { });
             }
 
-            const channelExists = message.guild.channels.cache.get(targetChannelId) || 
-                                  await message.guild.channels.fetch(targetChannelId).catch(() => null);
+            const channelExists = message.guild.channels.cache.get(targetChannelId) ||
+              await message.guild.channels.fetch(targetChannelId).catch(() => null);
 
             if (!channelExists || channelExists.type !== ChannelType.GuildText) {
-              return message.reply('❌ **Error**: Channel not found or is not a text channel.').catch(() => {});
+              return message.reply('❌ **Error**: Channel not found or is not a text channel.').catch(() => { });
             }
 
             await updateDropChannel(serverId, targetChannelId);
@@ -267,7 +267,7 @@ module.exports = {
               .setDescription(`Random Soul Coin drops will now occur in the channel: <#${targetChannelId}>.`)
               .setTimestamp();
 
-            return await message.reply({ embeds: [embed] }).catch(() => {});
+            return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
           if (commandName === 'force-drop') {
@@ -275,8 +275,8 @@ module.exports = {
             let dropChannel = null;
 
             if (settings.drop_channel_id) {
-              dropChannel = message.guild.channels.cache.get(settings.drop_channel_id) || 
-                            await message.guild.channels.fetch(settings.drop_channel_id).catch(() => null);
+              dropChannel = message.guild.channels.cache.get(settings.drop_channel_id) ||
+                await message.guild.channels.fetch(settings.drop_channel_id).catch(() => null);
             } else {
               const currentChannels = await message.guild.channels.fetch().catch(() => message.guild.channels.cache);
               dropChannel = currentChannels.find(
@@ -285,14 +285,14 @@ module.exports = {
             }
 
             if (!dropChannel) {
-              return message.reply('❌ **Error**: Drop channel not configured or not found. Please set it using `s set-drop-channel <#channel>` or name a channel `#general`.').catch(() => {});
+              return message.reply('❌ **Error**: Drop channel not configured or not found. Please set it using `s set-drop-channel <#channel>` or name a channel `#general`.').catch(() => { });
             }
 
             const dropResult = await triggerDrop(message.client, serverId, dropChannel);
             if (dropResult) {
-              return message.reply(`✅ Successfully triggered a random coin drop in ${dropChannel}!`).catch(() => {});
+              return message.reply(`✅ Successfully triggered a random coin drop in ${dropChannel}!`).catch(() => { });
             } else {
-              return message.reply('❌ **Error**: Failed to send drop message. Please check permissions.').catch(() => {});
+              return message.reply('❌ **Error**: Failed to send drop message. Please check permissions.').catch(() => { });
             }
           }
         }
@@ -304,29 +304,29 @@ module.exports = {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
           }
 
-            if (['help'].includes(commandName)) {
-              const helpEmbed = new EmbedBuilder()
-                .setColor('#ffd700')
-                .setTitle(`${currencyName} Commands`)
-                .setDescription('Here are all the ways you can interact with the Soul Currency bot in this channel:')
-                .addFields(
-                  { name: '💰 `s daily`', value: 'Claim your daily allowance of Souls (resets every 24 hours).' },
-                  { name: '🏦 `s cash`', value: 'Check your wallet balance (or tag another user to check theirs).' },
-                  { name: '🏆 `s lb`', value: 'View the top 10 richest users in the current monthly cycle.' },
-                  { name: '🎁 `s gift @user <amount>`', value: 'Send Souls to another user from your wallet.' },
-                  { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
-                  { name: '🥷 `s rob @user`', value: 'Attempt to steal 10% of their wallet (30% success rate). Caught? Pay a 5% fine! (1hr cooldown).' },
-                  { name: '🏃‍♂️ `soul`', value: 'Type exactly this word when a Soul Coin drops to catch it before anyone else!' }
-                )
-                .setFooter({ text: 'Tip: You also passively earn Souls by chatting in active channels!' })
-                .setTimestamp();
-              
-              return await message.reply({ embeds: [helpEmbed] }).catch(() => {});
-            }
+          if (['help'].includes(commandName)) {
+            const helpEmbed = new EmbedBuilder()
+              .setColor('#ffd700')
+              .setTitle(`${currencyName} Commands`)
+              .setDescription('Here are all the ways you can interact with the Soul Currency bot in this channel:')
+              .addFields(
+                { name: '💰 `s daily`', value: 'Claim your daily allowance of Souls (resets every 24 hours).' },
+                { name: '🏦 `s cash`', value: 'Check your wallet balance (or tag another user to check theirs).' },
+                { name: '🏆 `s lb`', value: 'View the top 10 richest users in the current monthly cycle.' },
+                { name: '🎁 `s gift @user <amount>`', value: 'Send Souls to another user from your wallet.' },
+                { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
+                { name: '🥷 `s rob @user`', value: 'Attempt to steal 10% of their wallet (30% success rate). Caught? Pay a 5% fine! (1hr cooldown).' },
+                { name: '🏃‍♂️ `soul`', value: 'Type exactly this word when a Soul Coin drops to catch it before anyone else!' }
+              )
+              .setFooter({ text: 'Tip: You also passively earn Souls by chatting in active channels!' })
+              .setTimestamp();
 
-            if (['daily', 'checkin', 'claim'].includes(commandName)) {
-              const checkinAmount = Math.floor(Math.random() * (1000 - 500 + 1)) + 500;
-              const res = await checkInUser(userId, serverId, checkinAmount);
+            return await message.reply({ embeds: [helpEmbed] }).catch(() => { });
+          }
+
+          if (['daily', 'checkin', 'claim'].includes(commandName)) {
+            const checkinAmount = Math.floor(Math.random() * (1000 - 500 + 1)) + 500;
+            const res = await checkInUser(userId, serverId, checkinAmount);
 
             if (res.success) {
               const embed = new EmbedBuilder()
@@ -335,7 +335,7 @@ module.exports = {
                 .setDescription(`You have claimed your daily reward of **${checkinAmount}** ${currencyIcon} ${currencyName}!`)
                 .addFields({ name: 'New Balance', value: `💰 **${res.newBalance}** ${currencyIcon} ${currencyName}` })
                 .setTimestamp();
-              return await message.reply({ embeds: [embed] }).catch(() => {});
+              return await message.reply({ embeds: [embed] }).catch(() => { });
             } else {
               const cooldownHours = (res.cooldownRemainingMs / (1000 * 60 * 60)).toFixed(2);
               const embed = new EmbedBuilder()
@@ -343,7 +343,7 @@ module.exports = {
                 .setTitle('⏳ Daily Check-in Cooldown')
                 .setDescription(`You have already claimed your daily reward today. Please try again in **${cooldownHours}** hours.`)
                 .setTimestamp();
-              return await message.reply({ embeds: [embed] }).catch(() => {});
+              return await message.reply({ embeds: [embed] }).catch(() => { });
             }
           }
 
@@ -356,13 +356,13 @@ module.exports = {
               .setDescription(`Holding **${balanceInfo.balance}** ${currencyIcon} ${currencyName}`)
               .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
               .setTimestamp();
-            return await message.reply({ embeds: [embed] }).catch(() => {});
+            return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
           if (['gift', 'give', 'send', 'transfer'].includes(commandName)) {
             const targetUser = message.mentions.users.first();
             let amount = 0;
-            
+
             // Try to find amount in arguments
             for (const arg of args) {
               const parsed = parseInt(arg);
@@ -391,7 +391,7 @@ module.exports = {
                 .setDescription(`Successfully sent **${amount}** ${currencyIcon} ${currencyName} to ${targetUser}!`)
                 .addFields({ name: 'Your New Balance', value: `**${result.newSenderBalance}** ${currencyIcon} ${currencyName}` })
                 .setTimestamp();
-              return await message.reply({ embeds: [embed] }).catch(() => {});
+              return await message.reply({ embeds: [embed] }).catch(() => { });
             } else if (result.reason === 'insufficient_funds') {
               return sendTempMessage(message.channel, `❌ You don't have enough funds to gift that amount. Your current balance is **${result.currentBalance}** ${currencyIcon} ${currencyName}.`);
             } else {
@@ -401,7 +401,7 @@ module.exports = {
 
           if (['rob', 'steal', 'heist'].includes(commandName)) {
             const targetUser = message.mentions.users.first();
-            
+
             if (!targetUser) {
               return sendTempMessage(message.channel, '❌ Invalid syntax. Use `s rob @user`.');
             }
@@ -422,7 +422,7 @@ module.exports = {
                 .setDescription(`You successfully sneaked into ${targetUser}'s wallet and stole **${result.amount}** ${currencyIcon} ${currencyName}!`)
                 .addFields({ name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` })
                 .setTimestamp();
-              return await message.reply({ embeds: [embed] }).catch(() => {});
+              return await message.reply({ embeds: [embed] }).catch(() => { });
             } else {
               if (result.reason === 'cooldown') {
                 const hoursLeft = Math.floor(result.cooldownRemainingMs / (1000 * 60 * 60));
@@ -440,7 +440,7 @@ module.exports = {
                   .setDescription(`You tripped the alarm and got caught trying to rob ${targetUser}!\n\nYou were forced to pay them a fine of **${result.amount}** ${currencyIcon} ${currencyName} (5% of your wallet).`)
                   .addFields({ name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` })
                   .setTimestamp();
-                return await message.reply({ embeds: [embed] }).catch(() => {});
+                return await message.reply({ embeds: [embed] }).catch(() => { });
               }
             }
           }
@@ -465,32 +465,32 @@ module.exports = {
               }).join('\n');
               embed.setDescription(listStr);
             }
-            return await message.reply({ embeds: [embed] }).catch(() => {});
+            return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
           if (['flip', 'casino', 'bet'].includes(commandName)) {
             let bet = 0;
             let choice = 'heads'; // default
-            
+
             if (args.length === 1 && !isNaN(parseInt(args[0]))) {
               bet = parseInt(args[0]);
             } else if (args.length >= 2) {
               let choiceInput = args[0].toLowerCase();
               let betInput = args[1];
-              
+
               if (!isNaN(choiceInput) && isNaN(parseInt(betInput))) {
                 const temp = choiceInput;
                 choiceInput = betInput.toLowerCase();
                 betInput = temp;
               }
-              
+
               if (choiceInput === 'heads' || choiceInput === 'h') choice = 'heads';
               if (choiceInput === 'tails' || choiceInput === 't') choice = 'tails';
               bet = parseInt(betInput);
             }
 
             if (isNaN(bet) || bet <= 0) {
-              return await message.reply('❌ **Usage**: `s flip <bet_amount>` (defaults to heads) OR `s flip <heads/tails> <bet_amount>`').catch(() => {});
+              return await message.reply('❌ **Usage**: `s flip <bet_amount>` (defaults to heads) OR `s flip <heads/tails> <bet_amount>`').catch(() => { });
             }
 
             // Verify user balance
@@ -505,7 +505,7 @@ module.exports = {
                   { name: 'Attempted Bet', value: `**${bet}** ${currencyIcon} ${currencyName}`, inline: true }
                 )
                 .setTimestamp();
-              return await message.reply({ embeds: [errorEmbed] }).catch(() => {});
+              return await message.reply({ embeds: [errorEmbed] }).catch(() => { });
             }
 
             // Rig the flip to a 30% win chance
@@ -527,12 +527,12 @@ module.exports = {
               outputText += `The coin spins... ${displayResult} and you lost it all...`;
             }
 
-            return await message.reply({ content: outputText }).catch(() => {});
+            return await message.reply({ content: outputText }).catch(() => { });
           }
         }
       } catch (err) {
         console.error(`Error processing prefix command ${commandName} for user ${userId}:`, err);
-        return await message.reply('❌ An error occurred while executing this command.').catch(() => {});
+        return await message.reply('❌ An error occurred while executing this command.').catch(() => { });
       }
 
       // Exit early so prefix command messages don't earn activity points
@@ -547,15 +547,15 @@ module.exports = {
     if (words.length < 5) return; // Ignore short messages to prevent spam
 
     try {
-        // Award 100 coins for milestone (every 10 messages), 15 seconds cooldown, daily cap of 5000 coins
-        const result = await recordMessageActivity(userId, serverId, 100, 15, 5000);
+      // Award 100 coins for milestone (every 10 messages), 15 seconds cooldown, daily cap of 5000 coins
+      const result = await recordMessageActivity(userId, serverId, 100, 15, 5000);
 
       if (result.success && result.awardedMilestone) {
         console.log(`[Activity Earning] User ${message.author.tag} (${userId}) reached milestone: ${result.totalMessages} messages. Awarded ${result.amountAwarded} coins.`);
 
         // Find the log channel named 'soul-bot'
         const logChannel = message.guild.channels.cache.find(
-          c => c.name.toLowerCase() .includes('soul-bot') && c.isTextBased()
+          c => c.name.toLowerCase().includes('soul-bot') && c.isTextBased()
         );
 
         if (logChannel) {
