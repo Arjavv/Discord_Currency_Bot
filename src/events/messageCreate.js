@@ -841,10 +841,18 @@ module.exports = {
             const challengerStats = await getUserStats(userId, serverId);
             if (challengerStats.lastDuelLossAt) {
               const elapsed = Date.now() - new Date(challengerStats.lastDuelLossAt).getTime();
-              const cooldownMs = 60 * 60 * 1000; // 1 hour
+              const cooldownMs = 6 * 60 * 60 * 1000; // 6 hours
               if (elapsed < cooldownMs) {
                 const remainingMin = Math.ceil((cooldownMs - elapsed) / (60 * 1000));
-                return sendTempMessage(message.channel, `❌ You are on a duel cooldown! You must wait **${remainingMin} minutes** before initiating another fight.`);
+                let remainingText = '';
+                if (remainingMin > 60) {
+                  const hours = Math.floor(remainingMin / 60);
+                  const mins = remainingMin % 60;
+                  remainingText = `**${hours}h ${mins}m**`;
+                } else {
+                  remainingText = `**${remainingMin}m**`;
+                }
+                return sendTempMessage(message.channel, `❌ You are on a duel cooldown! You must wait ${remainingText} before initiating another fight.`);
               }
             }
 
@@ -852,10 +860,18 @@ module.exports = {
             const defenderStats = await getUserStats(targetUser.id, serverId);
             if (defenderStats.lastDuelLossAt) {
               const elapsed = Date.now() - new Date(defenderStats.lastDuelLossAt).getTime();
-              const cooldownMs = 60 * 60 * 1000; // 1 hour
+              const cooldownMs = 6 * 60 * 60 * 1000; // 6 hours
               if (elapsed < cooldownMs) {
                 const remainingMin = Math.ceil((cooldownMs - elapsed) / (60 * 1000));
-                return sendTempMessage(message.channel, `❌ **${targetUser.username}** is on a duel cooldown and cannot be challenged for another **${remainingMin} minutes**.`);
+                let remainingText = '';
+                if (remainingMin > 60) {
+                  const hours = Math.floor(remainingMin / 60);
+                  const mins = remainingMin % 60;
+                  remainingText = `**${hours}h ${mins}m**`;
+                } else {
+                  remainingText = `**${remainingMin}m**`;
+                }
+                return sendTempMessage(message.channel, `❌ **${targetUser.username}** is on a duel cooldown and cannot be challenged for another ${remainingText}.`);
               }
             }
 
@@ -954,7 +970,7 @@ module.exports = {
                     `👑 **Winner**: <@${winnerId}> (\`${winVal} ${category.name}\`)\n` +
                     `💀 **Loser**: <@${loserId}> (\`${loseVal} ${category.name}\`)\n\n` +
                     `<@${winnerId}> claimed the pot of **${pot}** ${currencyIcon} ${currencyName}!\n` +
-                    `*💀 <@${loserId}> has been placed on a 1-hour duel cooldown!*`
+                    `*💀 <@${loserId}> has been placed on a 6-hour duel cooldown!*`
                   )
                   .setTimestamp();
 
