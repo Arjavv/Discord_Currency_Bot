@@ -763,7 +763,10 @@ module.exports = {
 
           if (commandName === 'mines') {
             let bet = parseInt(args[0]);
-            let mineCount = parseInt(args[1]) || 3;
+            let mineCount = parseInt(args[1]);
+            if (isNaN(mineCount)) {
+              mineCount = 3; // Default to 3 mines
+            }
 
             if (isNaN(bet) || bet <= 0) {
               return await message.reply('❌ **Usage**: `s mines <bet_amount> [mine_count]` (mines default: 3, range: 1-19)').catch(() => { });
@@ -860,10 +863,11 @@ module.exports = {
               if (gameOver) {
                 cashOutBtn.setLabel('Game Over').setStyle(ButtonStyle.Danger).setDisabled(true);
               } else if (revealedPositions.size === 0) {
-                cashOutBtn.setLabel('💰 Cash Out — reveal a tile first').setStyle(ButtonStyle.Secondary).setDisabled(true);
+                const nextMult = calcMultiplier(1);
+                cashOutBtn.setLabel(`💰 Cash Out (Next safe: ${nextMult.toFixed(2)}x / ${nextMult.toFixed(2)} times bet)`).setStyle(ButtonStyle.Secondary).setDisabled(true);
               } else {
                 const winAmount = Math.floor(bet * currentMultiplier);
-                cashOutBtn.setLabel(`💰 Cash Out — ${currentMultiplier.toFixed(2)}x (${winAmount} coins)`).setStyle(ButtonStyle.Success);
+                cashOutBtn.setLabel(`💰 Cash Out — ${currentMultiplier.toFixed(2)}x (${winAmount} coins / ${currentMultiplier.toFixed(2)} times bet)`).setStyle(ButtonStyle.Success);
               }
               cashOutRow.addComponents(cashOutBtn);
               rows.push(cashOutRow);
@@ -881,13 +885,15 @@ module.exports = {
                 .setTimestamp();
 
               if (state === 'playing') {
+                const nextMult = calcMultiplier(revealedPositions.size + 1);
                 embed.setColor('#ffaa00')
                   .setTitle('💣 Mines — Choose a Tile!')
                   .setDescription(
                     `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
                     `**Mines:** ${mineCount} 💣 | **Safe Tiles:** ${safeTiles} 💎\n` +
                     `**Revealed:** ${revealedPositions.size}/${safeTiles}\n` +
-                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\`\n\n` +
+                    `**Current Multiplier:** \`${currentMultiplier.toFixed(2)}x\` (${currentMultiplier.toFixed(2)} times bet)\n` +
+                    `**Next Safe Click:** \`${nextMult.toFixed(2)}x\` (${nextMult.toFixed(2)} times bet)\n\n` +
                     `Click a numbered tile to reveal it. Avoid the mines!`
                   );
               } else if (state === 'cashed_out') {
@@ -897,7 +903,7 @@ module.exports = {
                     `You escaped with your winnings!\n\n` +
                     `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
                     `**Tiles Revealed:** ${revealedPositions.size} 💎\n` +
-                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\`\n` +
+                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\` (${currentMultiplier.toFixed(2)} times bet)\n` +
                     `**Winnings:** +${winnings} ${currencyIcon} ${currencyName}\n` +
                     `**Net Profit:** +${winnings - bet} ${currencyIcon} ${currencyName}`
                   );
@@ -925,7 +931,7 @@ module.exports = {
                     `You revealed every safe tile! Maximum payout!\n\n` +
                     `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
                     `**All ${safeTiles} Safe Tiles Revealed** 💎\n` +
-                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\`\n` +
+                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\` (${currentMultiplier.toFixed(2)} times bet)\n` +
                     `**Winnings:** +${winnings} ${currencyIcon} ${currencyName}\n` +
                     `**Net Profit:** +${winnings - bet} ${currencyIcon} ${currencyName}`
                   );
