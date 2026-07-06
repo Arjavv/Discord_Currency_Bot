@@ -315,6 +315,7 @@ module.exports = {
                   { name: '🏆 `s lb`', value: 'View the top 10 richest users in the current monthly cycle.' },
                   { name: '🎁 `s gift @user <amount>`', value: 'Send Souls to another user from your wallet.' },
                   { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
+                  { name: '🥷 `s rob @user`', value: 'Attempt to steal 10% of their wallet (30% success rate). Caught? Pay a 5% fine! (6hr cooldown).' },
                   { name: '🏃‍♂️ `soul`', value: 'Type exactly this word when a Soul Coin drops to catch it before anyone else!' }
                 )
                 .setFooter({ text: 'Tip: You also passively earn Souls by chatting in active channels!' })
