@@ -359,7 +359,10 @@ async function runTests() {
 
     // Cleanup any existing test data to ensure clean state
     if (!useMock) {
-      await pool.query("DELETE FROM users WHERE server_id = $1 OR server_id = 'GLOBAL'", [TEST_SERVER]);
+      await pool.query(
+        "DELETE FROM users WHERE server_id = $1 OR (server_id = 'GLOBAL' AND (discord_id = $2 OR discord_id = $3))",
+        [TEST_SERVER, TEST_USER_1, TEST_USER_2]
+      );
       await pool.query('DELETE FROM cycles WHERE server_id = $1', [TEST_SERVER]);
     } else {
       mockState.users.clear();
@@ -499,8 +502,8 @@ async function runTests() {
 
     const leaderboard = await getLeaderboard(TEST_SERVER, 10);
     console.log('Leaderboard rankings:', leaderboard.rankings);
-    if (leaderboard.rankings.length !== 2) {
-      throw new Error(`Leaderboard should return 2 users, got ${leaderboard.rankings.length}`);
+    if (leaderboard.rankings.length < 2) {
+      throw new Error(`Leaderboard should return at least 2 users, got ${leaderboard.rankings.length}`);
     }
     console.log('✔ Balance and Leaderboard tests passed.');
 
