@@ -305,6 +305,91 @@
             </div>
           </div>
 
+          <!-- Command 9: s stats -->
+          <div class="command-item" data-category="user" id="cmd-stats">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">s stats <span class="optional-param">[@username]</span></span>
+                <span class="command-tag user-tag">User</span>
+              </div>
+              <span class="command-short-desc">Check your stats or inspect active potions on another player.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Fetches Strength ⚔️, Defense 🛡️, Speed ⚡, and Magic 🔮 stats. Upgrades reset every Sunday midnight. If checking another user, their exact values are hidden as <code>???</code> to maintain combat mystery, but their active potion effects are visible. (Aliases: <code>s stats</code>, <code>s profile</code>).</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>s stats</code> or <code>s stats @username</code>
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 10: s shop -->
+          <div class="command-item" data-category="user" id="cmd-shop">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">s shop</span>
+                <span class="command-tag user-tag">User</span>
+              </div>
+              <span class="command-short-desc">Browse training upgrades, elixirs, and Divine Shields.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Lists available boosts and item costs for your server. Weekly upgrades (+5) reset every Sunday midnight. Potion elixirs (+15) last for 24 hours. Includes an interactive dropdown list below the embed for quick direct purchases.</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>s shop</code>
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 11: s buy -->
+          <div class="command-item" data-category="user" id="cmd-buy">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">s buy <span class="required-param">&lt;item_id&gt;</span></span>
+                <span class="command-tag user-tag">User</span>
+              </div>
+              <span class="command-short-desc">Purchase a training upgrade or shield from the shop.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Directly purchase an item by specifying its ID (e.g., <code>dumbbell</code>, <code>vest</code>, <code>shoes</code>, <code>tome</code>, <code>rage</code>, <code>aegis</code>, <code>adrenaline</code>, <code>mana</code>, <code>shield</code>). (Note: Purchases can also be completed using the select menu dropdown in <code>s shop</code>).</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>s buy dumbbell</code>
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 12: s fight -->
+          <div class="command-item" data-category="casino" id="cmd-fight">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">s fight <span class="required-param">@user</span> <span class="required-param">&lt;bet&gt;</span></span>
+                <span class="command-tag casino-tag">Casino</span>
+              </div>
+              <span class="command-short-desc">Challenge another player to a mystery stat clash showdown.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Initiate a wager duel against another player. The defender has 30 seconds to click Accept. The bot randomly selects a stat (Strength, Defense, Speed, or Magic) to compare. The player with the higher total stat wins the pot. Winner takes all, exact values for the clashed stat are revealed post-fight, and a death trigger automatically runs <code>!kill &lt;@loser&gt;</code> in the channel.</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>s fight @username 500</code>
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
+              </div>
+            </div>
+          </div>
+
+
 
           <!-- Command 5: /admin -->
           <div class="command-item" data-category="admin" id="cmd-admin">
@@ -326,6 +411,7 @@
                 <li><code>/admin set-drop-channel &lt;channel&gt;</code>: Sets the designated channel for Soul Coin drops.</li>
                 <li><code>/admin force-drop</code>: Instantly spawns a Soul Coin drop in the configured drop channel.</li>
                 <li><code>/admin auto-drops &lt;start/stop&gt;</code>: Starts or stops the automated 10-minute continuous Soul Coin drop cycle.</li>
+                <li><code>/admin set-price &lt;item&gt; &lt;price&gt;</code>: Customize pricing of shop items for this server. Restricted to #soul-logs.</li>
               </ul>
               <div class="detail-row">
                 <strong>Permission:</strong> Server Administrators only.
