@@ -11,6 +11,32 @@ module.exports = {
       return;
     }
 
+    const {
+      getBotControlState,
+      isReadonlySlashCommand,
+      getFeatureForSlashCommand
+    } = require('../utils/botControl');
+
+    const control = await getBotControlState();
+    const isAdminCommand = interaction.commandName === 'admin';
+
+    if (control.maintenanceMode && !isAdminCommand && !isReadonlySlashCommand(interaction.commandName)) {
+      return interaction.reply({
+        content: control.maintenanceMessage,
+        ephemeral: true
+      });
+    }
+
+    if (!isAdminCommand) {
+      const feature = getFeatureForSlashCommand(interaction.commandName);
+      if (feature && !control.features[feature]) {
+        return interaction.reply({
+          content: `❌ **${interaction.commandName}** is temporarily disabled globally by the bot owner.`,
+          ephemeral: true
+        });
+      }
+    }
+
     try {
       await command.execute(interaction);
     } catch (error) {

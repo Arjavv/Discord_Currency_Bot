@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { checkInUser, getServerSettings } = require('../database/queries');
+const { getBotControlState } = require('../utils/botControl');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,7 +18,8 @@ module.exports = {
 
     const userId = interaction.user.id;
     const serverId = interaction.guildId;
-    const checkinAmount = 20; // Default amount
+    const control = await getBotControlState();
+    const checkinAmount = control.slashCheckinAmount;
 
     try {
       const settings = await getServerSettings(serverId);

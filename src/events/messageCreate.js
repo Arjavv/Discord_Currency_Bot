@@ -31,6 +31,13 @@ const activeCrashGames = new Set();
 const activeMinesGames = new Map();
 const path = require('path');
 const { activeDrops, triggerDrop, scheduleNextDrop } = require('../utils/drops');
+const {
+  getBotControlState,
+  isAdminPrefixCommand,
+  isReadonlyPrefixCommand,
+  getFeatureForPrefixCommand,
+  getRandomCheckinAmount
+} = require('../utils/botControl');
 
 // Helper to send a temporary message that deletes itself after 5 seconds
 const sendTempMessage = (channel, content) => {
@@ -52,6 +59,11 @@ module.exports = {
 
     // --- DROP CATCH INTERCEPT ---
     if (activeDrops.has(message.channel.id) && content.toLowerCase() === 'soul') {
+      const dropControl = await getBotControlState();
+      if (dropControl.maintenanceMode || !dropControl.features.drops) {
+        return;
+      }
+
       const drop = activeDrops.get(message.channel.id);
 
       // Delete immediately to prevent double catch race conditions
@@ -99,6 +111,16 @@ module.exports = {
     if (content.toLowerCase().startsWith('s ')) {
       const args = content.slice(2).trim().split(/\s+/);
       const commandName = args.shift().toLowerCase();
+      const control = await getBotControlState();
+
+      if (control.maintenanceMode && !isAdminPrefixCommand(commandName) && !isReadonlyPrefixCommand(commandName)) {
+        return sendTempMessage(message.channel, control.maintenanceMessage);
+      }
+
+      const featureKey = getFeatureForPrefixCommand(commandName);
+      if (featureKey && !control.features[featureKey]) {
+        return sendTempMessage(message.channel, `❌ **${commandName}** is temporarily disabled globally by the bot owner.`);
+      }
 
       try {
         const settings = await getServerSettings(serverId);
@@ -327,7 +349,7 @@ module.exports = {
           }
 
           if (['daily', 'checkin', 'claim'].includes(commandName)) {
-            const checkinAmount = Math.floor(Math.random() * (1000 - 500 + 1)) + 500;
+            const checkinAmount = getRandomCheckinAmount(control);
             const res = await checkInUser(userId, serverId, checkinAmount);
 
             if (res.success) {
@@ -1484,13 +1506,22 @@ module.exports = {
     // Random drops block has been removed as drops are now handled automatically on a schedule.
 
     // --- 3. REGULAR CHAT ACTIVITY PROCESSING ---
+    const activityControl = await getBotControlState();
+    if (activityControl.maintenanceMode || !activityControl.features.messageEarnings) return;
+
     // Filter and count words (ignoring extra whitespace)
     const words = content.split(/\s+/).filter(Boolean);
     if (words.length < 5) return; // Ignore short messages to prevent spam
 
     try {
-      // Award 100 coins for milestone (every 10 messages), 15 seconds cooldown, daily cap of 5000 coins
-      const result = await recordMessageActivity(userId, serverId, 100, 15, 5000);
+      const result = await recordMessageActivity(
+        userId,
+        serverId,
+        activityControl.messageReward,
+        activityControl.messageCooldownSeconds,
+        activityControl.messageDailyCap,
+        activityControl.messageMilestone
+      );
 
       if (result.success && result.awardedMilestone) {
         console.log(`[Activity Earning] User ${message.author.tag} (${userId}) reached milestone: ${result.totalMessages} messages. Awarded ${result.amountAwarded} coins.`);

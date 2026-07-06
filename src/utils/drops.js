@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { getServerSettings } = require('../database/queries');
+const { getBotControlState } = require('./botControl');
 
 // In-memory drop states shared across the bot process
 const activeDrops = new Map(); // key: channelId -> { value, messageId, timestamp, timeoutId }
@@ -14,6 +15,11 @@ const nextDropTimers = new Map(); // key: serverId -> timeoutId
  */
 async function triggerDrop(client, guildId, channel) {
   try {
+    const control = await getBotControlState();
+    if (control.maintenanceMode || !control.features.drops) {
+      return null;
+    }
+
     const settings = await getServerSettings(guildId);
     const currencyName = settings.currency_name;
     const currencyIcon = settings.currency_icon_url;
@@ -98,6 +104,9 @@ function scheduleNextDrop(client, guildId, channelId) {
       
       const settings = await getServerSettings(guildId);
       if (!settings.auto_drops_enabled) return;
+
+      const control = await getBotControlState();
+      if (control.maintenanceMode || !control.features.drops) return;
 
       await triggerDrop(client, guildId, channel);
     } catch (err) {

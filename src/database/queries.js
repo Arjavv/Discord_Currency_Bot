@@ -149,7 +149,7 @@ async function checkInUser(discordId, serverId, amount = 20) {
  * Limits: 1 chat counted per 60 seconds.
  * Milestone: every 100 chats awards 10 coins (up to the daily cap of 20 coins, e.g. 2 milestones/day).
  */
-async function recordMessageActivity(discordId, serverId, coinAmount = 10, cooldownSeconds = 0, dailyCap = 20) {
+async function recordMessageActivity(discordId, serverId, coinAmount = 10, cooldownSeconds = 0, dailyCap = 20, milestoneInterval = 10) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -195,8 +195,8 @@ async function recordMessageActivity(discordId, serverId, coinAmount = 10, coold
     const messageCount = incRes.rows[0].message_count;
     let balance = incRes.rows[0].coin_balance;
 
-    // 5. Check if we hit the 10-message milestone
-    if (messageCount > 0 && messageCount % 10 === 0) {
+    // 5. Check if we hit the message milestone
+    if (messageCount > 0 && messageCount % milestoneInterval === 0) {
       // Check daily cap from message rewards in last 24 hours globally
       const dailyQuery = `
         SELECT COALESCE(SUM(amount), 0) AS daily_sum 
@@ -928,7 +928,24 @@ async function getGlobalSettings() {
       price_mana: '300',
       price_shield: '500',
       currency_name: 'Souls',
-      currency_icon_url: '<:Soul_Head:1523605643158618214>'
+      currency_icon_url: '<:Soul_Head:1523605643158618214>',
+      maintenance_mode: 'false',
+      maintenance_message: '🔧 The Soul Currency bot is currently under maintenance. Please try again later.',
+      feature_checkin: 'true',
+      feature_casino: 'true',
+      feature_shop: 'true',
+      feature_duels: 'true',
+      feature_rob: 'true',
+      feature_drops: 'true',
+      feature_message_earnings: 'true',
+      feature_transfers: 'true',
+      checkin_min: '500',
+      checkin_max: '1000',
+      slash_checkin_amount: '20',
+      message_reward: '100',
+      message_daily_cap: '5000',
+      message_cooldown_seconds: '15',
+      message_milestone: '10'
     };
     
     for (const [key, val] of Object.entries(defaults)) {
@@ -958,8 +975,60 @@ async function getGlobalSettings() {
       price_mana: '300',
       price_shield: '500',
       currency_name: 'Souls',
-      currency_icon_url: '<:Soul_Head:1523605643158618214>'
+      currency_icon_url: '<:Soul_Head:1523605643158618214>',
+      maintenance_mode: 'false',
+      maintenance_message: '🔧 The Soul Currency bot is currently under maintenance. Please try again later.',
+      feature_checkin: 'true',
+      feature_casino: 'true',
+      feature_shop: 'true',
+      feature_duels: 'true',
+      feature_rob: 'true',
+      feature_drops: 'true',
+      feature_message_earnings: 'true',
+      feature_transfers: 'true',
+      checkin_min: '500',
+      checkin_max: '1000',
+      slash_checkin_amount: '20',
+      message_reward: '100',
+      message_daily_cap: '5000',
+      message_cooldown_seconds: '15',
+      message_milestone: '10'
     };
+  }
+}
+
+/**
+ * Returns aggregate stats for the global economy.
+ */
+async function getGlobalEconomyStats() {
+  const query = `
+    SELECT
+      COUNT(*) AS total_users,
+      COALESCE(SUM(coin_balance), 0) AS total_coins,
+      COUNT(*) FILTER (WHERE coin_balance > 0) AS active_users
+    FROM users
+    WHERE server_id = 'GLOBAL'
+  `;
+  const txQuery = `
+    SELECT COUNT(*) AS tx_count
+    FROM transactions
+    WHERE created_at >= NOW() - INTERVAL '24 hours'
+  `;
+  try {
+    const [userRes, txRes] = await Promise.all([
+      pool.query(query),
+      pool.query(txQuery)
+    ]);
+    const row = userRes.rows[0];
+    return {
+      totalUsers: parseInt(row.total_users, 10) || 0,
+      activeUsers: parseInt(row.active_users, 10) || 0,
+      totalCoins: parseInt(row.total_coins, 10) || 0,
+      transactions24h: parseInt(txRes.rows[0].tx_count, 10) || 0
+    };
+  } catch (error) {
+    console.error('Error in getGlobalEconomyStats:', error);
+    return { totalUsers: 0, activeUsers: 0, totalCoins: 0, transactions24h: 0 };
   }
 }
 
@@ -1170,6 +1239,7 @@ module.exports = {
   purchaseShopItem,
   recordDuelLoss,
   getGlobalSettings,
-  setGlobalSetting
+  setGlobalSetting,
+  getGlobalEconomyStats
 };
 
