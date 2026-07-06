@@ -56,7 +56,7 @@ if (fs.existsSync(eventsPath)) {
 // Serve the docs/ website, admin dashboard, and endpoints
 const express = require('express');
 const session = require('express-session');
-const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel } = require('./database/queries');
+const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect } = require('./database/queries');
 const { getBotControlState } = require('./utils/botControl');
 
 const app = express();
@@ -224,6 +224,73 @@ app.patch('/api/server/:serverId', requireLogin, async (req, res) => {
   } catch (err) {
     console.error('Error updating server settings:', err);
     res.status(500).json({ error: 'Failed to update server settings' });
+  }
+});
+
+// Per-server detailed stats (Protected)
+app.get('/api/server/:serverId/detail', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  try {
+    const detail = await getServerDetail(serverId);
+    const guild = client.guilds.cache.get(serverId);
+    const settings = await getServerSettings(serverId);
+    res.json({
+      id: serverId,
+      name: guild ? guild.name : `Server ${serverId}`,
+      icon: guild && guild.icon ? guild.iconURL({ size: 128 }) : null,
+      memberCount: guild ? guild.memberCount : 0,
+      settings,
+      ...detail
+    });
+  } catch (err) {
+    console.error('Error fetching server detail:', err);
+    res.status(500).json({ error: 'Failed to fetch server detail' });
+  }
+});
+
+// Per-server feature overrides GET (Protected)
+app.get('/api/server/:serverId/feature-overrides', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  try {
+    const overrides = await getServerFeatureOverrides(serverId);
+    res.json(overrides);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch feature overrides' });
+  }
+});
+
+// Per-server feature overrides PATCH (Protected)
+app.patch('/api/server/:serverId/feature-overrides', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  const overrides = req.body; // { checkin: true, casino: false, ... }
+  try {
+    for (const [feature, enabled] of Object.entries(overrides)) {
+      await setServerFeatureOverride(serverId, feature, enabled === true || enabled === 'true');
+    }
+    const updated = await getServerFeatureOverrides(serverId);
+    res.json({ success: true, overrides: updated });
+  } catch (err) {
+    console.error('Error updating feature overrides:', err);
+    res.status(500).json({ error: 'Failed to update feature overrides' });
+  }
+});
+
+// User inspector endpoint (Protected)
+app.get('/api/user/:discordId', requireLogin, async (req, res) => {
+  const { discordId } = req.params;
+  try {
+    const user = await getUserInspect(discordId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    // Try to get Discord username from cache
+    let discordTag = null;
+    try {
+      const member = await client.users.fetch(discordId).catch(() => null);
+      if (member) discordTag = member.tag || member.username;
+    } catch (_) {}
+    res.json({ ...user, discordTag });
+  } catch (err) {
+    console.error('Error fetching user:', err);
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
 

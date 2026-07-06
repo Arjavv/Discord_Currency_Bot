@@ -111,7 +111,7 @@ module.exports = {
     if (content.toLowerCase().startsWith('s ')) {
       const args = content.slice(2).trim().split(/\s+/);
       const commandName = args.shift().toLowerCase();
-      const control = await getBotControlState();
+      const control = await getBotControlState(message.guildId);
 
       if (control.maintenanceMode && !isAdminPrefixCommand(commandName)) {
         return sendTempMessage(message.channel, control.maintenanceMessage);

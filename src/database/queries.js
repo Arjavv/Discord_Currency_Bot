@@ -1001,34 +1001,55 @@ async function getGlobalSettings() {
  * Returns aggregate stats for the global economy.
  */
 async function getGlobalEconomyStats() {
-  const query = `
+  const userQuery = `
     SELECT
       COUNT(*) AS total_users,
       COALESCE(SUM(coin_balance), 0) AS total_coins,
       COUNT(*) FILTER (WHERE coin_balance > 0) AS active_users
-    FROM users
-    WHERE server_id = 'GLOBAL'
+    FROM users WHERE server_id = 'GLOBAL'
   `;
-  const txQuery = `
-    SELECT COUNT(*) AS tx_count
+  const txQuery = `SELECT COUNT(*) AS tx_count FROM transactions WHERE created_at >= NOW() - INTERVAL '24 hours'`;
+  const chartQuery = `
+    SELECT
+      DATE(created_at) AS day,
+      SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS souls_in,
+      COUNT(*) AS tx_count
     FROM transactions
-    WHERE created_at >= NOW() - INTERVAL '24 hours'
+    WHERE created_at >= NOW() - INTERVAL '7 days'
+    GROUP BY DATE(created_at)
+    ORDER BY day ASC
+  `;
+  const sourceQuery = `
+    SELECT source, COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS total
+    FROM transactions
+    WHERE created_at >= NOW() - INTERVAL '7 days' AND amount > 0
+    GROUP BY source
+    ORDER BY total DESC
+    LIMIT 10
+  `;
+  const topQuery = `
+    SELECT discord_id, coin_balance
+    FROM users WHERE server_id = 'GLOBAL' AND coin_balance > 0
+    ORDER BY coin_balance DESC LIMIT 20
   `;
   try {
-    const [userRes, txRes] = await Promise.all([
-      pool.query(query),
-      pool.query(txQuery)
+    const [userRes, txRes, chartRes, sourceRes, topRes] = await Promise.all([
+      pool.query(userQuery), pool.query(txQuery), pool.query(chartQuery),
+      pool.query(sourceQuery), pool.query(topQuery)
     ]);
     const row = userRes.rows[0];
     return {
       totalUsers: parseInt(row.total_users, 10) || 0,
       activeUsers: parseInt(row.active_users, 10) || 0,
       totalCoins: parseInt(row.total_coins, 10) || 0,
-      transactions24h: parseInt(txRes.rows[0].tx_count, 10) || 0
+      transactions24h: parseInt(txRes.rows[0].tx_count, 10) || 0,
+      chartData: chartRes.rows.map(r => ({ day: r.day, soulsIn: parseInt(r.souls_in,10)||0, txCount: parseInt(r.tx_count,10)||0 })),
+      sourceBreakdown: sourceRes.rows.map(r => ({ source: r.source, total: parseInt(r.total,10)||0 })),
+      topUsers: topRes.rows.map(r => ({ discordId: r.discord_id, balance: parseInt(r.coin_balance,10)||0 }))
     };
   } catch (error) {
     console.error('Error in getGlobalEconomyStats:', error);
-    return { totalUsers: 0, activeUsers: 0, totalCoins: 0, transactions24h: 0 };
+    return { totalUsers: 0, activeUsers: 0, totalCoins: 0, transactions24h: 0, chartData: [], sourceBreakdown: [], topUsers: [] };
   }
 }
 
@@ -1216,6 +1237,125 @@ async function recordDuelLoss(discordId, serverId) {
   await pool.query(query, [discordId]);
 }
 
+/**
+ * Gets per-server feature overrides as a { featureName: bool } map.
+ */
+async function getServerFeatureOverrides(serverId) {
+  try {
+    const res = await pool.query(
+      'SELECT feature, enabled FROM server_feature_overrides WHERE server_id = $1',
+      [serverId]
+    );
+    const overrides = {};
+    res.rows.forEach(r => { overrides[r.feature] = r.enabled; });
+    return overrides;
+  } catch (e) {
+    console.error('Error in getServerFeatureOverrides:', e);
+    return {};
+  }
+}
+
+/**
+ * Sets a single per-server feature override.
+ */
+async function setServerFeatureOverride(serverId, feature, enabled) {
+  await pool.query(`
+    INSERT INTO server_feature_overrides (server_id, feature, enabled, updated_at)
+    VALUES ($1, $2, $3, NOW())
+    ON CONFLICT (server_id, feature) DO UPDATE SET enabled = $3, updated_at = NOW()
+  `, [serverId, feature, enabled]);
+}
+
+/**
+ * Returns detailed stats for a single server — top members, recent transactions, 7d activity.
+ */
+async function getServerDetail(serverId) {
+  try {
+    const [topRes, txRes, actRes, overridesRes] = await Promise.all([
+      pool.query(`
+        SELECT u.discord_id, u.coin_balance
+        FROM users u
+        WHERE u.server_id = 'GLOBAL' AND u.discord_id IN (
+          SELECT discord_id FROM users WHERE server_id = $1
+        ) AND u.coin_balance > 0
+        ORDER BY u.coin_balance DESC LIMIT 10
+      `, [serverId]),
+      pool.query(`
+        SELECT t.user_id, t.amount, t.source, t.created_at
+        FROM transactions t
+        WHERE t.server_id = $1 OR (t.server_id = 'GLOBAL' AND t.user_id IN (
+          SELECT discord_id FROM users WHERE server_id = $1
+        ))
+        ORDER BY t.created_at DESC LIMIT 20
+      `, [serverId]),
+      pool.query(`
+        SELECT DATE(counted_at) AS day, COUNT(DISTINCT user_id) AS active_users
+        FROM message_activity
+        WHERE server_id = $1 AND counted_at >= NOW() - INTERVAL '7 days'
+        GROUP BY DATE(counted_at) ORDER BY day ASC
+      `, [serverId]),
+      pool.query('SELECT feature, enabled FROM server_feature_overrides WHERE server_id = $1', [serverId])
+    ]);
+
+    const overrides = {};
+    overridesRes.rows.forEach(r => { overrides[r.feature] = r.enabled; });
+
+    return {
+      topMembers: topRes.rows.map((r, i) => ({ rank: i+1, discordId: r.discord_id, balance: parseInt(r.coin_balance,10)||0 })),
+      recentTransactions: txRes.rows.map(r => ({ userId: r.user_id, amount: r.amount, source: r.source, at: r.created_at })),
+      activityChart: actRes.rows.map(r => ({ day: r.day, activeUsers: parseInt(r.active_users,10)||0 })),
+      featureOverrides: overrides
+    };
+  } catch (e) {
+    console.error('Error in getServerDetail:', e);
+    return { topMembers: [], recentTransactions: [], activityChart: [], featureOverrides: {} };
+  }
+}
+
+/**
+ * Returns wallet + transaction history for a specific user (for User Inspector tab).
+ */
+async function getUserInspect(discordId) {
+  try {
+    const [balRes, txRes, statsRes, rankRes] = await Promise.all([
+      pool.query('SELECT coin_balance, last_checkin_at FROM users WHERE discord_id = $1 AND server_id = $2', [discordId, 'GLOBAL']),
+      pool.query(`
+        SELECT amount, source, created_at FROM transactions
+        WHERE user_id = $1
+        ORDER BY created_at DESC LIMIT 30
+      `, [discordId]),
+      pool.query('SELECT * FROM user_stats WHERE discord_id = $1 AND server_id = $2', [discordId, 'GLOBAL']),
+      pool.query(`
+        SELECT COUNT(*) + 1 AS rank FROM users
+        WHERE server_id = 'GLOBAL' AND coin_balance > (
+          SELECT COALESCE(coin_balance, 0) FROM users WHERE discord_id = $1 AND server_id = 'GLOBAL'
+        )
+      `, [discordId])
+    ]);
+
+    if (balRes.rows.length === 0) return null;
+
+    const user = balRes.rows[0];
+    const stats = statsRes.rows[0] || null;
+    return {
+      discordId,
+      balance: parseInt(user.coin_balance, 10) || 0,
+      lastCheckin: user.last_checkin_at,
+      rank: parseInt(rankRes.rows[0].rank, 10) || 0,
+      transactions: txRes.rows.map(r => ({ amount: r.amount, source: r.source, at: r.created_at })),
+      stats: stats ? {
+        strength: (stats.base_strength || 50) + (stats.boost_strength || 0),
+        defense: (stats.base_defense || 50) + (stats.boost_defense || 0),
+        speed: (stats.base_speed || 50) + (stats.boost_speed || 0),
+        magic: (stats.base_magic || 50) + (stats.boost_magic || 0)
+      } : null
+    };
+  } catch (e) {
+    console.error('Error in getUserInspect:', e);
+    return null;
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
@@ -1240,6 +1380,10 @@ module.exports = {
   recordDuelLoss,
   getGlobalSettings,
   setGlobalSetting,
-  getGlobalEconomyStats
+  getGlobalEconomyStats,
+  getServerFeatureOverrides,
+  setServerFeatureOverride,
+  getServerDetail,
+  getUserInspect
 };
 

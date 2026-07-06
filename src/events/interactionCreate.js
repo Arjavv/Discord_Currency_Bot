@@ -17,7 +17,7 @@ module.exports = {
       getFeatureForSlashCommand
     } = require('../utils/botControl');
 
-    const control = await getBotControlState();
+    const control = await getBotControlState(interaction.guildId);
     const isAdminCommand = interaction.commandName === 'admin';
 
     if (control.maintenanceMode && !isAdminCommand) {

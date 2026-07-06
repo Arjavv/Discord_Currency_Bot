@@ -1,1173 +1,810 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard | Soul Currency System</title>
-  <!-- Google Fonts -->
+  <title>Soul Economy - Mission Control</title>
+  <meta name="description" content="Admin cockpit for the Soul Currency Discord economy bot.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg-darkest: #070709;
-      --bg-darker: #0d0d12;
-      --bg-card: rgba(22, 22, 30, 0.85);
-      --bg-card-hover: rgba(30, 30, 42, 0.95);
-      
-      --color-gold: #f39c12;
-      --color-gold-glow: #f1c40f;
-      --color-gold-gradient: linear-gradient(135deg, #f1c40f, #e67e22);
-      --color-flame: #e74c3c;
-      --color-flame-gradient: linear-gradient(135deg, #ff4500, #ff8c00);
-      --color-text-primary: #ffffff;
-      --color-text-secondary: #a0a6b2;
-      --color-border: rgba(241, 196, 15, 0.15);
-      --color-border-hover: rgba(241, 196, 15, 0.4);
-      --glass-blur: blur(16px);
-      --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      --bg: #05050d; --bg2: #09091a; --bg3: #0e0e22;
+      --card: rgba(255,255,255,0.03); --card-border: rgba(255,255,255,0.07);
+      --violet: #8b5cf6; --violet-glow: rgba(139,92,246,0.25);
+      --cyan: #06b6d4; --cyan-glow: rgba(6,182,212,0.2);
+      --amber: #f59e0b; --amber-glow: rgba(245,158,11,0.2);
+      --red: #ef4444; --red-glow: rgba(239,68,68,0.25);
+      --green: #22c55e; --text: #e2e8f0; --muted: #64748b;
+      --sidebar-w: 240px;
     }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    /* LOGIN */
+    #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); background-image: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.15) 0%, transparent 70%); }
+    .login-box { background: var(--bg2); border: 1px solid var(--card-border); border-radius: 16px; padding: 48px 40px; width: 380px; text-align: center; box-shadow: 0 0 80px rgba(139,92,246,0.1); }
+    .login-box h1 { font-family: 'Orbitron', monospace; font-size: 1.4rem; color: var(--violet); margin-bottom: 6px; }
+    .login-box p { color: var(--muted); font-size: 0.85rem; margin-bottom: 28px; }
+    .login-box input { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text); font-size: 0.95rem; outline: none; margin-bottom: 14px; transition: border 0.2s; }
+    .login-box input:focus { border-color: var(--violet); }
+    .btn-primary { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--violet), #6d28d9); border: none; border-radius: 8px; color: #fff; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    #login-error { color: var(--red); font-size: 0.82rem; margin-top: 10px; display: none; }
 
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: var(--bg-darkest);
-      color: var(--color-text-secondary);
-      line-height: 1.6;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow-x: hidden;
-    }
+    /* LAYOUT */
+    #app { display: none; height: 100vh; overflow: hidden; flex-direction: row; }
+    .sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--bg2); border-right: 1px solid var(--card-border); display: flex; flex-direction: column; overflow: hidden; }
+    .sidebar-logo { padding: 22px 20px 16px; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; gap: 10px; }
+    .sidebar-logo .icon { font-size: 1.4rem; color: var(--violet); }
+    .sidebar-logo .label { font-family: 'Orbitron', monospace; font-size: 0.85rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .sidebar-logo .sub { font-size: 0.65rem; color: var(--muted); font-family: 'Inter', sans-serif; }
 
-    /* Radial Glow backgrounds */
-    .glow-bg {
-      position: absolute;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(241, 196, 15, 0.05) 0%, rgba(0,0,0,0) 70%);
-      top: -100px;
-      left: -100px;
-      z-index: 0;
-      pointer-events: none;
-    }
+    #sidebar-status { margin: 14px 14px 6px; background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; font-size: 0.75rem; }
+    .status-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .status-row:last-child { margin-bottom: 0; }
+    .status-key { color: var(--muted); }
+    .status-val { font-weight: 500; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+    .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
 
-    .glow-bg-bottom {
-      position: absolute;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(231, 76, 60, 0.03) 0%, rgba(0,0,0,0) 70%);
-      bottom: -100px;
-      right: -100px;
-      z-index: 0;
-      pointer-events: none;
-    }
+    .sidebar-nav { padding: 10px 10px; flex: 1; overflow-y: auto; }
+    .nav-section-label { font-size: 0.65rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 10px 10px 6px; }
+    .nav-item { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 0.86rem; transition: all 0.18s; margin-bottom: 2px; }
+    .nav-item i { width: 16px; text-align: center; font-size: 0.9rem; }
+    .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+    .nav-item.active { background: var(--violet-glow); color: var(--violet); border: 1px solid rgba(139,92,246,0.3); }
 
-    /* Login Box (Glassmorphic) */
-    .login-container {
-      background: var(--bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: 16px;
-      padding: 40px;
-      width: 100%;
-      max-width: 420px;
-      backdrop-filter: var(--glass-blur);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-      z-index: 10;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      transition: var(--transition-smooth);
-    }
+    .sidebar-footer { padding: 14px; border-top: 1px solid var(--card-border); }
+    .btn-logout { width: 100%; padding: 9px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 7px; color: var(--red); font-size: 0.82rem; cursor: pointer; transition: all 0.18s; }
+    .btn-logout:hover { background: rgba(239,68,68,0.2); }
 
-    .login-header h1 {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 24px;
-      color: var(--color-text-primary);
-      letter-spacing: 1px;
-      margin-bottom: 8px;
-    }
+    .main { flex: 1; overflow-y: auto; background: var(--bg); }
+    .panel { display: none; padding: 28px 30px; min-height: 100%; }
+    .panel.active { display: block; }
+    .panel-header { margin-bottom: 24px; }
+    .panel-header h2 { font-family: 'Orbitron', monospace; font-size: 1.35rem; font-weight: 700; color: var(--text); }
+    .panel-header p { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
 
-    .gold-text {
-      color: var(--color-gold-glow);
-      text-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
-    }
+    /* STAT CARDS */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .stat-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px 20px; position: relative; overflow: hidden; transition: border 0.2s; }
+    .stat-card:hover { border-color: rgba(255,255,255,0.12); }
+    .stat-card .accent-bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .stat-card .sc-label { font-size: 0.72rem; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+    .stat-card .sc-value { font-family: 'Orbitron', monospace; font-size: 1.65rem; font-weight: 700; margin: 8px 0 4px; color: var(--text); }
+    .stat-card .sc-sub { font-size: 0.75rem; color: var(--muted); }
+    .stat-card .sc-icon { position: absolute; top: 16px; right: 16px; font-size: 1.5rem; opacity: 0.15; }
+    .v .accent-bar { background: var(--violet); }
+    .c .accent-bar { background: var(--cyan); }
+    .a .accent-bar { background: var(--amber); }
+    .r .accent-bar { background: var(--red); }
+    .g .accent-bar { background: var(--green); }
 
-    .input-group {
-      display: flex;
-      flex-direction: column;
-      text-align: left;
-      gap: 8px;
-      position: relative;
-    }
+    /* SECTIONS */
+    .section { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 22px 24px; margin-bottom: 20px; }
+    .section-title { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .section-title i { color: var(--violet); }
 
-    .input-group label {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--color-text-primary);
-    }
+    /* TOGGLES */
+    .toggle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+    .toggle-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 9px; transition: border 0.18s; }
+    .toggle-item:hover { border-color: rgba(255,255,255,0.1); }
+    .toggle-label { font-size: 0.83rem; font-weight: 500; color: var(--text); }
+    .toggle-label small { display: block; font-size: 0.68rem; color: var(--muted); font-weight: 400; margin-top: 2px; }
+    .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background: rgba(255,255,255,0.1); border-radius: 24px; transition: 0.25s; }
+    .slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: var(--muted); border-radius: 50%; transition: 0.25s; }
+    input:checked + .slider { background: var(--violet); box-shadow: 0 0 12px var(--violet-glow); }
+    input:checked + .slider:before { transform: translateX(18px); background: #fff; }
 
-    .input-field-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
+    /* MAINTENANCE */
+    .maintenance-toggle { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-radius: 10px; margin-bottom: 14px; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); transition: all 0.3s; }
+    .maintenance-toggle.active { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.5); box-shadow: 0 0 20px rgba(239,68,68,0.1); }
+    .maint-info h3 { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+    .maint-info p { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+    .switch.big { width: 56px; height: 30px; }
+    .switch.big .slider:before { width: 22px; height: 22px; left: 4px; bottom: 4px; }
+    .switch.big input:checked + .slider { background: var(--red); box-shadow: 0 0 16px var(--red-glow); }
+    .switch.big input:checked + .slider:before { transform: translateX(26px); }
+    .maint-msg-wrap textarea { width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text); font-size: 0.83rem; resize: vertical; min-height: 60px; outline: none; font-family: inherit; margin-top: 10px; }
+    .maint-msg-wrap textarea:focus { border-color: var(--red); }
 
-    .input-field-wrapper i {
-      position: absolute;
-      left: 16px;
-      color: var(--color-text-secondary);
-    }
+    /* INPUTS */
+    .input-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .input-group label { display: block; font-size: 0.72rem; color: var(--muted); margin-bottom: 5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    .input-group input { width: 100%; padding: 9px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); border-radius: 7px; color: var(--text); font-size: 0.88rem; outline: none; transition: border 0.2s; font-family: 'JetBrains Mono', monospace; }
+    .input-group input:focus { border-color: var(--violet); }
 
-    .input-field {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--color-border);
-      border-radius: 8px;
-      padding: 14px 16px 14px 44px;
-      color: var(--color-text-primary);
-      font-size: 16px;
-      font-family: inherit;
-      outline: none;
-      transition: var(--transition-smooth);
-    }
+    /* SAVE BUTTONS */
+    .save-btn { margin-top: 16px; padding: 10px 24px; background: linear-gradient(135deg, var(--violet), #6d28d9); border: none; border-radius: 8px; color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+    .save-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .save-btn.saving { opacity: 0.6; cursor: wait; }
+    .save-btn.success { background: linear-gradient(135deg, var(--green), #16a34a) !important; }
 
-    select option {
-      background-color: #0d0d12 !important;
-      color: #ffffff !important;
-    }
+    /* TABLES */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .data-table th { padding: 9px 12px; text-align: left; font-size: 0.68rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--card-border); }
+    .data-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 0.7rem; font-weight: 700; background: rgba(255,255,255,0.06); color: var(--muted); }
+    .rank-badge.top1 { background: rgba(245,158,11,0.2); color: var(--amber); border: 1px solid rgba(245,158,11,0.4); }
+    .rank-badge.top2 { background: rgba(148,163,184,0.2); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+    .rank-badge.top3 { background: rgba(180,83,9,0.2); color: #cd7f32; border: 1px solid rgba(180,83,9,0.3); }
+    .coin-bar { display: flex; align-items: center; gap: 10px; }
+    .bar-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--violet), var(--cyan)); transition: width 0.6s; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .tx-amount.pos { color: var(--green); }
+    .tx-amount.neg { color: var(--red); }
+    .source-chip { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; font-weight: 500; background: rgba(139,92,246,0.15); color: var(--violet); border: 1px solid rgba(139,92,246,0.25); }
+    .source-chip.checkin { background: rgba(34,197,94,0.1); color: var(--green); border-color: rgba(34,197,94,0.2); }
+    .source-chip.message_activity { background: rgba(6,182,212,0.1); color: var(--cyan); border-color: rgba(6,182,212,0.2); }
+    .source-chip.drop_catch { background: rgba(245,158,11,0.1); color: var(--amber); border-color: rgba(245,158,11,0.2); }
 
-    .input-field:focus {
-      border-color: var(--color-gold);
-      box-shadow: 0 0 10px rgba(241, 196, 15, 0.2);
-    }
+    /* SERVER SELECTOR */
+    #server-select { flex: 1; min-width: 220px; max-width: 400px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--card-border); border-radius: 9px; color: var(--text); font-size: 0.88rem; outline: none; cursor: pointer; }
+    #server-select:focus { border-color: var(--violet); }
+    #server-select option { background: #1e1e2e; color: var(--text); }
+    .server-selector-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
 
-    .btn {
-      font-family: 'Orbitron', sans-serif;
-      background: var(--color-gold-gradient);
-      color: #000000;
-      border: none;
-      border-radius: 8px;
-      padding: 14px 28px;
-      font-size: 14px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: var(--transition-smooth);
-    }
+    /* CHARTS */
+    .chart-wrap { position: relative; height: 200px; }
+    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } }
 
-    .btn:hover {
-      box-shadow: 0 0 15px var(--color-gold-glow);
-      transform: translateY(-2px);
-    }
+    /* USER INSPECTOR */
+    .user-search-row { display: flex; gap: 10px; margin-bottom: 20px; }
+    #user-search-input { flex: 1; padding: 11px 14px; background: var(--bg2); border: 1px solid var(--card-border); border-radius: 9px; color: var(--text); font-size: 0.9rem; outline: none; font-family: 'JetBrains Mono', monospace; }
+    #user-search-input:focus { border-color: var(--cyan); }
+    .btn-search { padding: 11px 20px; background: linear-gradient(135deg, var(--cyan), #0891b2); border: none; border-radius: 9px; color: #fff; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .btn-search:hover { opacity: 0.9; }
+    .user-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 24px; display: none; margin-bottom: 16px; }
+    .user-card.visible { display: block; }
+    .user-card-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+    .user-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--violet-glow); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; border: 2px solid rgba(139,92,246,0.4); }
+    .user-info h3 { font-size: 1rem; font-weight: 600; color: var(--text); }
+    .user-info p { font-size: 0.78rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .user-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .user-stat { background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px; text-align: center; }
+    .user-stat .us-val { font-family: 'Orbitron', monospace; font-size: 1.1rem; font-weight: 700; color: var(--violet); }
+    .user-stat .us-key { font-size: 0.68rem; color: var(--muted); margin-top: 3px; text-transform: uppercase; }
 
-    .btn:active {
-      transform: translateY(0);
-    }
+    .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 0.85rem; }
+    .empty-state i { font-size: 2rem; margin-bottom: 12px; display: block; opacity: 0.3; }
+    .loading-dots::after { content: '...'; animation: dots 1.2s infinite; }
+    @keyframes dots { 0%,100%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
 
-    .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--color-border);
-      color: var(--color-text-primary);
-    }
+    #toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 9999; background: var(--bg2); border: 1px solid var(--card-border); color: var(--text); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+    #toast.show { opacity: 1; }
+    #toast.ok { border-color: var(--green); color: var(--green); }
+    #toast.err { border-color: var(--red); color: var(--red); }
 
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: var(--color-border-hover);
-      box-shadow: none;
-    }
-
-    /* Error Message Alert */
-    .error-msg {
-      background: rgba(231, 76, 60, 0.15);
-      border: 1px solid var(--color-flame);
-      color: #ff6b6b;
-      border-radius: 8px;
-      padding: 12px;
-      font-size: 14px;
-      display: none;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* Main Dashboard Layout */
-    .dashboard-container {
-      width: 100%;
-      max-width: 900px;
-      margin: 40px auto;
-      padding: 0 24px;
-      z-index: 10;
-      display: none;
-      flex-direction: column;
-      gap: 32px;
-    }
-
-    .dash-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--color-border);
-      padding-bottom: 20px;
-    }
-
-    .dash-header h2 {
-      font-family: 'Orbitron', sans-serif;
-      color: var(--color-text-primary);
-      font-size: 28px;
-      letter-spacing: 0.5px;
-    }
-
-    /* Configuration Panel Grid */
-    .config-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 24px;
-    }
-
-    @media (min-width: 768px) {
-      .config-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    .config-card {
-      background: var(--bg-card);
-      border: 1px solid var(--color-border);
-      border-radius: 12px;
-      padding: 24px;
-      backdrop-filter: var(--glass-blur);
-      transition: var(--transition-smooth);
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .config-card:hover {
-      border-color: var(--color-border-hover);
-    }
-
-    .card-title {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 16px;
-      color: var(--color-text-primary);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      padding-bottom: 12px;
-    }
-
-    .card-title i {
-      color: var(--color-gold);
-    }
-
-    .input-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
-    .input-row label {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--color-text-secondary);
-    }
-
-    .number-input-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-      max-width: 140px;
-    }
-
-    .number-input-wrapper span {
-      position: absolute;
-      right: 16px;
-      font-size: 12px;
-      color: var(--color-text-secondary);
-    }
-
-    .number-input {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--color-border);
-      border-radius: 6px;
-      padding: 10px 48px 10px 12px;
-      color: var(--color-text-primary);
-      font-size: 15px;
-      outline: none;
-      text-align: right;
-      font-family: inherit;
-    }
-
-    .number-input:focus {
-      border-color: var(--color-gold);
-    }
-
-    /* Server List Table styles */
-    .server-table-container {
-      width: 100%;
-      overflow-x: auto;
-      margin-top: 10px;
-    }
-
-    .server-table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 14px;
-    }
-
-    .server-table th {
-      border-bottom: 2px solid var(--color-border);
-      padding: 12px 16px;
-      color: var(--color-text-primary);
-      font-family: 'Orbitron', sans-serif;
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 12px;
-      letter-spacing: 0.5px;
-    }
-
-    .server-table td {
-      padding: 14px 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      color: var(--color-text-secondary);
-      vertical-align: middle;
-    }
-
-    .server-table tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--color-text-primary);
-    }
-
-    .server-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: #1e1e2a;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Orbitron', sans-serif;
-      font-weight: bold;
-      color: var(--color-gold);
-      border: 1px solid var(--color-border);
-      object-fit: cover;
-    }
-
-    .server-info-cell {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .badge-coins {
-      background: rgba(241, 196, 15, 0.1);
-      color: var(--color-gold-glow);
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-family: 'Orbitron', sans-serif;
-      font-weight: bold;
-      border: 1px solid rgba(241, 196, 15, 0.2);
-    }
-
-    /* Save and Notification System */
-    .action-bar {
-      display: flex;
-      justify-content: flex-end;
-      gap: 16px;
-      margin-top: 12px;
-    }
-
-    .toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: #00ffaa;
-      color: #000000;
-      padding: 14px 24px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 15px;
-      box-shadow: 0 8px 24px rgba(0, 255, 170, 0.2);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      z-index: 100;
-      transform: translateY(150%);
-      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    .toast.show {
-      transform: translateY(0);
-    }
-
-    /* Toggle Switch Styles */
-    .switch-container {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 6px 0;
-    }
-
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 50px;
-      height: 26px;
-      flex-shrink: 0;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #2c2c38;
-      transition: .4s;
-      border-radius: 34px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: #a0a6b2;
-      transition: .4s;
-      border-radius: 50%;
-    }
-
-    input:checked + .slider {
-      background-color: rgba(241, 196, 15, 0.2);
-      border-color: var(--color-gold);
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(24px);
-      background-color: var(--color-gold-glow);
-      box-shadow: 0 0 8px var(--color-gold-glow);
-    }
-
-    /* Maintenance Banner */
-    .maintenance-banner {
-      background: rgba(231, 76, 60, 0.08);
-      border: 1px solid rgba(231, 76, 60, 0.3);
-      border-radius: 12px;
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      backdrop-filter: var(--glass-blur);
-    }
-
-    .maintenance-banner-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .maintenance-title {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 16px;
-      color: #ff6b6b;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 0;
-    }
-
-    .status-badge {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-family: 'Orbitron', sans-serif;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .status-badge.live {
-      background: #27ae60;
-      color: #ffffff;
-      box-shadow: 0 0 8px rgba(39, 174, 96, 0.4);
-    }
-
-    .status-badge.maintenance {
-      background: #e74c3c;
-      color: #ffffff;
-      box-shadow: 0 0 8px rgba(231, 76, 60, 0.4);
-    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
   </style>
 </head>
 <body>
 
-  <div class="glow-bg"></div>
-  <div class="glow-bg-bottom"></div>
-
-  <!-- 1. LOGIN OVERLAY -->
-  <div class="login-container" id="login-panel">
-    <div class="login-header">
-      <h1>SOUL <span class="gold-text">ADMIN</span></h1>
-      <p>Secure Control Panel authentication</p>
-    </div>
-    
-    <div class="error-msg" id="error-alert">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-      <span id="error-alert-text">Incorrect admin password.</span>
-    </div>
-
-    <form id="login-form" onsubmit="handleLogin(event)">
-      <div style="display: flex; flex-direction: column; gap: 20px;">
-        <div class="input-group">
-          <label for="password">Owner Passphrase</label>
-          <div class="input-field-wrapper">
-            <i class="fa-solid fa-key"></i>
-            <input type="password" id="password" class="input-field" placeholder="••••••••••••••••" required>
-          </div>
-        </div>
-
-        <button type="submit" class="btn">
-          <i class="fa-solid fa-shield-halved"></i> Access Panel
-        </button>
-      </div>
-    </form>
-    
-    <div style="font-size: 11px; margin-top: 10px;">
-      <a href="/" style="color: var(--color-text-secondary); text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Return to Main Website</a>
-    </div>
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div style="font-size:2.5rem;margin-bottom:14px">&#x1FAC0;</div>
+    <h1>MISSION CONTROL</h1>
+    <p>Soul Economy Admin Panel</p>
+    <input type="password" id="pwd-input" placeholder="Enter admin password" autocomplete="current-password">
+    <button class="btn-primary" id="login-btn">AUTHENTICATE</button>
+    <div id="login-error">Invalid password</div>
   </div>
+</div>
 
-  <!-- 2. DASHBOARD VIEW -->
-  <div class="dashboard-container" id="dashboard-panel">
-    <div class="dash-header">
+<!-- APP -->
+<div id="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="icon">&#x1FAC0;</div>
       <div>
-        <h2>Global <span class="gold-text">Settings</span></h2>
-        <p style="font-size: 14px;">Wielder profile values, training upgrade costs, and fight configuration</p>
-      </div>
-      <button class="btn btn-secondary" onclick="handleLogout()">
-        <i class="fa-solid fa-right-from-bracket"></i> Logout
-      </button>
-    </div>
-
-    <!-- Maintenance Mode Panel -->
-    <div class="maintenance-banner" style="margin-bottom: 24px;">
-      <div class="maintenance-banner-header">
-        <h3 class="maintenance-title">
-          <i class="fa-solid fa-triangle-exclamation"></i>
-          <span>System Maintenance Mode</span>
-        </h3>
-        <span id="bot-status-badge" class="status-badge live">Live / Active</span>
-      </div>
-      <p style="font-size: 13px; color: var(--color-text-secondary); margin: 0;">
-        Enabling Maintenance Mode will immediately restrict bot commands for standard users. Standard read-only commands will still function.
-      </p>
-      
-      <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
-        <div class="switch-container">
-          <span style="font-size: 14px; font-weight: 600; color: var(--color-text-primary);">Activate Maintenance Block</span>
-          <label class="switch">
-            <input type="checkbox" id="maintenance_mode" onchange="updateStatusBadge()">
-            <span class="slider"></span>
-          </label>
-        </div>
-        
-        <div class="input-group" style="margin-top: 8px;">
-          <label for="maintenance_message" style="font-size: 12px;">Custom Warning Message</label>
-          <input type="text" id="maintenance_message" class="input-field" style="padding-left: 16px;" placeholder="🔧 The bot is currently under maintenance. Please try again later.">
-        </div>
+        <div class="label">SOUL ECONOMY</div>
+        <div class="sub">Mission Control v2</div>
       </div>
     </div>
+    <div id="sidebar-status">
+      <div class="status-row"><span class="status-key">Bot Status</span><span class="status-val" id="s-bot-status"><span class="dot red"></span>--</span></div>
+      <div class="status-row"><span class="status-key">Guilds</span><span class="status-val" id="s-guilds">--</span></div>
+      <div class="status-row"><span class="status-key">Uptime</span><span class="status-val" id="s-uptime">--</span></div>
+      <div class="status-row"><span class="status-key">Txs 24h</span><span class="status-val" id="s-txs">--</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Navigation</div>
+      <div class="nav-item active" data-panel="mission"><i class="fa-solid fa-gauge-high"></i> Mission Control</div>
+      <div class="nav-item" data-panel="servers"><i class="fa-solid fa-server"></i> Server Analytics</div>
+      <div class="nav-item" data-panel="analytics"><i class="fa-solid fa-chart-area"></i> Global Analytics</div>
+      <div class="nav-item" data-panel="inspector"><i class="fa-solid fa-magnifying-glass-dollar"></i> User Inspector</div>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn-logout" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+    </div>
+  </aside>
 
-    <form id="settings-form" onsubmit="saveSettings(event)">
-      <div class="config-grid">
-        
-        <!-- Category A: Weekly Upgrades -->
-        <div class="config-card">
-          <div class="card-title">
-            <i class="fa-solid fa-dumbbell"></i>
-            <span>Weekly Training Upgrades</span>
-          </div>
-          <div class="input-row">
-            <label for="price_dumbbell">Iron Dumbbell (⚔️ Str)</label>
-            <div class="number-input-wrapper">
-              <input type="number" id="price_dumbbell" class="number-input" min="0" required>
-              <span>Souls</span>
-            </div>
-          </div>
-          <div class="input-row">
-            <label for="price_vest">Kevlar Vest (🛡️ Def)</label>
-            <div class="number-input-wrapper">
-              <input type="number" id="price_vest" class="number-input" min="0" required>
-              <span>Souls</span>
-            </div>
-          </div>
-          <div class="input-row">
-            <label for="price_shoes">Running Shoes (⚡ Speed)</label>
-            <div class="number-input-wrapper">
-              <input type="number" id="price_shoes" class="number-input" min="0" required>
-              <span>Souls</span>
-            </div>
-          </div>
-          <div class="input-row">
-            <label for="price_tome">Ancient Tome (🔮 Magic)</label>
-            <div class="number-input-wrapper">
-              <input type="number" id="price_tome" class="number-input" min="0" required>
-              <span>Souls</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Category B: 24h Consumable Elixirs -->
-        <div class="config-card">
-          <div class="card-title">
-            <i class="fa-solid fa-flask"></i>
-            <span>24h Elixirs & Defenses</span>
-          </div>
-          <div class="input-row">
-            <label for="price_rage">Rage Elixir (⚔️ Str)</label>
-            <div class="number-input-wrapper">
-              <input type="number" id="price_rage" class="number-input" min="0" required>
-              <span>Souls</span>
-            </div>
-          </div>
-          <div class="input-row">
-            <label for="price_aegis">Aegis Serum (🛡️ Def)</label>
-            <div class="number-input-wrapper">
-              <input type="number" id="price_aegis" class="number-input" min="0" required>
-              <span>Souls</span>
-            </div>
-          </div>
-          <div class="input-row">
-            <label for="price_adrenaline">Adrenaline Pill (⚡ Speed)</label>
-            <div class="number-input-wrapper">
-              <input type="number" id="price_adrenaline" class="number-input" min="0" required>
-              <span>Souls</span>
-            </div>
-          </div>
-          <div class="input-row">
-            <label for="price_mana">Mana Elixir (🔮 Magic)</label>
-            <div class="number-input-wrapper">
-              <input type="number" id="price_mana" class="number-input" min="0" required>
-              <span>Souls</span>
-            </div>
-          </div>
-          <div class="input-row" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 12px; margin-top: 4px;">
-            <label for="price_shield">Divine Shield (Robbery Block)</label>
-            <div class="number-input-wrapper">
-              <input type="number" id="price_shield" class="number-input" min="0" required>
-              <span>Souls</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Category C: Duel Showdown Configurations -->
-        <div class="config-card" style="grid-column: 1 / -1;">
-          <div class="card-title">
-            <i class="fa-solid fa-swords"></i>
-            <span>Showdown Combat Configuration</span>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
-            <div class="input-row">
-              <label for="max_fight_bet" style="display: flex; flex-direction: column;">
-                <span>Maximum Showdown Bet Limit</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">Enforces max wager per fight command globally</span>
-              </label>
-              <div class="number-input-wrapper">
-                <input type="number" id="max_fight_bet" class="number-input" min="1" required>
-                <span>Souls</span>
-              </div>
-            </div>
-            
-            <div class="input-row" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 16px;">
-              <label for="duel_cooldown_hours" style="display: flex; flex-direction: column;">
-                <span>Duel Loss Cooldown Duration</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">Wielder locked duration upon losing duel clash</span>
-              </label>
-              <div class="number-input-wrapper">
-                <input type="number" id="duel_cooldown_hours" class="number-input" min="1" required>
-                <span>Hours</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Category D: Global Feature Toggles -->
-        <div class="config-card">
-          <div class="card-title">
-            <i class="fa-solid fa-toggle-on"></i>
-            <span>Global Feature Toggles</span>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            <div class="switch-container">
-              <span style="font-size: 13px; color: var(--color-text-secondary);">Daily Check-in Command</span>
-              <label class="switch">
-                <input type="checkbox" id="feature_checkin">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="switch-container" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px;">
-              <span style="font-size: 13px; color: var(--color-text-secondary);">Casino & Gambling Games</span>
-              <label class="switch">
-                <input type="checkbox" id="feature_casino">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="switch-container" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px;">
-              <span style="font-size: 13px; color: var(--color-text-secondary);">Item Shop & Purchase</span>
-              <label class="switch">
-                <input type="checkbox" id="feature_shop">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="switch-container" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px;">
-              <span style="font-size: 13px; color: var(--color-text-secondary);">Duel Showdowns</span>
-              <label class="switch">
-                <input type="checkbox" id="feature_duels">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="switch-container" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px;">
-              <span style="font-size: 13px; color: var(--color-text-secondary);">Rob & Robbery Actions</span>
-              <label class="switch">
-                <input type="checkbox" id="feature_rob">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="switch-container" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px;">
-              <span style="font-size: 13px; color: var(--color-text-secondary);">Automated Soul Drops</span>
-              <label class="switch">
-                <input type="checkbox" id="feature_drops">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="switch-container" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px;">
-              <span style="font-size: 13px; color: var(--color-text-secondary);">Message Activity Earnings</span>
-              <label class="switch">
-                <input type="checkbox" id="feature_message_earnings">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="switch-container" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px;">
-              <span style="font-size: 13px; color: var(--color-text-secondary);">Coins Gifting & Transfers</span>
-              <label class="switch">
-                <input type="checkbox" id="feature_transfers">
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- Category E: Economy Parameters -->
-        <div class="config-card">
-          <div class="card-title">
-            <i class="fa-solid fa-scale-balanced"></i>
-            <span>Economy Parameters</span>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 16px;">
-            <div class="input-row">
-              <label for="checkin_min" style="display: flex; flex-direction: column;">
-                <span>Daily Check-in (Min)</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">Min souls given by prefix claim</span>
-              </label>
-              <div class="number-input-wrapper">
-                <input type="number" id="checkin_min" class="number-input" min="0" required>
-                <span>Souls</span>
-              </div>
-            </div>
-            <div class="input-row">
-              <label for="checkin_max" style="display: flex; flex-direction: column;">
-                <span>Daily Check-in (Max)</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">Max souls given by prefix claim</span>
-              </label>
-              <div class="number-input-wrapper">
-                <input type="number" id="checkin_max" class="number-input" min="0" required>
-                <span>Souls</span>
-              </div>
-            </div>
-            <div class="input-row" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 12px;">
-              <label for="slash_checkin_amount" style="display: flex; flex-direction: column;">
-                <span>Slash Check-in Amount</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">Fixed amount given by slash checkin</span>
-              </label>
-              <div class="number-input-wrapper">
-                <input type="number" id="slash_checkin_amount" class="number-input" min="0" required>
-                <span>Souls</span>
-              </div>
-            </div>
-            <div class="input-row" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 12px;">
-              <label for="message_reward" style="display: flex; flex-direction: column;">
-                <span>Message Reward</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">Amount awarded per milestone</span>
-              </label>
-              <div class="number-input-wrapper">
-                <input type="number" id="message_reward" class="number-input" min="0" required>
-                <span>Souls</span>
-              </div>
-            </div>
-            <div class="input-row">
-              <label for="message_daily_cap" style="display: flex; flex-direction: column;">
-                <span>Message Daily Cap</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">Max souls earned via chat daily</span>
-              </label>
-              <div class="number-input-wrapper">
-                <input type="number" id="message_daily_cap" class="number-input" min="0" required>
-                <span>Souls</span>
-              </div>
-            </div>
-            <div class="input-row">
-              <label for="message_cooldown_seconds" style="display: flex; flex-direction: column;">
-                <span>Message Cooldown</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">Seconds between earning messages</span>
-              </label>
-              <div class="number-input-wrapper">
-                <input type="number" id="message_cooldown_seconds" class="number-input" min="1" required>
-                <span>Secs</span>
-              </div>
-            </div>
-            <div class="input-row">
-              <label for="message_milestone" style="display: flex; flex-direction: column;">
-                <span>Message Milestone</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">Messages count for payout trigger</span>
-              </label>
-              <div class="number-input-wrapper">
-                <input type="number" id="message_milestone" class="number-input" min="1" required>
-                <span>Msgs</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
+  <main class="main">
+    <!-- PANEL 1: MISSION CONTROL -->
+    <div class="panel active" id="panel-mission">
+      <div class="panel-header">
+        <h2><i class="fa-solid fa-gauge-high" style="color:var(--violet);font-size:1.1rem;margin-right:8px"></i>Mission Control</h2>
+        <p>Global economy controls, feature toggles, and live status</p>
       </div>
-
-      <div class="action-bar">
-        <button type="submit" class="btn">
-          <i class="fa-solid fa-floppy-disk"></i> Save Global Configurations
-        </button>
+      <div class="stat-grid">
+        <div class="stat-card v"><div class="accent-bar"></div><i class="fa-solid fa-coins sc-icon"></i><div class="sc-label">Total Souls</div><div class="sc-value" id="gc-souls">--</div><div class="sc-sub">in circulation</div></div>
+        <div class="stat-card c"><div class="accent-bar"></div><i class="fa-solid fa-users sc-icon"></i><div class="sc-label">Total Users</div><div class="sc-value" id="gc-users">--</div><div class="sc-sub">registered globally</div></div>
+        <div class="stat-card a"><div class="accent-bar"></div><i class="fa-solid fa-fire sc-icon"></i><div class="sc-label">Active Users</div><div class="sc-value" id="gc-active">--</div><div class="sc-sub">with non-zero balance</div></div>
+        <div class="stat-card g"><div class="accent-bar"></div><i class="fa-solid fa-bolt sc-icon"></i><div class="sc-label">Txs 24h</div><div class="sc-value" id="gc-txs">--</div><div class="sc-sub">transactions today</div></div>
+        <div class="stat-card r"><div class="accent-bar"></div><i class="fa-solid fa-building sc-icon"></i><div class="sc-label">Guilds</div><div class="sc-value" id="gc-guilds">--</div><div class="sc-sub">connected servers</div></div>
       </div>
-    </form>
-
-    <!-- Active Bot Guilds & Distribution stats -->
-    <div class="config-card" style="margin-top: 12px; width: 100%;">
-      <div class="card-title">
-        <i class="fa-solid fa-server"></i>
-        <span>Active Bot Servers</span>
-      </div>
-      <p style="font-size: 13px; margin-bottom: 20px; color: var(--color-text-secondary);">Select a server to view its active player count and total circulating currency.</p>
-
-      <!-- Server selector dropdown -->
-      <div style="position: relative; max-width: 420px; margin-bottom: 24px;">
-        <i class="fa-solid fa-network-wired" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); pointer-events: none; z-index: 1;"></i>
-        <select id="server-select" class="input-field" onchange="displayServerStats()"
-          style="width: 100%; padding: 12px 40px 12px 42px; appearance: none; -webkit-appearance: none; cursor: pointer; background: var(--color-bg-secondary);">
-          <option value="">— Select a Server —</option>
-        </select>
-        <i class="fa-solid fa-chevron-down" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); pointer-events: none;"></i>
-      </div>
-
-      <!-- Selected server stats detail panel -->
-      <div id="server-stats-detail" style="display: none; background: rgba(0,0,0,0.25); border: 1px solid var(--color-border); border-radius: 10px; padding: 24px;">
-        <div style="display: flex; align-items: center; gap: 18px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 18px; margin-bottom: 20px;">
-          <div id="server-avatar-container"></div>
-          <div>
-            <div id="server-stats-name" style="font-family: 'Orbitron', sans-serif; color: var(--color-text-primary); font-size: 18px; font-weight: 700; margin-bottom: 4px;"></div>
-            <div id="server-stats-id" style="font-size: 11px; color: var(--color-text-secondary);"></div>
-          </div>
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-triangle-exclamation"></i> Maintenance Mode</div>
+        <div class="maintenance-toggle" id="maint-toggle-wrap">
+          <div class="maint-info"><h3>Maintenance Mode</h3><p>All user commands are blocked. Bot status shows DND.</p></div>
+          <label class="switch big"><input type="checkbox" id="maint-toggle"><span class="slider"></span></label>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 18px; text-align: center;">
-            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--color-text-secondary); margin-bottom: 8px;">Active Users with Currency</div>
-            <div id="server-stats-members" style="font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 700; color: var(--color-text-primary);">0</div>
-          </div>
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 18px; text-align: center;">
-            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--color-text-secondary); margin-bottom: 8px;">Circulating Balance</div>
-            <div id="server-stats-coins" class="gold-text" style="font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 700;">0</div>
-          </div>
+        <div class="maint-msg-wrap">
+          <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Maintenance Message</label>
+          <textarea id="maint-message" placeholder="Message shown to users during maintenance..."></textarea>
         </div>
+        <button class="save-btn" id="save-maint-btn"><i class="fa-solid fa-floppy-disk"></i> Save Maintenance Settings</button>
+      </div>
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-toggle-on"></i> Global Feature Toggles</div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Disabling globally overrides all per-server settings.</p>
+        <div class="toggle-grid" id="global-feature-toggles">
+          <div class="toggle-item"><div class="toggle-label">Check-in<small>s daily / s checkin</small></div><label class="switch"><input type="checkbox" data-feature="feature_checkin" checked><span class="slider"></span></label></div>
+          <div class="toggle-item"><div class="toggle-label">Casino<small>s flip / s crash / s mines</small></div><label class="switch"><input type="checkbox" data-feature="feature_casino" checked><span class="slider"></span></label></div>
+          <div class="toggle-item"><div class="toggle-label">Shop<small>s shop / s buy</small></div><label class="switch"><input type="checkbox" data-feature="feature_shop" checked><span class="slider"></span></label></div>
+          <div class="toggle-item"><div class="toggle-label">Duels<small>s fight</small></div><label class="switch"><input type="checkbox" data-feature="feature_duels" checked><span class="slider"></span></label></div>
+          <div class="toggle-item"><div class="toggle-label">Rob<small>s rob / s steal / s heist</small></div><label class="switch"><input type="checkbox" data-feature="feature_rob" checked><span class="slider"></span></label></div>
+          <div class="toggle-item"><div class="toggle-label">Soul Drops<small>Auto-drop events</small></div><label class="switch"><input type="checkbox" data-feature="feature_drops" checked><span class="slider"></span></label></div>
+          <div class="toggle-item"><div class="toggle-label">Message Earnings<small>Chat to earn</small></div><label class="switch"><input type="checkbox" data-feature="feature_message_earnings" checked><span class="slider"></span></label></div>
+          <div class="toggle-item"><div class="toggle-label">Transfers<small>s gift / s give / s transfer</small></div><label class="switch"><input type="checkbox" data-feature="feature_transfers" checked><span class="slider"></span></label></div>
+        </div>
+        <button class="save-btn" id="save-features-btn"><i class="fa-solid fa-floppy-disk"></i> Save Feature Toggles</button>
+      </div>
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-sliders"></i> Economy Parameters</div>
+        <div class="input-grid">
+          <div class="input-group"><label>Check-in Min (s daily)</label><input type="number" id="p-checkin-min" placeholder="500"></div>
+          <div class="input-group"><label>Check-in Max (s daily)</label><input type="number" id="p-checkin-max" placeholder="1000"></div>
+          <div class="input-group"><label>Slash Check-in Amount</label><input type="number" id="p-slash-checkin" placeholder="20"></div>
+          <div class="input-group"><label>Message Reward</label><input type="number" id="p-msg-reward" placeholder="100"></div>
+          <div class="input-group"><label>Daily Msg Cap</label><input type="number" id="p-msg-cap" placeholder="5000"></div>
+          <div class="input-group"><label>Msg Cooldown (sec)</label><input type="number" id="p-msg-cooldown" placeholder="15"></div>
+          <div class="input-group"><label>Msg Milestone</label><input type="number" id="p-msg-milestone" placeholder="10"></div>
+          <div class="input-group"><label>Max Duel Bet</label><input type="number" id="p-max-fight-bet" placeholder="10000"></div>
+          <div class="input-group"><label>Duel Cooldown (hrs)</label><input type="number" id="p-duel-cooldown" placeholder="6"></div>
+        </div>
+        <button class="save-btn" id="save-params-btn"><i class="fa-solid fa-floppy-disk"></i> Save Parameters</button>
       </div>
     </div>
-    
-    <div style="text-align: center; margin-top: 40px; font-size: 12px;">
-      <a href="/" style="color: var(--color-text-secondary); text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Return to Main Website</a>
+
+    <!-- PANEL 2: SERVER ANALYTICS -->
+    <div class="panel" id="panel-servers">
+      <div class="panel-header">
+        <h2><i class="fa-solid fa-server" style="color:var(--cyan);font-size:1.1rem;margin-right:8px"></i>Server Analytics</h2>
+        <p>Per-server deep dive - top members, activity, feature overrides</p>
+      </div>
+      <div class="server-selector-row">
+        <select id="server-select"><option value="">-- Select a Server --</option></select>
+        <button class="save-btn" id="refresh-server-btn" style="margin-top:0"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+      </div>
+      <div id="server-detail-area"><div class="empty-state"><i class="fa-solid fa-server"></i>Select a server to view its analytics</div></div>
     </div>
-  </div>
 
-  <!-- Toast Notification -->
-  <div class="toast" id="toast-notify">
-    <i class="fa-solid fa-circle-check"></i> Configurations saved successfully!
-  </div>
+    <!-- PANEL 3: GLOBAL ANALYTICS -->
+    <div class="panel" id="panel-analytics">
+      <div class="panel-header">
+        <h2><i class="fa-solid fa-chart-area" style="color:var(--amber);font-size:1.1rem;margin-right:8px"></i>Global Analytics</h2>
+        <p>Economy-wide trends, Souls distribution, and leaderboard</p>
+      </div>
+      <div class="chart-grid" style="margin-bottom:20px">
+        <div class="section" style="padding:18px">
+          <div class="section-title"><i class="fa-solid fa-chart-line" style="color:var(--cyan)"></i> Souls Distributed - Last 7 Days</div>
+          <div class="chart-wrap"><canvas id="chart-souls-week"></canvas></div>
+        </div>
+        <div class="section" style="padding:18px">
+          <div class="section-title"><i class="fa-solid fa-chart-pie" style="color:var(--amber)"></i> Souls by Source (7d)</div>
+          <div class="chart-wrap"><canvas id="chart-sources"></canvas></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-trophy" style="color:var(--amber)"></i> Global Leaderboard - Top 20</div>
+        <div id="global-lb-table"><div class="empty-state loading-dots">Loading</div></div>
+      </div>
+    </div>
 
-  <script>
-    // Check initial authentication status
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/check-auth');
-        const data = await response.json();
-        
-        if (data.authenticated) {
-          showDashboard();
-        } else {
-          showLogin();
-        }
-      } catch (err) {
-        showLogin();
-      }
+    <!-- PANEL 4: USER INSPECTOR -->
+    <div class="panel" id="panel-inspector">
+      <div class="panel-header">
+        <h2><i class="fa-solid fa-magnifying-glass-dollar" style="color:var(--cyan);font-size:1.1rem;margin-right:8px"></i>User Inspector</h2>
+        <p>Look up any user by Discord ID - wallet, rank, transactions, combat stats</p>
+      </div>
+      <div class="user-search-row">
+        <input type="text" id="user-search-input" placeholder="Enter Discord User ID (e.g. 1038393508718989382)" autocomplete="off">
+        <button class="btn-search" id="user-search-btn"><i class="fa-solid fa-magnifying-glass"></i> Inspect</button>
+      </div>
+      <div class="user-card" id="user-card">
+        <div class="user-card-header">
+          <div class="user-avatar">&#x1F464;</div>
+          <div class="user-info"><h3 id="ui-tag">Unknown User</h3><p id="ui-id">--</p></div>
+          <div style="margin-left:auto;text-align:right">
+            <div style="font-family:'Orbitron',monospace;font-size:1.6rem;font-weight:700;color:var(--violet)" id="ui-balance">--</div>
+            <div style="font-size:0.72rem;color:var(--muted)">Souls - Rank #<span id="ui-rank">--</span></div>
+          </div>
+        </div>
+        <div class="user-stat-row" id="ui-stats-row" style="margin-bottom:16px">
+          <div class="user-stat"><div class="us-val" id="ui-str">--</div><div class="us-key">Strength</div></div>
+          <div class="user-stat"><div class="us-val" id="ui-def">--</div><div class="us-key">Defense</div></div>
+          <div class="user-stat"><div class="us-val" id="ui-spd">--</div><div class="us-key">Speed</div></div>
+          <div class="user-stat"><div class="us-val" id="ui-mag">--</div><div class="us-key">Magic</div></div>
+        </div>
+        <div class="section-title"><i class="fa-solid fa-scroll"></i> Recent Transactions (last 30)</div>
+        <div id="ui-tx-table"></div>
+      </div>
+      <div id="user-not-found" style="display:none"><div class="empty-state"><i class="fa-solid fa-user-slash"></i>User not found in the database</div></div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n).toLocaleString();
+const ago = d => { if (!d) return '—'; const s = Math.floor((Date.now()-new Date(d))/1000); if(s<60)return`${s}s ago`; if(s<3600)return`${Math.floor(s/60)}m ago`; if(s<86400)return`${Math.floor(s/3600)}h ago`; return`${Math.floor(s/86400)}d ago`; };
+const fmtDate = d => { if (!d) return '—'; const date = new Date(d); return date.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+
+function toast(msg, type='ok') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = `show ${type}`;
+  setTimeout(() => { t.className = ''; }, 3000);
+}
+
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error((await r.json().catch(()=>({error:r.statusText}))).error || r.statusText);
+  return r.json();
+}
+
+function saveBtn(btn, action) {
+  btn.classList.add('saving');
+  btn.disabled = true;
+  action().then(() => {
+    btn.classList.remove('saving');
+    btn.classList.add('success');
+    btn.disabled = false;
+    toast('Saved successfully ✓');
+    setTimeout(() => btn.classList.remove('success'), 2000);
+  }).catch(e => {
+    btn.classList.remove('saving');
+    btn.disabled = false;
+    toast('Error: ' + e.message, 'err');
+  });
+}
+
+function fmtUptime(ms) {
+  if (!ms) return '—';
+  const s = Math.floor(ms/1000), m = Math.floor(s/60), h = Math.floor(m/60), d = Math.floor(h/24);
+  if (d) return `${d}d ${h%24}h`;
+  if (h) return `${h}h ${m%60}m`;
+  return `${m}m`;
+}
+
+async function checkAuth() {
+  try {
+    const r = await api('/api/check-auth');
+    if (r.authenticated) showApp();
+  } catch (_) {}
+}
+
+$('login-btn').onclick = async () => {
+  $('login-error').style.display = 'none';
+  try {
+    await api('/api/login', 'POST', { password: $('pwd-input').value });
+    showApp();
+  } catch (_) {
+    $('login-error').style.display = 'block';
+  }
+};
+$('pwd-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('login-btn').click(); });
+
+$('logout-btn').onclick = async () => {
+  await api('/api/logout', 'POST').catch(()=>{});
+  $('app').style.display = 'none';
+  $('login-screen').style.display = 'flex';
+};
+
+function showApp() {
+  $('login-screen').style.display = 'none';
+  $('app').style.display = 'flex';
+  loadAll();
+}
+
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    $('panel-' + el.dataset.panel).classList.add('active');
+    if (el.dataset.panel === 'analytics') loadAnalytics();
+  });
+});
+
+async function loadAll() {
+  await Promise.all([loadStatus(), loadSettings(), loadServers()]);
+}
+
+async function loadStatus() {
+  try {
+    const d = await api('/api/bot-status');
+    $('s-bot-status').innerHTML = d.discordReady
+      ? '<span class="dot green"></span>Online'
+      : '<span class="dot red"></span>Offline';
+    $('s-guilds').textContent = d.guildCount ?? '—';
+    $('s-uptime').textContent = fmtUptime(d.uptimeMs);
+    $('s-txs').textContent = fmt(d.economy?.transactions24h ?? 0);
+    $('gc-souls').textContent = fmt(d.economy?.totalCoins ?? 0);
+    $('gc-users').textContent = fmt(d.economy?.totalUsers ?? 0);
+    $('gc-active').textContent = fmt(d.economy?.activeUsers ?? 0);
+    $('gc-txs').textContent = fmt(d.economy?.transactions24h ?? 0);
+    $('gc-guilds').textContent = d.guildCount ?? '—';
+
+    $('maint-toggle').checked = !!d.maintenanceMode;
+    $('maint-toggle-wrap').classList.toggle('active', !!d.maintenanceMode);
+    $('maint-message').value = d.maintenanceMessage || '';
+
+    const feats = d.features || {};
+    const featureMap = {
+      feature_checkin: feats.checkin,
+      feature_casino: feats.casino,
+      feature_shop: feats.shop,
+      feature_duels: feats.duels,
+      feature_rob: feats.rob,
+      feature_drops: feats.drops,
+      feature_message_earnings: feats.messageEarnings,
+      feature_transfers: feats.transfers
+    };
+    document.querySelectorAll('[data-feature]').forEach(inp => {
+      const key = inp.dataset.feature;
+      if (featureMap[key] !== undefined) inp.checked = featureMap[key];
+    });
+  } catch (e) { console.error('Status error:', e); }
+}
+
+async function loadSettings() {
+  try {
+    const s = await api('/api/settings');
+    $('p-checkin-min').value = s.checkin_min || '';
+    $('p-checkin-max').value = s.checkin_max || '';
+    $('p-slash-checkin').value = s.slash_checkin_amount || '';
+    $('p-msg-reward').value = s.message_reward || '';
+    $('p-msg-cap').value = s.message_daily_cap || '';
+    $('p-msg-cooldown').value = s.message_cooldown_seconds || '';
+    $('p-msg-milestone').value = s.message_milestone || '';
+    $('p-max-fight-bet').value = s.max_fight_bet || '';
+    $('p-duel-cooldown').value = s.duel_cooldown_hours || '';
+  } catch (e) { console.error('Settings error:', e); }
+}
+
+$('maint-toggle').addEventListener('change', () => {
+  $('maint-toggle-wrap').classList.toggle('active', $('maint-toggle').checked);
+});
+
+$('save-maint-btn').onclick = () => saveBtn($('save-maint-btn'), () =>
+  api('/api/settings', 'POST', {
+    maintenance_mode: String($('maint-toggle').checked),
+    maintenance_message: $('maint-message').value.trim() || '🔧 Bot is under maintenance.'
+  })
+);
+
+$('save-features-btn').onclick = () => saveBtn($('save-features-btn'), () => {
+  const updates = {};
+  document.querySelectorAll('[data-feature]').forEach(inp => {
+    updates[inp.dataset.feature] = String(inp.checked);
+  });
+  return api('/api/settings', 'POST', updates);
+});
+
+$('save-params-btn').onclick = () => saveBtn($('save-params-btn'), () =>
+  api('/api/settings', 'POST', {
+    checkin_min: $('p-checkin-min').value,
+    checkin_max: $('p-checkin-max').value,
+    slash_checkin_amount: $('p-slash-checkin').value,
+    message_reward: $('p-msg-reward').value,
+    message_daily_cap: $('p-msg-cap').value,
+    message_cooldown_seconds: $('p-msg-cooldown').value,
+    message_milestone: $('p-msg-milestone').value,
+    max_fight_bet: $('p-max-fight-bet').value,
+    duel_cooldown_hours: $('p-duel-cooldown').value
+  })
+);
+
+let serversData = [];
+
+async function loadServers() {
+  try {
+    serversData = await api('/api/servers-info');
+    const sel = $('server-select');
+    sel.innerHTML = '<option value="">-- Select a Server --</option>';
+    serversData.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = `${s.name} (${fmt(s.totalCoins)} Souls · ${s.membersCount} users)`;
+      sel.appendChild(opt);
+    });
+  } catch (e) { console.error('Servers error:', e); }
+}
+
+$('server-select').addEventListener('change', () => {
+  const id = $('server-select').value;
+  if (id) loadServerDetail(id);
+  else $('server-detail-area').innerHTML = '<div class="empty-state"><i class="fa-solid fa-server"></i>Select a server to view its analytics</div>';
+});
+
+$('refresh-server-btn').onclick = async () => {
+  const id = $('server-select').value;
+  await loadServers();
+  if (id) {
+    $('server-select').value = id;
+    loadServerDetail(id);
+  }
+};
+
+const FEATURES_LABELS = {
+  checkin: ['Check-in', 's daily / s checkin'],
+  casino: ['Casino', 's flip / s crash / s mines'],
+  shop: ['Shop', 's shop / s buy'],
+  duels: ['Duels', 's fight'],
+  rob: ['Rob', 's rob / s heist'],
+  drops: ['Soul Drops', 'Auto-drop events'],
+  messageEarnings: ['Message Earnings', 'Chat to earn'],
+  transfers: ['Transfers', 's gift / s give']
+};
+
+async function loadServerDetail(serverId) {
+  $('server-detail-area').innerHTML = '<div class="empty-state loading-dots">Loading server data</div>';
+  try {
+    const d = await api(`/api/server/${serverId}/detail`);
+    const sv = serversData.find(s => s.id === serverId) || {};
+    const maxBal = d.topMembers.length ? d.topMembers[0].balance : 1;
+
+    const featureOverrides = d.featureOverrides || {};
+
+    const overridesHtml = Object.entries(FEATURES_LABELS).map(([key, [label, sub]]) => {
+      const isOn = featureOverrides[key] !== false;
+      return `<div class="toggle-item">
+        <div class="toggle-label">${label}<small>${sub}</small></div>
+        <label class="switch"><input type="checkbox" data-sv-feature="${key}" ${isOn ? 'checked' : ''}><span class="slider"></span></label>
+      </div>`;
+    }).join('');
+
+    const topHtml = d.topMembers.length
+      ? `<table class="data-table">
+          <thead><tr><th>#</th><th>Discord ID</th><th>Balance</th><th>Share</th></tr></thead>
+          <tbody>${d.topMembers.map((m,i) => {
+            const rankCls = i===0?'top1':i===1?'top2':i===2?'top3':'';
+            const pct = maxBal ? Math.round(m.balance/maxBal*100) : 0;
+            return `<tr>
+              <td><span class="rank-badge ${rankCls}">${m.rank}</span></td>
+              <td class="mono" style="font-size:0.78rem">${m.discordId}</td>
+              <td class="mono">${fmt(m.balance)} <span style="color:var(--muted);font-size:0.72rem">Souls</span></td>
+              <td><div class="coin-bar"><div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div><span style="font-size:0.72rem;color:var(--muted);min-width:35px">${pct}%</span></div></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>`
+      : '<div class="empty-state" style="padding:20px"><i class="fa-solid fa-users-slash"></i>No members with Souls yet</div>';
+
+    const txHtml = d.recentTransactions.length
+      ? `<table class="data-table">
+          <thead><tr><th>User</th><th>Amount</th><th>Source</th><th>When</th></tr></thead>
+          <tbody>${d.recentTransactions.map(t => `<tr>
+            <td class="mono" style="font-size:0.75rem">${t.userId.slice(-6)}…</td>
+            <td class="tx-amount ${t.amount>0?'pos':'neg'} mono">${t.amount>0?'+':''}${fmt(t.amount)}</td>
+            <td><span class="source-chip ${t.source}">${t.source}</span></td>
+            <td style="color:var(--muted);font-size:0.78rem">${ago(t.at)}</td>
+          </tr>`).join('')}</tbody>
+        </table>`
+      : '<div class="empty-state" style="padding:20px"><i class="fa-solid fa-receipt"></i>No recent transactions</div>';
+
+    const actLabels = d.activityChart.map(r => fmtDate(r.day));
+    const actVals = d.activityChart.map(r => r.activeUsers);
+
+    $('server-detail-area').innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-card c"><div class="accent-bar"></div><i class="fa-solid fa-users sc-icon"></i><div class="sc-label">Discord Members</div><div class="sc-value">${fmt(d.memberCount||0)}</div><div class="sc-sub">in guild</div></div>
+        <div class="stat-card v"><div class="accent-bar"></div><i class="fa-solid fa-coins sc-icon"></i><div class="sc-label">Total Souls Held</div><div class="sc-value">${fmt(sv.totalCoins||0)}</div><div class="sc-sub">by server members</div></div>
+        <div class="stat-card a"><div class="accent-bar"></div><i class="fa-solid fa-user-check sc-icon"></i><div class="sc-label">Economy Users</div><div class="sc-value">${fmt(sv.membersCount||0)}</div><div class="sc-sub">with balance > 0</div></div>
+        <div class="stat-card ${sv.autoDropsEnabled?'g':'r'}"><div class="accent-bar"></div><i class="fa-solid fa-gift sc-icon"></i><div class="sc-label">Auto Drops</div><div class="sc-value" style="font-size:1rem;padding-top:6px">${sv.autoDropsEnabled?'✅ ON':'❌ OFF'}</div><div class="sc-sub">${sv.dropChannelName||'No channel set'}</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-chart-line" style="color:var(--cyan)"></i> 7-Day Active Chatters</div>
+        <div class="chart-wrap"><canvas id="sv-activity-chart"></canvas></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="section">
+          <div class="section-title"><i class="fa-solid fa-trophy" style="color:var(--amber)"></i> Top 10 Members</div>
+          ${topHtml}
+        </div>
+        <div class="section">
+          <div class="section-title"><i class="fa-solid fa-receipt"></i> Recent Transactions</div>
+          ${txHtml}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-toggle-on" style="color:var(--violet)"></i> Per-Server Feature Overrides</div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">These override global settings <em>only for this server</em>. Globally disabled features remain off regardless.</p>
+        <div class="toggle-grid" id="sv-feature-toggles">${overridesHtml}</div>
+        <button class="save-btn" id="save-sv-features-btn" style="margin-top:14px"><i class="fa-solid fa-floppy-disk"></i> Save Server Feature Overrides</button>
+      </div>
+
+      <div class="section" style="margin-top:0">
+        <div class="section-title"><i class="fa-solid fa-gear"></i> Drop Settings Override</div>
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+          <div class="toggle-item" style="flex:none">
+            <div class="toggle-label">Auto Drops<small>Automatically drop Souls</small></div>
+            <label class="switch"><input type="checkbox" id="sv-auto-drops" ${sv.autoDropsEnabled?'checked':''}><span class="slider"></span></label>
+          </div>
+          <button class="save-btn" id="save-sv-drops-btn" style="margin-top:0"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+      </div>
+    `;
+
+    new Chart($('sv-activity-chart'), {
+      type: 'line',
+      data: {
+        labels: actLabels.length ? actLabels : ['No data'],
+        datasets: [{
+          label: 'Active Chatters',
+          data: actVals.length ? actVals : [0],
+          borderColor: '#06b6d4',
+          backgroundColor: 'rgba(6,182,212,0.08)',
+          tension: 0.4, fill: true, pointRadius: 4,
+          pointBackgroundColor: '#06b6d4', borderWidth: 2
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font:{size:10} } }, y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font:{size:10} }, beginAtZero: true } } }
+    });
+
+    $('save-sv-features-btn').onclick = () => saveBtn($('save-sv-features-btn'), () => {
+      const overrides = {};
+      document.querySelectorAll('[data-sv-feature]').forEach(inp => { overrides[inp.dataset.svFeature] = inp.checked; });
+      return api(`/api/server/${serverId}/feature-overrides`, 'PATCH', overrides);
+    });
+
+    $('save-sv-drops-btn').onclick = () => saveBtn($('save-sv-drops-btn'), () =>
+      api(`/api/server/${serverId}`, 'PATCH', { auto_drops_enabled: $('sv-auto-drops').checked })
+    );
+
+  } catch (e) {
+    $('server-detail-area').innerHTML = `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i>Failed to load: ${e.message}</div>`;
+  }
+}
+
+let analyticsLoaded = false;
+let chartSouls, chartSources;
+
+async function loadAnalytics() {
+  if (analyticsLoaded) return;
+  analyticsLoaded = true;
+  try {
+    const d = await api('/api/bot-status');
+    const econ = d.economy || {};
+
+    const days = econ.chartData || [];
+    if (chartSouls) chartSouls.destroy();
+    chartSouls = new Chart($('chart-souls-week'), {
+      type: 'bar',
+      data: {
+        labels: days.map(r => fmtDate(r.day)),
+        datasets: [{
+          label: 'Souls Distributed',
+          data: days.map(r => r.soulsIn),
+          backgroundColor: 'rgba(139,92,246,0.35)',
+          borderColor: '#8b5cf6',
+          borderWidth: 1.5, borderRadius: 4
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend:{display:false} }, scales: { x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10}}}, y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10}},beginAtZero:true} } }
+    });
+
+    const sources = econ.sourceBreakdown || [];
+    const colors = ['#8b5cf6','#06b6d4','#f59e0b','#22c55e','#ef4444','#a855f7','#3b82f6','#ec4899'];
+    if (chartSources) chartSources.destroy();
+    chartSources = new Chart($('chart-sources'), {
+      type: 'doughnut',
+      data: {
+        labels: sources.map(s => s.source),
+        datasets: [{ data: sources.map(s => s.total), backgroundColor: colors.slice(0,sources.length), borderWidth: 0 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:11},boxWidth:12,padding:14}} } }
+    });
+
+    const topUsers = econ.topUsers || [];
+    const maxBal = topUsers.length ? topUsers[0].balance : 1;
+    $('global-lb-table').innerHTML = topUsers.length
+      ? `<table class="data-table">
+          <thead><tr><th>#</th><th>Discord ID</th><th>Souls</th><th></th></tr></thead>
+          <tbody>${topUsers.map((u,i) => {
+            const rc = i===0?'top1':i===1?'top2':i===2?'top3':'';
+            const pct = Math.round(u.balance/maxBal*100);
+            return `<tr>
+              <td><span class="rank-badge ${rc}">${i+1}</span></td>
+              <td class="mono" style="font-size:0.78rem">${u.discordId}</td>
+              <td class="mono" style="color:var(--amber)">${fmt(u.balance)}</td>
+              <td style="min-width:120px"><div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>`
+      : '<div class="empty-state" style="padding:20px"><i class="fa-solid fa-trophy"></i>No leaderboard data yet</div>';
+  } catch (e) {
+    $('global-lb-table').innerHTML = `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i>${e.message}</div>`;
+  }
+}
+
+$('user-search-btn').onclick = () => inspectUser($('user-search-input').value.trim());
+$('user-search-input').addEventListener('keydown', e => { if(e.key==='Enter') $('user-search-btn').click(); });
+
+async function inspectUser(id) {
+  if (!id) return toast('Enter a Discord User ID', 'err');
+  $('user-card').classList.remove('visible');
+  $('user-not-found').style.display = 'none';
+  try {
+    const u = await api(`/api/user/${id}`);
+    $('ui-tag').textContent = u.discordTag || 'Unknown User';
+    $('ui-id').textContent = u.discordId;
+    $('ui-balance').textContent = fmt(u.balance) + ' Souls';
+    $('ui-rank').textContent = u.rank || '—';
+    if (u.stats) {
+      $('ui-str').textContent = u.stats.strength;
+      $('ui-def').textContent = u.stats.defense;
+      $('ui-spd').textContent = u.stats.speed;
+      $('ui-mag').textContent = u.stats.magic;
+      $('ui-stats-row').style.display = 'grid';
+    } else {
+      $('ui-stats-row').style.display = 'none';
     }
-
-    function showLogin() {
-      document.getElementById('login-panel').style.display = 'flex';
-      document.getElementById('dashboard-panel').style.display = 'none';
-      document.body.style.justifyContent = 'center';
+    const txs = u.transactions || [];
+    $('ui-tx-table').innerHTML = txs.length
+      ? `<table class="data-table" style="margin-top:12px">
+          <thead><tr><th>Amount</th><th>Source</th><th>When</th></tr></thead>
+          <tbody>${txs.map(t=>`<tr>
+            <td class="tx-amount ${t.amount>0?'pos':'neg'} mono">${t.amount>0?'+':''}${fmt(t.amount)}</td>
+            <td><span class="source-chip ${t.source}">${t.source}</span></td>
+            <td style="color:var(--muted);font-size:0.78rem">${ago(t.at)}</td>
+          </tr>`).join('')}</tbody>
+        </table>`
+      : '<div class="empty-state" style="padding:20px;margin-top:8px"><i class="fa-solid fa-receipt"></i>No transactions found</div>';
+    $('user-card').classList.add('visible');
+  } catch (e) {
+    if (e.message.includes('not found') || e.message.includes('404')) {
+      $('user-not-found').style.display = 'block';
+    } else {
+      toast('Error: ' + e.message, 'err');
     }
+  }
+}
 
-    function showDashboard() {
-      document.getElementById('login-panel').style.display = 'none';
-      document.getElementById('dashboard-panel').style.display = 'flex';
-      document.body.style.justifyContent = 'flex-start';
-      loadSettings();
-      loadServersInfo();
-    }
-
-    // Handle Login authentication
-    async function handleLogin(event) {
-      event.preventDefault();
-      const password = document.getElementById('password').value;
-      const errorAlert = document.getElementById('error-alert');
-      errorAlert.style.display = 'none';
-
-      try {
-        const response = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        });
-        
-        const data = await response.json();
-        if (response.ok && data.success) {
-          showDashboard();
-        } else {
-          errorAlert.style.display = 'flex';
-          document.getElementById('error-alert-text').textContent = data.error || 'Login failed';
-        }
-      } catch (err) {
-        errorAlert.style.display = 'flex';
-        document.getElementById('error-alert-text').textContent = 'Web server connection error.';
-      }
-    }
-
-    // Handle Logout
-    async function handleLogout() {
-      try {
-        await fetch('/api/logout', { method: 'POST' });
-      } catch(err) {}
-      showLogin();
-    }
-
-    // Load current settings from database
-    async function loadSettings() {
-      try {
-        const response = await fetch('/api/settings');
-        if (!response.ok) throw new Error('Unauth');
-        const data = await response.json();
-
-        // Populate fields
-        for (const [key, value] of Object.entries(data)) {
-          const el = document.getElementById(key);
-          if (el) {
-            if (el.type === 'checkbox') {
-              el.checked = (value === 'true' || value === true);
-            } else {
-              el.value = value;
-            }
-          }
-        }
-        updateStatusBadge();
-      } catch (err) {
-        showLogin();
-      }
-    }
-
-    // Dynamic banner class and text updating
-    function updateStatusBadge() {
-      const modeCheckbox = document.getElementById('maintenance_mode');
-      const badge = document.getElementById('bot-status-badge');
-      if (modeCheckbox.checked) {
-        badge.className = 'status-badge maintenance';
-        badge.textContent = 'Maintenance Mode';
-      } else {
-        badge.className = 'status-badge live';
-        badge.textContent = 'Live / Active';
-      }
-    }
-
-    // Global cache for server stats
-    let activeServersList = [];
-
-    // Load active servers statistics
-    async function loadServersInfo() {
-      const selectEl = document.getElementById('server-select');
-      try {
-        const response = await fetch('/api/servers-info');
-        if (!response.ok) throw new Error('Failed to fetch servers');
-        activeServersList = await response.json();
-
-        // Save current selected value if any
-        const currentVal = selectEl.value;
-
-        // Clear existing options except the placeholder
-        selectEl.innerHTML = '<option value="">-- Select a Server --</option>';
-
-        if (activeServersList.length === 0) {
-          return;
-        }
-
-        activeServersList.forEach(server => {
-          const opt = document.createElement('option');
-          opt.value = server.id;
-          opt.textContent = server.name;
-          selectEl.appendChild(opt);
-        });
-
-        // Restore selection if it still exists
-        if (currentVal && activeServersList.find(s => s.id === currentVal)) {
-          selectEl.value = currentVal;
-          displayServerStats();
-        } else {
-          document.getElementById('server-stats-detail').style.display = 'none';
-        }
-
-      } catch (err) {
-        console.error('Failed to load server statistics dropdown:', err);
-      }
-    }
-
-    // Display selected server statistics
-    function displayServerStats() {
-      const selectEl = document.getElementById('server-select');
-      const statsPanel = document.getElementById('server-stats-detail');
-      const serverId = selectEl.value;
-
-      if (!serverId) {
-        statsPanel.style.display = 'none';
-        return;
-      }
-
-      const server = activeServersList.find(s => s.id === serverId);
-      if (!server) {
-        statsPanel.style.display = 'none';
-        return;
-      }
-
-      // Generate avatar or initials placeholder
-      const initials = server.name
-        .split(' ')
-        .map(w => w[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase();
-
-      const avatarContainer = document.getElementById('server-avatar-container');
-      if (server.icon) {
-        avatarContainer.innerHTML = `<img src="${server.icon}" class="server-avatar" alt="${server.name}" style="width: 50px; height: 50px;">`;
-      } else {
-        avatarContainer.innerHTML = `<div class="server-avatar" style="width: 50px; height: 50px; font-size: 16px;">${initials}</div>`;
-      }
-
-      document.getElementById('server-stats-name').textContent = server.name;
-      document.getElementById('server-stats-id').textContent = `Server ID: ${server.id}`;
-      document.getElementById('server-stats-members').textContent = server.membersCount.toLocaleString();
-      document.getElementById('server-stats-coins').textContent = server.totalCoins.toLocaleString() + ' Souls';
-
-      statsPanel.style.display = 'block';
-    }
-
-    // Save global settings changes to database
-    async function saveSettings(event) {
-      event.preventDefault();
-      const fields = [
-        'price_dumbbell', 'price_vest', 'price_shoes', 'price_tome',
-        'price_rage', 'price_aegis', 'price_adrenaline', 'price_mana', 'price_shield',
-        'max_fight_bet', 'duel_cooldown_hours',
-        'maintenance_mode', 'maintenance_message',
-        'feature_checkin', 'feature_casino', 'feature_shop', 'feature_duels',
-        'feature_rob', 'feature_drops', 'feature_message_earnings', 'feature_transfers',
-        'checkin_min', 'checkin_max', 'slash_checkin_amount',
-        'message_reward', 'message_daily_cap', 'message_cooldown_seconds', 'message_milestone'
-      ];
-      
-      const payload = {};
-      fields.forEach(f => {
-        const el = document.getElementById(f);
-        if (el) {
-          if (el.type === 'checkbox') {
-            payload[f] = el.checked ? 'true' : 'false';
-          } else {
-            payload[f] = el.value;
-          }
-        }
-      });
-
-      try {
-        const response = await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        
-        if (response.ok) {
-          showToast();
-          loadServersInfo();
-        } else {
-          alert('Failed to save settings. Please verify you are logged in.');
-        }
-      } catch (err) {
-        alert('Error saving settings to database.');
-      }
-    }
-
-    function showToast() {
-      const toast = document.getElementById('toast-notify');
-      toast.classList.add('show');
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 3000);
-    }
-
-    // Start verification check
-    checkAuth();
-  </script>
+checkAuth();
+setInterval(() => {
+  if ($('app').style.display !== 'none') loadStatus();
+}, 30000);
+</script>
 </body>
 </html>

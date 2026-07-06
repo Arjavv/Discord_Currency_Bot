@@ -1,4 +1,4 @@
-const { getGlobalSettings } = require('../database/queries');
+const { getGlobalSettings, getServerFeatureOverrides } = require('../database/queries');
 
 const ADMIN_PREFIX_COMMANDS = ['setup', 'reset-cycle', 'set-drop-channel', 'force-drop', 'auto-drops'];
 const READONLY_PREFIX_COMMANDS = ['cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'stats', 'profile', 'help'];
@@ -18,22 +18,36 @@ function parseBool(value, defaultTrue = true) {
   return value === 'true' || value === '1';
 }
 
-async function getBotControlState() {
+async function getBotControlState(serverId = null) {
   const settings = await getGlobalSettings();
+  const globalFeatures = {
+    checkin: parseBool(settings.feature_checkin, true),
+    casino: parseBool(settings.feature_casino, true),
+    shop: parseBool(settings.feature_shop, true),
+    duels: parseBool(settings.feature_duels, true),
+    rob: parseBool(settings.feature_rob, true),
+    drops: parseBool(settings.feature_drops, true),
+    messageEarnings: parseBool(settings.feature_message_earnings, true),
+    transfers: parseBool(settings.feature_transfers, true)
+  };
+
+  // Merge per-server overrides (only if a server is specified)
+  let features = { ...globalFeatures };
+  if (serverId && serverId !== 'GLOBAL') {
+    const overrides = await getServerFeatureOverrides(serverId);
+    for (const [key, val] of Object.entries(overrides)) {
+      // Only apply override if global feature is ON (globally disabled = disabled everywhere)
+      if (globalFeatures[key] !== false) {
+        features[key] = val;
+      }
+    }
+  }
+
   return {
     maintenanceMode: parseBool(settings.maintenance_mode, false),
     maintenanceMessage: settings.maintenance_message
       || '🔧 The Soul Currency bot is currently under maintenance. Please try again later.',
-    features: {
-      checkin: parseBool(settings.feature_checkin, true),
-      casino: parseBool(settings.feature_casino, true),
-      shop: parseBool(settings.feature_shop, true),
-      duels: parseBool(settings.feature_duels, true),
-      rob: parseBool(settings.feature_rob, true),
-      drops: parseBool(settings.feature_drops, true),
-      messageEarnings: parseBool(settings.feature_message_earnings, true),
-      transfers: parseBool(settings.feature_transfers, true)
-    },
+    features,
     checkinMin: parseInt(settings.checkin_min, 10) || 500,
     checkinMax: parseInt(settings.checkin_max, 10) || 1000,
     slashCheckinAmount: parseInt(settings.slash_checkin_amount, 10) || 20,

@@ -135,3 +135,11 @@ CREATE TABLE IF NOT EXISTS global_settings (
     value VARCHAR(256) NOT NULL
 );
 
+-- 12. Per-server feature overrides (set by server admins via Discord or by bot owner via admin panel)
+CREATE TABLE IF NOT EXISTS server_feature_overrides (
+    server_id VARCHAR(64) NOT NULL,
+    feature   VARCHAR(64) NOT NULL,
+    enabled   BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (server_id, feature)
+);
