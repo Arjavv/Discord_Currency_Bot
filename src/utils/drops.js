@@ -67,6 +67,27 @@ async function triggerDrop(client, guildId, channel) {
       timeoutId
     });
 
+    // Send log to #admin-logs
+    try {
+      const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+      if (guild) {
+        const adminLogs = guild.channels.cache.find(c => c.name.toLowerCase() === 'admin-logs' && c.isTextBased());
+        if (adminLogs) {
+          const logEmbed = new EmbedBuilder()
+            .setColor('#ffa500')
+            .setTitle('📦 Drop Spawned')
+            .setDescription(`A random Soul Coin drop has just spawned in <#${channel.id}>!`)
+            .addFields(
+              { name: 'Next Eligible Drop', value: '10 minutes after this drop is caught or expires.' }
+            )
+            .setTimestamp();
+          await adminLogs.send({ embeds: [logEmbed] }).catch(() => {});
+        }
+      }
+    } catch (logErr) {
+      console.error('Failed to send drop log to admin-logs:', logErr);
+    }
+
     return { value: dropValue, messageId: dropMsg.id };
   } catch (error) {
     console.error(`Error in triggerDrop:`, error);
