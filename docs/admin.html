@@ -582,30 +582,7 @@
           </div>
         </div>
 
-        <!-- Global Server Branding Configuration -->
-        <div class="config-card" style="grid-column: 1 / -1;">
-          <div class="card-title">
-            <i class="fa-solid fa-coins"></i>
-            <span>Global Economy Branding</span>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
-            <div class="input-row">
-              <label for="currency_name" style="display: flex; flex-direction: column;">
-                <span>Currency Name</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">The display name of your currency globally (e.g. Souls, ApexGold)</span>
-              </label>
-              <input type="text" id="currency_name" class="input-field" style="max-width: 300px; padding: 10px 16px;" required>
-            </div>
-            
-            <div class="input-row" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 16px;">
-              <label for="currency_icon_url" style="display: flex; flex-direction: column;">
-                <span>Currency Icon / Emoji</span>
-                <span style="font-size: 11px; color: var(--color-text-secondary);">The standard unicode emoji or Discord custom emoji code (e.g. 🪙 or &lt;:Soul_Head:1523605643158618214&gt;)</span>
-              </label>
-              <input type="text" id="currency_icon_url" class="input-field" style="max-width: 300px; padding: 10px 16px;" required>
-            </div>
-          </div>
-        </div>
+
 
       </div>
 
@@ -739,65 +716,85 @@
       }
     }
 
+    // Global cache for server stats
+    let activeServersList = [];
+
     // Load active servers statistics
     async function loadServersInfo() {
-      const tableBody = document.getElementById('servers-table-body');
+      const selectEl = document.getElementById('server-select');
       try {
         const response = await fetch('/api/servers-info');
         if (!response.ok) throw new Error('Failed to fetch servers');
-        const servers = await response.json();
+        activeServersList = await response.json();
 
-        if (servers.length === 0) {
-          tableBody.innerHTML = `
-            <tr>
-              <td colspan="3" style="text-align: center; color: var(--color-text-secondary); padding: 30px;">
-                No active server connections found in database.
-              </td>
-            </tr>
-          `;
+        // Save current selected value if any
+        const currentVal = selectEl.value;
+
+        // Clear existing options except the placeholder
+        selectEl.innerHTML = '<option value="">-- Select a Server --</option>';
+
+        if (activeServersList.length === 0) {
           return;
         }
 
-        tableBody.innerHTML = '';
-        servers.forEach(server => {
-          // Get server initials for avatar placeholder
-          const initials = server.name
-            .split(' ')
-            .map(w => w[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase();
-
-          const iconHtml = server.icon
-            ? `<img src="${server.icon}" class="server-avatar" alt="${server.name}">`
-            : `<div class="server-avatar">${initials}</div>`;
-
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>
-              <div class="server-info-cell">
-                ${iconHtml}
-                <div>
-                  <div style="font-weight: 600; color: var(--color-text-primary);">${server.name}</div>
-                  <div style="font-size: 11px; color: var(--color-text-secondary);">ID: ${server.id}</div>
-                </div>
-              </div>
-            </td>
-            <td style="text-align: right; font-weight: 500; color: var(--color-text-primary);">${server.membersCount.toLocaleString()}</td>
-            <td style="text-align: right;"><span class="badge-coins">${server.totalCoins.toLocaleString()}</span></td>
-          `;
-          tableBody.appendChild(row);
+        activeServersList.forEach(server => {
+          const opt = document.createElement('option');
+          opt.value = server.id;
+          opt.textContent = server.name;
+          selectEl.appendChild(opt);
         });
 
+        // Restore selection if it still exists
+        if (currentVal && activeServersList.find(s => s.id === currentVal)) {
+          selectEl.value = currentVal;
+          displayServerStats();
+        } else {
+          document.getElementById('server-stats-detail').style.display = 'none';
+        }
+
       } catch (err) {
-        tableBody.innerHTML = `
-          <tr>
-            <td colspan="3" style="text-align: center; color: #ff6b6b; padding: 30px;">
-              <i class="fa-solid fa-circle-exclamation" style="margin-right: 8px;"></i> Failed to load server statistics.
-            </td>
-          </tr>
-        `;
+        console.error('Failed to load server statistics dropdown:', err);
       }
+    }
+
+    // Display selected server statistics
+    function displayServerStats() {
+      const selectEl = document.getElementById('server-select');
+      const statsPanel = document.getElementById('server-stats-detail');
+      const serverId = selectEl.value;
+
+      if (!serverId) {
+        statsPanel.style.display = 'none';
+        return;
+      }
+
+      const server = activeServersList.find(s => s.id === serverId);
+      if (!server) {
+        statsPanel.style.display = 'none';
+        return;
+      }
+
+      // Generate avatar or initials placeholder
+      const initials = server.name
+        .split(' ')
+        .map(w => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+
+      const avatarContainer = document.getElementById('server-avatar-container');
+      if (server.icon) {
+        avatarContainer.innerHTML = `<img src="${server.icon}" class="server-avatar" alt="${server.name}" style="width: 50px; height: 50px;">`;
+      } else {
+        avatarContainer.innerHTML = `<div class="server-avatar" style="width: 50px; height: 50px; font-size: 16px;">${initials}</div>`;
+      }
+
+      document.getElementById('server-stats-name').textContent = server.name;
+      document.getElementById('server-stats-id').textContent = `Server ID: ${server.id}`;
+      document.getElementById('server-stats-members').textContent = server.membersCount.toLocaleString();
+      document.getElementById('server-stats-coins').textContent = server.totalCoins.toLocaleString() + ' Souls';
+
+      statsPanel.style.display = 'block';
     }
 
     // Save global settings changes to database
@@ -806,7 +803,7 @@
       const fields = [
         'price_dumbbell', 'price_vest', 'price_shoes', 'price_tome',
         'price_rage', 'price_aegis', 'price_adrenaline', 'price_mana', 'price_shield',
-        'max_fight_bet', 'duel_cooldown_hours', 'currency_name', 'currency_icon_url'
+        'max_fight_bet', 'duel_cooldown_hours'
       ];
       
       const payload = {};
