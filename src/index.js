@@ -131,19 +131,23 @@ app.post('/api/settings', requireLogin, async (req, res) => {
 // Servers list & stats endpoint (Protected)
 app.get('/api/servers-info', requireLogin, async (req, res) => {
   try {
+    // Sum balances directly from server-specific rows (not via GLOBAL join)
     const dbRes = await pool.query(`
-      SELECT u.server_id, COUNT(DISTINCT u.discord_id) as member_count, COALESCE(SUM(g.coin_balance), 0) as total_coins
-      FROM users u
-      JOIN users g ON g.discord_id = u.discord_id AND g.server_id = 'GLOBAL'
-      WHERE u.server_id != 'GLOBAL'
-      GROUP BY u.server_id
+      SELECT server_id,
+             COUNT(DISTINCT discord_id) AS member_count,
+             COALESCE(SUM(coin_balance), 0) AS total_coins
+      FROM users
+      WHERE server_id != 'GLOBAL'
+        AND server_id NOT LIKE '9999%'
+      GROUP BY server_id
+      ORDER BY total_coins DESC
     `);
 
     const servers = dbRes.rows.map(row => {
       const guild = client.guilds.cache.get(row.server_id);
       return {
         id: row.server_id,
-        name: guild ? guild.name : 'Unknown Server',
+        name: guild ? guild.name : `Server ${row.server_id}`,
         icon: guild && guild.icon ? guild.iconURL({ size: 64 }) : null,
         membersCount: parseInt(row.member_count, 10),
         totalCoins: parseInt(row.total_coins, 10)
