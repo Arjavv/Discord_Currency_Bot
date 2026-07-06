@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = require('discord.js');
-const { updateServerSetting, resetCycle, getServerSettings, updateDropChannel } = require('../database/queries');
-const { triggerDrop } = require('../utils/drops');
+const { updateServerSetting, resetCycle, getServerSettings, updateDropChannel, toggleAutoDrops } = require('../database/queries');
+const { triggerDrop, nextDropTimers, scheduleNextDrop } = require('../utils/drops');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -52,6 +52,20 @@ module.exports = {
       subcommand
         .setName('force-drop')
         .setDescription('Force a soul coin drop to happen immediately in the general channel')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('auto-drops')
+        .setDescription('Start or stop the continuous 10-minute auto drop cycle in the drop channel')
+        .addStringOption(option =>
+          option.setName('action')
+            .setDescription('Choose whether to start or stop the cycle')
+            .setRequired(true)
+            .addChoices(
+              { name: 'Start', value: 'start' },
+              { name: 'Stop', value: 'stop' }
+            )
+        )
     ),
 
   async execute(interaction) {
@@ -66,8 +80,8 @@ module.exports = {
     const subcommand = interaction.options.getSubcommand();
     const serverId = interaction.guildId;
 
-    // Restrict name, icon, and reset-cycle to #admin-logs; allow setup, set-drop-channel, and force-drop anywhere
-    if (!['setup', 'set-drop-channel', 'force-drop'].includes(subcommand)) {
+    // Restrict name, icon, and reset-cycle to #admin-logs; allow setup, set-drop-channel, auto-drops, and force-drop anywhere
+    if (!['setup', 'set-drop-channel', 'force-drop', 'auto-drops'].includes(subcommand)) {
       if (!interaction.channel || interaction.channel.name.toLowerCase() !== 'admin-logs') {
         return await interaction.reply({
           content: '❌ This administrative command can only be used in the **#admin-logs** channel.',
@@ -262,6 +276,63 @@ module.exports = {
           return await interaction.editReply({
             content: '❌ **Error**: Failed to send drop message. Please check permissions.'
           });
+        }
+      }
+      
+      if (subcommand === 'auto-drops') {
+        const action = interaction.options.getString('action');
+        const settings = await getServerSettings(serverId);
+
+        if (action === 'start') {
+          // Enable in database
+          await toggleAutoDrops(serverId, true);
+
+          // Find drop channel
+          let dropChannel = null;
+          if (settings.drop_channel_id) {
+            dropChannel = interaction.guild.channels.cache.get(settings.drop_channel_id) || 
+                          await interaction.guild.channels.fetch(settings.drop_channel_id).catch(() => null);
+          } else {
+            const currentChannels = await interaction.guild.channels.fetch().catch(() => interaction.guild.channels.cache);
+            dropChannel = currentChannels.find(
+              c => c.name.toLowerCase() === 'general' && c.type === ChannelType.GuildText
+            );
+          }
+
+          if (!dropChannel) {
+            return await interaction.editReply({
+              content: '❌ **Error**: Drop channel not configured or not found. Please set it using `/admin set-drop-channel`.'
+            });
+          }
+
+          // Trigger first drop immediately
+          await triggerDrop(interaction.client, serverId, dropChannel);
+
+          const embed = new EmbedBuilder()
+            .setColor('#00ffaa')
+            .setTitle('▶️ Auto Drops Started')
+            .setDescription(`The 10-minute continuous auto drop cycle has been started for <#${dropChannel.id}>.`)
+            .setTimestamp();
+          
+          return await interaction.editReply({ embeds: [embed] });
+
+        } else if (action === 'stop') {
+          // Disable in database
+          await toggleAutoDrops(serverId, false);
+
+          // Clear any pending timeout
+          if (nextDropTimers.has(serverId)) {
+            clearTimeout(nextDropTimers.get(serverId));
+            nextDropTimers.delete(serverId);
+          }
+
+          const embed = new EmbedBuilder()
+            .setColor('#ff3366')
+            .setTitle('⏹️ Auto Drops Stopped')
+            .setDescription('The continuous auto drop cycle has been stopped. No more coins will drop automatically.')
+            .setTimestamp();
+          
+          return await interaction.editReply({ embeds: [embed] });
         }
       } else {
         // Fallback for unhandled subcommands

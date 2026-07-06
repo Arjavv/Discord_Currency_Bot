@@ -3,7 +3,7 @@ const { getServerSettings } = require('../database/queries');
 
 // In-memory drop states shared across the bot process
 const activeDrops = new Map(); // key: channelId -> { value, messageId, timestamp, timeoutId }
-const lastDropTimes = new Map(); // key: channelId -> timestamp
+const nextDropTimers = new Map(); // key: serverId -> timeoutId
 
 /**
  * Triggers a drop in the specified channel.
@@ -18,8 +18,8 @@ async function triggerDrop(client, guildId, channel) {
     const currencyName = settings.currency_name;
     const currencyIcon = settings.currency_icon_url;
 
-    // Generate random coin value between 1 and 50
-    const dropValue = Math.floor(Math.random() * 50) + 1;
+    // Weighted random coin value between 1 and 50 (50 is least probable)
+    const dropValue = Math.floor(Math.pow(Math.random(), 2) * 50) + 1;
 
     const embed = new EmbedBuilder()
       .setColor('#ffd700')
@@ -57,6 +57,9 @@ async function triggerDrop(client, guildId, channel) {
           .setTimestamp();
 
         await dropMsg.edit({ embeds: [expiredEmbed] }).catch(() => {});
+        
+        // Auto drops continuation
+        scheduleNextDrop(client, guildId, channel.id);
       }
     }, 5 * 60 * 1000);
 
@@ -78,7 +81,7 @@ async function triggerDrop(client, guildId, channel) {
             .setTitle('📦 Drop Spawned')
             .setDescription(`A random Soul Coin drop has just spawned in <#${channel.id}>!`)
             .addFields(
-              { name: 'Next Eligible Drop', value: '10 minutes after this drop is caught or expires.' }
+              { name: 'Next Scheduled Drop', value: '10 minutes after this drop is caught or expires.' }
             )
             .setTimestamp();
           await adminLogs.send({ embeds: [logEmbed] }).catch(() => {});
@@ -95,8 +98,35 @@ async function triggerDrop(client, guildId, channel) {
   }
 }
 
+/**
+ * Schedules the next drop for a server.
+ */
+function scheduleNextDrop(client, guildId, channelId) {
+  if (nextDropTimers.has(guildId)) {
+    clearTimeout(nextDropTimers.get(guildId));
+  }
+  const timeoutId = setTimeout(async () => {
+    try {
+      const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+      if (!guild) return;
+      const channel = guild.channels.cache.get(channelId) || await guild.channels.fetch(channelId).catch(() => null);
+      if (!channel || !channel.isTextBased()) return;
+      
+      const settings = await getServerSettings(guildId);
+      if (!settings.auto_drops_enabled) return;
+
+      await triggerDrop(client, guildId, channel);
+    } catch (err) {
+      console.error(`Error in scheduled drop for ${guildId}:`, err);
+    }
+  }, 10 * 60 * 1000); // 10 minutes
+
+  nextDropTimers.set(guildId, timeoutId);
+}
+
 module.exports = {
   activeDrops,
-  lastDropTimes,
-  triggerDrop
+  nextDropTimers,
+  triggerDrop,
+  scheduleNextDrop
 };

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS server_settings (
     currency_name VARCHAR(64) DEFAULT 'Souls',
     currency_icon_url VARCHAR(256) DEFAULT '<:Soul_Head:1523605643158618214>',
     drop_channel_id VARCHAR(64),
+    auto_drops_enabled BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

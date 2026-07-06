@@ -5,7 +5,7 @@ const { pool } = require('./db');
  */
 async function getServerSettings(serverId) {
   const query = `
-    SELECT currency_name, currency_icon_url, drop_channel_id 
+    SELECT currency_name, currency_icon_url, drop_channel_id, auto_drops_enabled 
     FROM server_settings 
     WHERE server_id = $1
   `;
@@ -17,14 +17,16 @@ async function getServerSettings(serverId) {
     return {
       currency_name: 'Souls',
       currency_icon_url: '<:Soul_Head:1523605643158618214>',
-      drop_channel_id: null
+      drop_channel_id: null,
+      auto_drops_enabled: false
     };
   } catch (error) {
     console.error(`Error in getServerSettings for server ${serverId}:`, error);
     return {
       currency_name: 'Souls',
       currency_icon_url: '<:Soul_Head:1523605643158618214>',
-      drop_channel_id: null
+      drop_channel_id: null,
+      auto_drops_enabled: false
     };
   }
 }
@@ -513,6 +515,26 @@ async function updateDropChannel(serverId, channelId) {
 }
 
 /**
+ * Toggles auto drops for a server.
+ */
+async function toggleAutoDrops(serverId, enabled) {
+  const query = `
+    INSERT INTO server_settings (server_id, auto_drops_enabled)
+    VALUES ($1, $2)
+    ON CONFLICT (server_id) 
+    DO UPDATE SET auto_drops_enabled = $2
+    RETURNING *
+  `;
+  try {
+    const res = await pool.query(query, [serverId, enabled]);
+    return res.rows[0];
+  } catch (error) {
+    console.error(`Error in toggleAutoDrops for server ${serverId}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Awards coins from catching a drop.
  */
 async function awardDropCoins(discordId, serverId, amount) {
@@ -565,5 +587,6 @@ module.exports = {
   resetCycle,
   recordCasinoGame,
   updateDropChannel,
+  toggleAutoDrops,
   awardDropCoins
 };

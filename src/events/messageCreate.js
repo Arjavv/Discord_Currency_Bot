@@ -12,7 +12,7 @@ const {
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const path = require('path');
-const { activeDrops, lastDropTimes, triggerDrop } = require('../utils/drops');
+const { activeDrops, triggerDrop, scheduleNextDrop } = require('../utils/drops');
 
 // Helper to send a temporary message that deletes itself after 5 seconds
 const sendTempMessage = (channel, content) => {
@@ -40,7 +40,8 @@ module.exports = {
       activeDrops.delete(message.channel.id);
 
       // Set cooldown start time to now (catch time)
-      lastDropTimes.set(message.channel.id, Date.now());
+      // We schedule the next drop rather than just setting a time
+      scheduleNextDrop(message.client, serverId, message.channel.id);
       
       if (drop.timeoutId) {
         clearTimeout(drop.timeoutId);
@@ -460,35 +461,7 @@ module.exports = {
       return;
     }
 
-    // Check if this is the drop channel to roll for a random drop
-    try {
-      const settings = await getServerSettings(serverId);
-      let isDropChannel = false;
-
-      if (settings.drop_channel_id) {
-        isDropChannel = message.channel.id === settings.drop_channel_id;
-      } else {
-        isDropChannel = message.channel.name.toLowerCase() === 'general';
-      }
-
-      if (isDropChannel) {
-        if (!activeDrops.has(message.channel.id)) {
-          const lastDrop = lastDropTimes.get(message.channel.id) || 0;
-          const timeSinceLastDrop = Date.now() - lastDrop;
-          const cooldown = 10 * 60 * 1000; // 10 minutes in ms
-
-          if (timeSinceLastDrop >= cooldown) {
-            const dropChance = 0.05; // 5% chance
-            if (Math.random() < dropChance) {
-              console.log(`[Random Drop] Triggering random coin drop in guild ${serverId}, channel ${message.channel.id}`);
-              await triggerDrop(message.client, serverId, message.channel);
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error(`Error checking random drop for channel ${message.channel.id}:`, err);
-    }
+    // Random drops block has been removed as drops are now handled automatically on a schedule.
 
     // --- 3. REGULAR CHAT ACTIVITY PROCESSING ---
     // Filter and count words (ignoring extra whitespace)

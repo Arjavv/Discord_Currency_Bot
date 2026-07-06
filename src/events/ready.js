@@ -1,4 +1,6 @@
 const { REST, Routes, EmbedBuilder } = require('discord.js');
+const { pool } = require('../database/db');
+const { scheduleNextDrop } = require('../utils/drops');
 require('dotenv').config();
 
 module.exports = {
@@ -62,6 +64,19 @@ module.exports = {
           console.error(`Failed to send startup alert to guild ${guild.name}:`, e);
         }
       });
+
+      // Resume auto drops for enabled servers
+      try {
+        const res = await pool.query(`SELECT server_id, drop_channel_id FROM server_settings WHERE auto_drops_enabled = TRUE`);
+        for (const row of res.rows) {
+          if (row.drop_channel_id) {
+            console.log(`Resuming auto-drops loop for server ${row.server_id}`);
+            scheduleNextDrop(client, row.server_id, row.drop_channel_id);
+          }
+        }
+      } catch (dbErr) {
+        console.error('Failed to load auto-drops state from DB:', dbErr);
+      }
 
     } catch (error) {
       console.error('Error while registering application commands:', error);
