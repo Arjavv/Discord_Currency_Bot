@@ -583,7 +583,6 @@
         </div>
 
 
-
       </div>
 
       <div class="action-bar">
@@ -597,27 +596,39 @@
     <div class="config-card" style="margin-top: 12px; width: 100%;">
       <div class="card-title">
         <i class="fa-solid fa-server"></i>
-        <span>Active Bot Servers & Coin Distribution</span>
+        <span>Active Bot Servers</span>
       </div>
-      <p style="font-size: 13px; margin-bottom: 10px; color: var(--color-text-secondary);">Monitor all servers the bot is currently in, user activity, and total circulating coins.</p>
-      
-      <div class="server-table-container">
-        <table class="server-table">
-          <thead>
-            <tr>
-              <th>Server</th>
-              <th style="text-align: right;">Active Players</th>
-              <th style="text-align: right;">Circulating Balance</th>
-            </tr>
-          </thead>
-          <tbody id="servers-table-body">
-            <tr>
-              <td colspan="3" style="text-align: center; color: var(--color-text-secondary); padding: 30px;">
-                <i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i> Loading active server connections...
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <p style="font-size: 13px; margin-bottom: 20px; color: var(--color-text-secondary);">Select a server to view its active player count and total circulating currency.</p>
+
+      <!-- Server selector dropdown -->
+      <div style="position: relative; max-width: 420px; margin-bottom: 24px;">
+        <i class="fa-solid fa-network-wired" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); pointer-events: none; z-index: 1;"></i>
+        <select id="server-select" class="input-field" onchange="displayServerStats()"
+          style="width: 100%; padding: 12px 40px 12px 42px; appearance: none; -webkit-appearance: none; cursor: pointer; background: var(--color-bg-secondary);">
+          <option value="">— Select a Server —</option>
+        </select>
+        <i class="fa-solid fa-chevron-down" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); pointer-events: none;"></i>
+      </div>
+
+      <!-- Selected server stats detail panel -->
+      <div id="server-stats-detail" style="display: none; background: rgba(0,0,0,0.25); border: 1px solid var(--color-border); border-radius: 10px; padding: 24px;">
+        <div style="display: flex; align-items: center; gap: 18px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 18px; margin-bottom: 20px;">
+          <div id="server-avatar-container"></div>
+          <div>
+            <div id="server-stats-name" style="font-family: 'Orbitron', sans-serif; color: var(--color-text-primary); font-size: 18px; font-weight: 700; margin-bottom: 4px;"></div>
+            <div id="server-stats-id" style="font-size: 11px; color: var(--color-text-secondary);"></div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 18px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--color-text-secondary); margin-bottom: 8px;">Active Users with Currency</div>
+            <div id="server-stats-members" style="font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 700; color: var(--color-text-primary);">0</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 18px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--color-text-secondary); margin-bottom: 8px;">Circulating Balance</div>
+            <div id="server-stats-coins" class="gold-text" style="font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 700;">0</div>
+          </div>
+        </div>
       </div>
     </div>
     
