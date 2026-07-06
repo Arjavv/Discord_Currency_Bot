@@ -150,7 +150,7 @@
                 <strong>Syntax:</strong> <code>s daily</code>
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
               </div>
             </div>
           </div>
@@ -171,7 +171,7 @@
                 <strong>Syntax:</strong> <code>s cash [@username]</code>
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
               </div>
             </div>
           </div>
@@ -192,7 +192,7 @@
                 <strong>Syntax:</strong> <code>s lb</code>
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
               </div>
             </div>
           </div>
@@ -201,43 +201,67 @@
           <div class="command-item" data-category="casino" id="cmd-casino">
             <div class="command-trigger">
               <div class="command-name-wrapper">
-                <span class="command-name">s flip <span class="required-param">&lt;heads/tails&gt;</span> <span class="required-param">&lt;bet&gt;</span></span>
+                <span class="command-name">s flip <span class="optional-param">&lt;heads/tails&gt;</span> <span class="required-param">&lt;bet&gt;</span></span>
                 <span class="command-tag casino-tag">Casino</span>
               </div>
               <span class="command-short-desc">Flip a coin for double or nothing.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Bets a specific positive amount of Souls on a coin toss outcome. Correct guesses award twice the bet amount (wins net your bet amount). Wrong guesses deduct the bet amount. Checks for balance sufficiency before running. (Aliases: <code>s flip</code>, <code>s casino</code>, <code>s bet</code>).</p>
+              <p>Bets a specific positive amount of Souls on a coin toss outcome. Correct guesses award twice the bet amount (wins net your bet amount). Wrong guesses deduct the bet amount. Defaults to heads if no choice is provided. Checks for balance sufficiency before running. (Aliases: <code>s flip</code>, <code>s casino</code>, <code>s bet</code>).</p>
               <div class="detail-row">
-                <strong>Syntax:</strong> <code>s flip heads 100</code> or <code>s flip 100 tails</code>
+                <strong>Syntax:</strong> <code>s flip 100</code> (defaults to heads) or <code>s flip tails 100</code>
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
               </div>
             </div>
           </div>
 
-          <!-- Command 5: s admin -->
+          <!-- Command 5: /admin -->
           <div class="command-item" data-category="admin" id="cmd-admin">
             <div class="command-trigger">
               <div class="command-name-wrapper">
-                <span class="command-name">s <span class="required-param">&lt;command&gt;</span></span>
+                <span class="command-name">/admin <span class="required-param">&lt;subcommand&gt;</span></span>
                 <span class="command-tag admin-tag">Admin</span>
               </div>
-              <span class="command-short-desc">Administrative controls for settings, setup, and cycle resets.</span>
+              <span class="command-short-desc">Slash commands for settings, setup, and cycle resets.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Set server-wide currency options, initialize channels, or reset cycles. Restricted to Server Administrators only.</p>
+              <p>Set server-wide currency options, initialize channels, manage drops, or reset cycles. Restricted to Server Administrators only.</p>
               <ul class="admin-subcommands">
-                <li><code>s setup</code>: Automatically creates the category "Soul" and the <code>#soul-bot</code> and <code>#admin-logs</code> channels if they do not exist.</li>
-                <li><code>s set-name &lt;new_name&gt;</code>: Customizes the display name of the currency server-wide (default is <em>Souls</em>).</li>
-                <li><code>s set-icon &lt;emoji&gt;</code>: Sets a new custom emoji tag as the balance symbol.</li>
-                <li><code>s reset-cycle</code>: Closes current monthly cycle, archives the rankings, and resets all balances & message counters to 0 server-wide.</li>
+                <li><code>/admin setup</code>: Automatically creates the category "Soul" and the <code>#soul-bot</code> and <code>#soul-logs</code> channels if they do not exist.</li>
+                <li><code>/admin set-name &lt;new_name&gt;</code>: Customizes the display name of the currency server-wide (default is <em>Souls</em>).</li>
+                <li><code>/admin set-icon &lt;emoji&gt;</code>: Sets a new custom emoji tag as the balance symbol.</li>
+                <li><code>/admin reset-cycle</code>: Closes current monthly cycle, archives the rankings, and resets all balances & message counters to 0 server-wide.</li>
+                <li><code>/admin set-drop-channel &lt;channel&gt;</code>: Sets the designated channel for Soul Coin drops.</li>
+                <li><code>/admin force-drop</code>: Instantly spawns a Soul Coin drop in the configured drop channel.</li>
+                <li><code>/admin auto-drops &lt;start/stop&gt;</code>: Starts or stops the automated 10-minute continuous Soul Coin drop cycle.</li>
               </ul>
               <div class="detail-row">
                 <strong>Permission:</strong> Server Administrators only.
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Configuration commands (name, icon, reset) run ONLY in <code>#soul-logs</code>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 6: soul (Catch) -->
+          <div class="command-item" data-category="user" id="cmd-catch">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">soul</span>
+                <span class="command-tag user-tag">User</span>
+              </div>
+              <span class="command-short-desc">Catch a Soul Coin drop.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Type exactly <code>soul</code> (case-insensitive) in the designated drop channel when a Soul Coin appears to claim its value. Be quick, drops expire after 5 minutes!</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>soul</code>
               </div>
             </div>
           </div>
