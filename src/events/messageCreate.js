@@ -19,6 +19,9 @@ const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = re
 
 // Track active crash games per user to prevent multiple simultaneous games
 const activeCrashGames = new Set();
+
+// Track active mines games per user
+const activeMinesGames = new Map();
 const path = require('path');
 const { activeDrops, triggerDrop, scheduleNextDrop } = require('../utils/drops');
 
@@ -304,7 +307,7 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist'].includes(commandName)) {
           // Lock user commands to #soul-bot
           if (!message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
@@ -322,6 +325,7 @@ module.exports = {
                 { name: '🎁 `s gift @user <amount>`', value: 'Send Souls to another user from your wallet.' },
                 { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
                 { name: '🚀 `s crash <amount>`', value: 'Watch the multiplier rise and cash out before it crashes! Higher risk, higher reward.' },
+                { name: '💣 `s mines <amount> [mines]`', value: 'Reveal tiles on a grid and avoid hidden mines! More mines = higher multiplier. Default: 3 mines.' },
                 { name: '🥷 `s rob @user`', value: 'Attempt to steal 10% of their wallet (30% success rate). Caught? Pay a 5% fine! (1hr cooldown).' },
                 { name: '🏃‍♂️ `soul`', value: 'Type exactly this word when a Soul Coin drops to catch it before anyone else!' }
               )
@@ -751,6 +755,282 @@ module.exports = {
 
                 const timeoutEmbed = buildCrashEmbed(currentMultiplier, 'timeout', 0);
                 await gameMessage.edit({ embeds: [timeoutEmbed], components: [disabledRow] }).catch(() => {});
+              }
+            });
+
+            return;
+          }
+
+          if (commandName === 'mines') {
+            let bet = parseInt(args[0]);
+            let mineCount = parseInt(args[1]) || 3;
+
+            if (isNaN(bet) || bet <= 0) {
+              return await message.reply('❌ **Usage**: `s mines <bet_amount> [mine_count]` (mines default: 3, range: 1-19)').catch(() => { });
+            }
+
+            if (mineCount < 1 || mineCount > 19) {
+              return sendTempMessage(message.channel, '❌ Mine count must be between **1** and **19**.');
+            }
+
+            // Prevent multiple simultaneous mines games
+            const gameKey = `${userId}_${serverId}`;
+            if (activeMinesGames.has(gameKey)) {
+              return sendTempMessage(message.channel, '❌ You already have an active mines game! Finish it first.');
+            }
+
+            // Deduct bet upfront
+            const deductResult = await recordCasinoGame(userId, serverId, bet, false);
+            if (!deductResult.success) {
+              if (deductResult.reason === 'insufficient_funds') {
+                const errorEmbed = new EmbedBuilder()
+                  .setColor('#ff3366')
+                  .setTitle('❌ Insufficient Coins')
+                  .setDescription(`You don't have enough coins to place that bet!`)
+                  .addFields(
+                    { name: 'Your Balance', value: `**${deductResult.currentBalance}** ${currencyIcon} ${currencyName}`, inline: true },
+                    { name: 'Attempted Bet', value: `**${bet}** ${currencyIcon} ${currencyName}`, inline: true }
+                  )
+                  .setTimestamp();
+                return await message.reply({ embeds: [errorEmbed] }).catch(() => { });
+              }
+              throw new Error('Database transaction failed');
+            }
+
+            // Generate mine positions
+            const totalTiles = 20;
+            const minePositions = new Set();
+            while (minePositions.size < mineCount) {
+              minePositions.add(Math.floor(Math.random() * totalTiles));
+            }
+
+            const safeTiles = totalTiles - mineCount;
+            const revealedPositions = new Set();
+            let currentMultiplier = 0;
+            const gameTimestamp = Date.now();
+
+            // Calculate multiplier after k reveals
+            function calcMultiplier(reveals) {
+              if (reveals === 0) return 0;
+              let mult = 0.97;
+              for (let i = 0; i < reveals; i++) {
+                mult *= (totalTiles - i) / (safeTiles - i);
+              }
+              return Math.floor(mult * 100) / 100;
+            }
+
+            // Build the grid components
+            function buildGridComponents(gameOver, hitMine) {
+              const rows = [];
+
+              // 4 rows of 5 tile buttons
+              for (let row = 0; row < 4; row++) {
+                const actionRow = new ActionRowBuilder();
+                for (let col = 0; col < 5; col++) {
+                  const tileIndex = row * 5 + col;
+                  const btn = new ButtonBuilder()
+                    .setCustomId(`mines_tile_${tileIndex}_${userId}_${gameTimestamp}`);
+
+                  if (revealedPositions.has(tileIndex)) {
+                    // Already revealed safe tile
+                    btn.setEmoji('💎').setStyle(ButtonStyle.Success).setDisabled(true);
+                  } else if (gameOver && minePositions.has(tileIndex)) {
+                    // Game over — reveal mines
+                    btn.setEmoji('💣').setStyle(ButtonStyle.Danger).setDisabled(true);
+                  } else if (gameOver) {
+                    // Game over — unrevealed safe tile
+                    btn.setEmoji('⬜').setStyle(ButtonStyle.Secondary).setDisabled(true);
+                  } else {
+                    // Active unrevealed tile
+                    btn.setEmoji('⬜').setStyle(ButtonStyle.Secondary);
+                  }
+
+                  // Use label for position hint
+                  btn.setLabel(`${tileIndex + 1}`);
+                  actionRow.addComponents(btn);
+                }
+                rows.push(actionRow);
+              }
+
+              // Row 5: Cash Out button
+              const cashOutRow = new ActionRowBuilder();
+              const cashOutBtn = new ButtonBuilder()
+                .setCustomId(`mines_cashout_${userId}_${gameTimestamp}`);
+
+              if (gameOver) {
+                cashOutBtn.setLabel('Game Over').setStyle(ButtonStyle.Danger).setDisabled(true);
+              } else if (revealedPositions.size === 0) {
+                cashOutBtn.setLabel('💰 Cash Out — reveal a tile first').setStyle(ButtonStyle.Secondary).setDisabled(true);
+              } else {
+                const winAmount = Math.floor(bet * currentMultiplier);
+                cashOutBtn.setLabel(`💰 Cash Out — ${currentMultiplier.toFixed(2)}x (${winAmount} coins)`).setStyle(ButtonStyle.Success);
+              }
+              cashOutRow.addComponents(cashOutBtn);
+              rows.push(cashOutRow);
+
+              return rows;
+            }
+
+            // Build game embed
+            function buildMinesEmbed(state, winnings) {
+              const embed = new EmbedBuilder()
+                .setAuthor({
+                  name: `${message.author.username}'s Mines Game`,
+                  iconURL: message.author.displayAvatarURL({ dynamic: true })
+                })
+                .setTimestamp();
+
+              if (state === 'playing') {
+                embed.setColor('#ffaa00')
+                  .setTitle('💣 Mines — Choose a Tile!')
+                  .setDescription(
+                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
+                    `**Mines:** ${mineCount} 💣 | **Safe Tiles:** ${safeTiles} 💎\n` +
+                    `**Revealed:** ${revealedPositions.size}/${safeTiles}\n` +
+                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\`\n\n` +
+                    `Click a numbered tile to reveal it. Avoid the mines!`
+                  );
+              } else if (state === 'cashed_out') {
+                embed.setColor('#00ffaa')
+                  .setTitle('💰 Mines — CASHED OUT!')
+                  .setDescription(
+                    `You escaped with your winnings!\n\n` +
+                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
+                    `**Tiles Revealed:** ${revealedPositions.size} 💎\n` +
+                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\`\n` +
+                    `**Winnings:** +${winnings} ${currencyIcon} ${currencyName}\n` +
+                    `**Net Profit:** +${winnings - bet} ${currencyIcon} ${currencyName}`
+                  );
+              } else if (state === 'mine_hit') {
+                embed.setColor('#ff3366')
+                  .setTitle('💥 Mines — BOOM!')
+                  .setDescription(
+                    `You hit a mine and lost your bet!\n\n` +
+                    `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n` +
+                    `**Tiles Revealed Before Hit:** ${revealedPositions.size} 💎\n` +
+                    `**Mines:** ${mineCount} 💣`
+                  );
+              } else if (state === 'timeout') {
+                embed.setColor('#ff3366')
+                  .setTitle('⏰ Mines — TIMED OUT!')
+                  .setDescription(
+                    `You didn't act in time and lost your bet!\n\n` +
+                    `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n` +
+                    `*The game auto-ended after 60 seconds of inactivity.*`
+                  );
+              } else if (state === 'auto_cashout') {
+                embed.setColor('#00ffaa')
+                  .setTitle('🏆 Mines — ALL TILES CLEARED!')
+                  .setDescription(
+                    `You revealed every safe tile! Maximum payout!\n\n` +
+                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
+                    `**All ${safeTiles} Safe Tiles Revealed** 💎\n` +
+                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\`\n` +
+                    `**Winnings:** +${winnings} ${currencyIcon} ${currencyName}\n` +
+                    `**Net Profit:** +${winnings - bet} ${currencyIcon} ${currencyName}`
+                  );
+              }
+
+              return embed;
+            }
+
+            // Send initial game message
+            const initialEmbed = buildMinesEmbed('playing', 0);
+            const initialComponents = buildGridComponents(false, false);
+
+            const gameMessage = await message.reply({
+              embeds: [initialEmbed],
+              components: initialComponents
+            });
+
+            // Store game state
+            let gameEnded = false;
+            activeMinesGames.set(gameKey, { gameTimestamp });
+
+            // Collector for button interactions
+            const collector = gameMessage.createMessageComponentCollector({
+              componentType: ComponentType.Button,
+              time: 60000, // 60 second timeout
+              filter: (i) => i.user.id === userId && i.customId.includes(`_${userId}_${gameTimestamp}`)
+            });
+
+            collector.on('collect', async (buttonInteraction) => {
+              if (gameEnded) return;
+
+              const customId = buttonInteraction.customId;
+
+              // Cash Out
+              if (customId.startsWith('mines_cashout_')) {
+                if (revealedPositions.size === 0) return; // Safety check
+
+                gameEnded = true;
+                activeMinesGames.delete(gameKey);
+                collector.stop('cashed_out');
+
+                const winnings = Math.floor(bet * currentMultiplier);
+                await recordCasinoGame(userId, serverId, winnings, true);
+
+                const winEmbed = buildMinesEmbed('cashed_out', winnings);
+                const endComponents = buildGridComponents(true, false);
+                await buttonInteraction.update({ embeds: [winEmbed], components: endComponents }).catch(() => {});
+                return;
+              }
+
+              // Tile click
+              if (customId.startsWith('mines_tile_')) {
+                const tileIndex = parseInt(customId.split('_')[2]);
+
+                if (revealedPositions.has(tileIndex)) return; // Already revealed
+
+                // Check if mine
+                if (minePositions.has(tileIndex)) {
+                  gameEnded = true;
+                  activeMinesGames.delete(gameKey);
+                  collector.stop('mine_hit');
+
+                  // Add to revealed so it shows as a bomb
+                  revealedPositions.add(tileIndex);
+
+                  const lossEmbed = buildMinesEmbed('mine_hit', 0);
+                  const endComponents = buildGridComponents(true, true);
+                  await buttonInteraction.update({ embeds: [lossEmbed], components: endComponents }).catch(() => {});
+                  return;
+                }
+
+                // Safe tile
+                revealedPositions.add(tileIndex);
+                currentMultiplier = calcMultiplier(revealedPositions.size);
+
+                // Check if all safe tiles revealed
+                if (revealedPositions.size >= safeTiles) {
+                  gameEnded = true;
+                  activeMinesGames.delete(gameKey);
+                  collector.stop('all_cleared');
+
+                  const winnings = Math.floor(bet * currentMultiplier);
+                  await recordCasinoGame(userId, serverId, winnings, true);
+
+                  const winEmbed = buildMinesEmbed('auto_cashout', winnings);
+                  const endComponents = buildGridComponents(true, false);
+                  await buttonInteraction.update({ embeds: [winEmbed], components: endComponents }).catch(() => {});
+                  return;
+                }
+
+                // Update game display
+                const updatedEmbed = buildMinesEmbed('playing', 0);
+                const updatedComponents = buildGridComponents(false, false);
+                await buttonInteraction.update({ embeds: [updatedEmbed], components: updatedComponents }).catch(() => {});
+              }
+            });
+
+            collector.on('end', async (collected, reason) => {
+              if (!gameEnded) {
+                gameEnded = true;
+                activeMinesGames.delete(gameKey);
+
+                const timeoutEmbed = buildMinesEmbed('timeout', 0);
+                const endComponents = buildGridComponents(true, false);
+                await gameMessage.edit({ embeds: [timeoutEmbed], components: endComponents }).catch(() => {});
               }
             });
 
