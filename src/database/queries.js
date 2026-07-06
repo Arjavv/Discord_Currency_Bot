@@ -336,15 +336,83 @@ async function getLeaderboard(serverId, limit = 10) {
 }
 
 /**
- * Resets the current monthly cycle.
- * Closes the active cycle, archives top rankings into cycle_results,
- * resets all balances, and launches a new cycle.
+ * Resets the current monthly cycle (Dashboard-only).
+ * Archives all non-zero GLOBAL balances into cycle_results,
+ * resets all coin_balance and last_checkin_at to 0/null,
+ * closes the active cycle, and starts a new one.
+ * serverId is ignored — always operates on GLOBAL balances.
  */
 async function resetCycle(serverId) {
-  return {
-    success: false,
-    reason: 'global_economy'
-  };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Check if there is an active cycle
+    const activeCycleRes = await client.query(
+      `SELECT id FROM cycles WHERE is_active = TRUE LIMIT 1`
+    );
+
+    let oldCycleId = null;
+    if (activeCycleRes.rows.length > 0) {
+      oldCycleId = activeCycleRes.rows[0].id;
+
+      // 2. Archive top GLOBAL rankings into cycle_results
+      const topUsersRes = await client.query(`
+        SELECT discord_id, coin_balance,
+               RANK() OVER (ORDER BY coin_balance DESC) AS rank
+        FROM users
+        WHERE server_id = 'GLOBAL' AND coin_balance > 0
+        ORDER BY coin_balance DESC
+        LIMIT 100
+      `);
+
+      for (const row of topUsersRes.rows) {
+        await client.query(
+          `INSERT INTO cycle_results (cycle_id, discord_id, final_coins, rank)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT DO NOTHING`,
+          [oldCycleId, row.discord_id, row.coin_balance, row.rank]
+        );
+      }
+
+      const archivedCount = topUsersRes.rows.length;
+
+      // 3. Close the active cycle
+      await client.query(
+        `UPDATE cycles SET is_active = FALSE, ended_at = NOW() WHERE id = $1`,
+        [oldCycleId]
+      );
+
+      // 4. Reset all GLOBAL coin balances and clear check-in timestamps
+      await client.query(`
+        UPDATE users
+        SET coin_balance = 0, last_checkin_at = NULL
+        WHERE server_id = 'GLOBAL'
+      `);
+
+      // 5. Start a new cycle
+      await client.query(`INSERT INTO cycles (started_at, is_active) VALUES (NOW(), TRUE)`);
+
+      await client.query('COMMIT');
+      return { success: true, archivedCount, oldCycleId };
+    } else {
+      // No active cycle — create one and reset balances anyway
+      await client.query(`
+        UPDATE users
+        SET coin_balance = 0, last_checkin_at = NULL
+        WHERE server_id = 'GLOBAL'
+      `);
+      await client.query(`INSERT INTO cycles (started_at, is_active) VALUES (NOW(), TRUE)`);
+      await client.query('COMMIT');
+      return { success: true, archivedCount: 0, oldCycleId: null };
+    }
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error in resetCycle:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /**

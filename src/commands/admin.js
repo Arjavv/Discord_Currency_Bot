@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = require('discord.js');
-const { updateServerSetting, resetCycle, getServerSettings, updateDropChannel, toggleAutoDrops, setShopPrice } = require('../database/queries');
+const { updateServerSetting, getServerSettings, updateDropChannel, toggleAutoDrops } = require('../database/queries');
 const { triggerDrop, nextDropTimers, scheduleNextDrop } = require('../utils/drops');
 
 module.exports = {
@@ -7,11 +7,6 @@ module.exports = {
     .setName('admin')
     .setDescription('Administration commands for the currency system')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Restricts visibility to server admins by default
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('reset-cycle')
-        .setDescription('Close current cycle, archive rankings, and reset all balances to 0 for a new cycle')
-    )
     .addSubcommand(subcommand =>
       subcommand
         .setName('setup')
@@ -60,47 +55,12 @@ module.exports = {
     const subcommand = interaction.options.getSubcommand();
     const serverId = interaction.guildId;
 
-    // Restrict name, icon, and reset-cycle to #soul-logs; allow setup, set-drop-channel, auto-drops, and force-drop anywhere
-    if (!['setup', 'set-drop-channel', 'force-drop', 'auto-drops'].includes(subcommand)) {
-      if (!interaction.channel || !interaction.channel.name.toLowerCase().includes('soul-logs')) {
-        return await interaction.reply({
-          content: '❌ This administrative command can only be used in the **#soul-logs** channel.',
-          ephemeral: true
-        });
-      }
-    }
+    // Restrict to #soul-logs: currently no subcommands require soul-logs (reset-cycle removed)
+    // setup, set-drop-channel, auto-drops, and force-drop can all be run anywhere
 
     await interaction.deferReply();
 
     try {
-      if (subcommand === 'reset-cycle') {
-        const settings = await getServerSettings(serverId);
-        const result = await resetCycle(serverId);
-
-        if (!result.success) {
-          if (result.reason === 'global_economy') {
-            return await interaction.editReply('❌ Reset Cycle is disabled because the bot is running in Global Economy mode.');
-          }
-          return await interaction.editReply('❌ An error occurred resetting the cycle.');
-        }
-
-        const embed = new EmbedBuilder()
-          .setColor('#ff3300') // Intense Red for destructive action
-          .setTitle('🔄 Monthly Cycle Reset Completed')
-          .setDescription(
-            `The current monthly cycle has been successfully closed and reset.`
-          )
-          .addFields(
-            { name: 'Rankings Archived', value: `**${result.archivedCount}** members snapshotted`, inline: true },
-            { name: 'Database Action', value: 'Balances set to 0, check-ins cleared', inline: true },
-            { name: 'Active Cycle Status', value: 'New cycle started successfully!', inline: false }
-          )
-          .setFooter({ text: `Note: rankings were archived under Cycle ID #${result.oldCycleId}` })
-          .setTimestamp();
-
-        return await interaction.editReply({ embeds: [embed] });
-      }
-
       if (subcommand === 'setup') {
         const guild = interaction.guild;
 

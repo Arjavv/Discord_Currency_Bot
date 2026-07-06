@@ -56,7 +56,7 @@ if (fs.existsSync(eventsPath)) {
 // Serve the docs/ website, admin dashboard, and endpoints
 const express = require('express');
 const session = require('express-session');
-const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, getShopPrices, setShopPrice } = require('./database/queries');
+const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, getShopPrices, setShopPrice, resetCycle } = require('./database/queries');
 const { getBotControlState } = require('./utils/botControl');
 
 const app = express();
@@ -337,6 +337,28 @@ app.patch('/api/server/:serverId/shop-prices', requireLogin, async (req, res) =>
   } catch (err) {
     console.error('Error updating shop prices:', err);
     res.status(500).json({ error: 'Failed to update shop prices' });
+  }
+});
+
+// Global Cycle Reset (Protected - Bot Owner Dashboard ONLY)
+app.post('/api/admin/reset-cycle', requireLogin, async (req, res) => {
+  try {
+    const result = await resetCycle('GLOBAL');
+    if (!result.success) {
+      if (result.reason === 'global_economy') {
+        return res.status(400).json({ error: 'Reset Cycle is not available in Global Economy mode.' });
+      }
+      return res.status(500).json({ error: 'An error occurred resetting the cycle.' });
+    }
+    res.json({
+      success: true,
+      archivedCount: result.archivedCount,
+      oldCycleId: result.oldCycleId,
+      message: `Cycle reset complete. ${result.archivedCount} rankings archived under Cycle #${result.oldCycleId}.`
+    });
+  } catch (err) {
+    console.error('Error in admin reset-cycle:', err);
+    res.status(500).json({ error: 'Failed to reset cycle: ' + err.message });
   }
 });
 

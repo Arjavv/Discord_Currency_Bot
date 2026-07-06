@@ -45,9 +45,7 @@ These setup and configuration commands are available to **local server administr
   - **Permissions**: Restricted to Server Administrators. Can be run in any channel.
 
 ### Cycle Management
-* **`s reset-cycle`** or **`/admin reset-cycle`**
-  - **Description**: Archives current cycle standings and resets all member balances to 0 for a new cycle. **Disabled in Global Economy mode.**
-  - **Permissions**: Restricted to Server Administrators. **Must be run in `#soul-logs`**.
+> ⚠️ **Cycle Reset is a Bot Owner–only operation** managed exclusively from the [Admin Cockpit dashboard](https://your-bot-url/admin). Server administrators **cannot** trigger a cycle reset via any Discord command.
 
 ---
 
@@ -60,4 +58,4 @@ These setup and configuration commands are available to **local server administr
   - `/checkin` (slash): Awards a fixed **20 Souls** per claim.
 * **Message Earnings**: Every **10 qualifying messages** (min 5 words, 15s cooldown between counted messages) awards **100 Souls**. Daily cap is **5,000 Souls** from message activity.
 * **Robbery Cooldown**: A user is placed on a **1-hour robbery cooldown** after executing a rob command.
-* **Monthly Cycle Reset**: **Disabled** globally to preserve the global economy database.
+* **Monthly Cycle Reset**: Triggered manually from the **Admin Cockpit → Mission Control → Danger Zone**. Archives the top-100 global rankings, resets all balances to 0, and starts a new cycle. Requires typing `RESET CYCLE` to confirm.

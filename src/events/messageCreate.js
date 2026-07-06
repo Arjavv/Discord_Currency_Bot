@@ -220,26 +220,6 @@ module.exports = {
             return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
-          if (commandName === 'reset-cycle') {
-            const result = await resetCycle(serverId);
-            if (!result.success) {
-              if (result.reason === 'global_economy') {
-                return await message.reply('❌ Reset Cycle is disabled because the bot is running in Global Economy mode.').catch(() => { });
-              }
-              return await message.reply('❌ An error occurred resetting the cycle.').catch(() => { });
-            }
-            const embed = new EmbedBuilder()
-              .setColor('#ff3300')
-              .setTitle('🔄 Monthly Cycle Reset Completed')
-              .setDescription('The current monthly cycle has been successfully closed and reset.')
-              .addFields(
-                { name: 'Rankings Archived', value: `**${result.archivedCount}** members snapshotted`, inline: true },
-                { name: 'Database Action', value: 'Balances set to 0, check-ins cleared', inline: true }
-              )
-              .setFooter({ text: `Note: rankings were archived under Cycle ID #${result.oldCycleId}` })
-              .setTimestamp();
-            return await message.reply({ embeds: [embed] }).catch(() => { });
-          }
 
           if (commandName === 'set-drop-channel') {
             const channelMention = args[0];
@@ -350,11 +330,6 @@ module.exports = {
                     name: '💥 `s force-drop`',
                     value: 'Immediately triggers a Soul Coin drop in the configured drop channel.\n> Can be run in **any channel**.',
                     inline: false
-                  },
-                  {
-                    name: '🔄 `s reset-cycle`',
-                    value: 'Archives current cycle standings, then resets **all member balances to 0** for a fresh cycle.\n⚠️ **Disabled in Global Economy mode.**\n> Must be run in **#soul-logs** only.',
-                    inline: false
                   }
                 )
                 .setFooter({ text: 'Prefix commands are typed directly in chat with the "s " prefix.' })
@@ -399,8 +374,8 @@ module.exports = {
                 .setTitle('📋 Quick Reference')
                 .addFields(
                   { name: '✅ Available Anywhere', value: '`s setup` · `s set-drop-channel` · `s force-drop`\n`/admin setup` · `/admin set-drop-channel` · `/admin force-drop` · `/admin auto-drops`', inline: false },
-                  { name: '🔒 Restricted to `#soul-logs`', value: '`s reset-cycle` · `/admin reset-cycle`', inline: false },
                   { name: '⚡ Slash-Only (no prefix version)', value: '`/admin auto-drops`', inline: false },
+                  { name: '🔒 Bot Owner Dashboard Only', value: '**Cycle Reset** — must be triggered from the Admin Cockpit dashboard.\nServer admins cannot reset cycles directly.', inline: false },
                   { name: '⛔ Globally Disabled', value: 'Currency name & icon changes · Shop price overrides\n*(These were removed from this bot\'s configuration.)*', inline: false }
                 )
                 .setFooter({ text: `Run by ${message.author.tag} · Soul Currency Admin Reference` })

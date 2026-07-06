@@ -185,6 +185,31 @@
     #toast.ok { border-color: var(--green); color: var(--green); }
     #toast.err { border-color: var(--red); color: var(--red); }
 
+    /* DANGER ZONE */
+    .danger-zone { background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.25); border-radius: 14px; padding: 22px 24px; margin-bottom: 20px; }
+    .danger-zone .section-title { color: var(--red); }
+    .danger-zone .section-title i { color: var(--red); }
+    .danger-action { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .danger-info h3 { font-size: 0.92rem; font-weight: 600; color: var(--text); }
+    .danger-info p { font-size: 0.78rem; color: var(--muted); margin-top: 4px; max-width: 480px; }
+    .btn-danger { padding: 10px 22px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); border-radius: 8px; color: var(--red); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .btn-danger:hover { background: rgba(239,68,68,0.28); border-color: var(--red); box-shadow: 0 0 16px rgba(239,68,68,0.2); }
+    .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+    /* MODAL */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: var(--bg2); border: 1px solid rgba(239,68,68,0.35); border-radius: 16px; padding: 32px 28px; width: 400px; max-width: 92vw; box-shadow: 0 0 60px rgba(239,68,68,0.15); }
+    .modal-box h3 { font-family: 'Orbitron', monospace; font-size: 1rem; color: var(--red); margin-bottom: 10px; }
+    .modal-box p { font-size: 0.83rem; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
+    .modal-box .confirm-input { width: 100%; padding: 9px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(239,68,68,0.3); border-radius: 7px; color: var(--text); font-size: 0.88rem; outline: none; font-family: 'JetBrains Mono', monospace; margin-bottom: 14px; }
+    .modal-box .confirm-input:focus { border-color: var(--red); }
+    .modal-actions { display: flex; gap: 10px; }
+    .btn-cancel { flex: 1; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); border-radius: 8px; color: var(--muted); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+    .btn-cancel:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+    .btn-confirm-danger { flex: 1; padding: 10px; background: var(--red); border: none; border-radius: 8px; color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .btn-confirm-danger:hover { opacity: 0.9; }
+    .btn-confirm-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
@@ -304,6 +329,16 @@
         </div>
         <button class="save-btn" id="save-global-prices-btn"><i class="fa-solid fa-floppy-disk"></i> Save Global Shop Prices</button>
       </div>
+      <div class="danger-zone">
+        <div class="section-title"><i class="fa-solid fa-skull-crossbones"></i> Danger Zone</div>
+        <div class="danger-action">
+          <div class="danger-info">
+            <h3>🔄 Reset Monthly Cycle</h3>
+            <p>Archives the current top-100 global rankings into cycle history, then resets <strong>all user balances to 0</strong> and clears check-in timestamps to start a fresh cycle. <strong>This cannot be undone.</strong></p>
+          </div>
+          <button class="btn-danger" id="reset-cycle-btn"><i class="fa-solid fa-rotate-right"></i> Reset Cycle</button>
+        </div>
+      </div>
     </div>
 
     <!-- PANEL 2: SERVER ANALYTICS -->
@@ -372,6 +407,19 @@
       <div id="user-not-found" style="display:none"><div class="empty-state"><i class="fa-solid fa-user-slash"></i>User not found in the database</div></div>
     </div>
   </main>
+</div>
+
+<!-- CYCLE RESET CONFIRMATION MODAL -->
+<div class="modal-overlay" id="reset-cycle-modal">
+  <div class="modal-box">
+    <h3>⚠️ CONFIRM CYCLE RESET</h3>
+    <p>This will <strong style="color:var(--red)">archive the top-100 leaderboard</strong> and set <strong style="color:var(--red)">every user's balance to zero</strong>.<br><br>Type <code style="color:var(--amber)">RESET CYCLE</code> below to confirm:</p>
+    <input type="text" class="confirm-input" id="reset-cycle-confirm-input" placeholder="Type RESET CYCLE" autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn-cancel" id="reset-cycle-cancel-btn">Cancel</button>
+      <button class="btn-confirm-danger" id="reset-cycle-confirm-btn" disabled>Confirm Reset</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -876,6 +924,43 @@ checkAuth();
 setInterval(() => {
   if ($('app').style.display !== 'none') loadStatus();
 }, 30000);
+
+// ---- CYCLE RESET DANGER ZONE ----
+$('reset-cycle-btn').onclick = () => {
+  $('reset-cycle-confirm-input').value = '';
+  $('reset-cycle-confirm-btn').disabled = true;
+  $('reset-cycle-modal').classList.add('show');
+  $('reset-cycle-confirm-input').focus();
+};
+
+$('reset-cycle-confirm-input').addEventListener('input', () => {
+  $('reset-cycle-confirm-btn').disabled = $('reset-cycle-confirm-input').value.trim() !== 'RESET CYCLE';
+});
+
+$('reset-cycle-cancel-btn').onclick = () => {
+  $('reset-cycle-modal').classList.remove('show');
+};
+
+$('reset-cycle-modal').addEventListener('click', e => {
+  if (e.target === $('reset-cycle-modal')) $('reset-cycle-modal').classList.remove('show');
+});
+
+$('reset-cycle-confirm-btn').onclick = async () => {
+  const btn = $('reset-cycle-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Resetting…';
+  try {
+    const result = await api('/api/admin/reset-cycle', 'POST');
+    $('reset-cycle-modal').classList.remove('show');
+    toast(`✅ ${result.message}`, 'ok');
+    await loadStatus(); // Refresh stat cards
+  } catch (e) {
+    $('reset-cycle-modal').classList.remove('show');
+    toast('❌ Reset failed: ' + e.message, 'err');
+  } finally {
+    btn.textContent = 'Confirm Reset';
+  }
+};
 </script>
 </body>
 </html>
