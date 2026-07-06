@@ -1,5 +1,5 @@
 const {
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder
 } = require('discord.js');
 const {
   recordMessageActivity,
@@ -101,7 +101,9 @@ module.exports = {
       try {
         const settings = await getServerSettings(serverId);
         const currencyName = settings.currency_name;
-        const currencyIcon = settings.currency_icon_         // --- 1. ADMIN COMMANDS ---
+        const currencyIcon = settings.currency_icon_url;
+
+        // --- 1. ADMIN COMMANDS ---
         if (['setup', 'set-name', 'set-icon', 'reset-cycle', 'set-drop-channel', 'force-drop', 'set-price'].includes(commandName)) {
           // Check administrator permission
           if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -668,10 +670,111 @@ module.exports = {
                     `*Effect: Automatically blocks 1 robbery attempt. Consumed on use.*`
                 }
               )
-              .setFooter({ text: 'Usage: s buy <item_id> (e.g. s buy dumbbell)' })
+              .setFooter({ text: 'Usage: s buy <item_id> OR select an option from the menu below to purchase!' })
               .setTimestamp();
 
-            return await message.reply({ embeds: [embed] }).catch(() => { });
+            // Create interactive select menu for purchases
+            const selectId = `shop_select_${userId}_${Date.now()}`;
+            const selectMenu = new StringSelectMenuBuilder()
+              .setCustomId(selectId)
+              .setPlaceholder('🛒 Select an item to purchase...')
+              .addOptions(
+                new StringSelectMenuOptionBuilder()
+                  .setLabel('Iron Dumbbell (+5 Strength)')
+                  .setDescription(`Cost: ${prices.dumbbell} coins`)
+                  .setValue('dumbbell')
+                  .setEmoji('🏋️'),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel('Kevlar Vest (+5 Defense)')
+                  .setDescription(`Cost: ${prices.vest} coins`)
+                  .setValue('vest')
+                  .setEmoji('🛡️'),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel('Running Shoes (+5 Speed)')
+                  .setDescription(`Cost: ${prices.shoes} coins`)
+                  .setValue('shoes')
+                  .setEmoji('👟'),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel('Ancient Tome (+5 Magic)')
+                  .setDescription(`Cost: ${prices.tome} coins`)
+                  .setValue('tome')
+                  .setEmoji('📘'),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel('Rage Elixir (+15 Strength/24h)')
+                  .setDescription(`Cost: ${prices.rage} coins`)
+                  .setValue('rage')
+                  .setEmoji('🧪'),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel('Aegis Serum (+15 Defense/24h)')
+                  .setDescription(`Cost: ${prices.aegis} coins`)
+                  .setValue('aegis')
+                  .setEmoji('🛡️'),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel('Adrenaline Pill (+15 Speed/24h)')
+                  .setDescription(`Cost: ${prices.adrenaline} coins`)
+                  .setValue('adrenaline')
+                  .setEmoji('💊'),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel('Mana Elixir (+15 Magic/24h)')
+                  .setDescription(`Cost: ${prices.mana} coins`)
+                  .setValue('mana')
+                  .setEmoji('🔮'),
+                new StringSelectMenuOptionBuilder()
+                  .setLabel('Divine Shield (Robbery Block)')
+                  .setDescription(`Cost: ${prices.shield} coins`)
+                  .setValue('shield')
+                  .setEmoji('🔮')
+              );
+
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+
+            const shopMessage = await message.reply({
+              embeds: [embed],
+              components: [row]
+            });
+
+            // Create collector
+            const collector = shopMessage.createMessageComponentCollector({
+              componentType: ComponentType.StringSelect,
+              time: 60000,
+              filter: (i) => i.user.id === userId && i.customId === selectId
+            });
+
+            collector.on('collect', async (menuInteraction) => {
+              const selectedItemId = menuInteraction.values[0];
+              await menuInteraction.deferReply({ ephemeral: true });
+
+              const result = await purchaseShopItem(userId, serverId, selectedItemId);
+              if (result.success) {
+                const successEmbed = new EmbedBuilder()
+                  .setColor('#00ffaa')
+                  .setTitle('🛒 Purchase Successful!')
+                  .setDescription(`Successfully bought **${selectedItemId}** for **${result.cost}** ${currencyIcon} ${currencyName}.`)
+                  .addFields(
+                    { name: 'Effect', value: `✨ ${result.message}` },
+                    { name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` }
+                  )
+                  .setTimestamp();
+                await menuInteraction.followUp({ embeds: [successEmbed], ephemeral: true });
+              } else {
+                let errorText = '❌ An error occurred processing your purchase.';
+                if (result.reason === 'insufficient_funds') {
+                  errorText = `❌ Insufficient funds! You need **${result.cost}** ${currencyIcon} to buy this item.`;
+                } else if (result.reason === 'invalid_item') {
+                  errorText = `❌ Invalid Item ID!`;
+                }
+                await menuInteraction.followUp({ content: errorText, ephemeral: true });
+              }
+            });
+
+            collector.on('end', async () => {
+              // Disable select menu on timeout
+              selectMenu.setDisabled(true).setPlaceholder('Shop session expired. Type s shop to reopen.');
+              const disabledRow = new ActionRowBuilder().addComponents(selectMenu);
+              await shopMessage.edit({ components: [disabledRow] }).catch(() => {});
+            });
+
+            return;
           }
 
           if (commandName === 'buy') {
