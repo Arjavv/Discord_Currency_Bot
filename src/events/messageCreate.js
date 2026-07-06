@@ -568,9 +568,6 @@ module.exports = {
           }
 
           if (['stats', 'profile'].includes(commandName)) {
-            // Delete user's command message to keep channel completely clean and private
-            message.delete().catch(() => {});
-
             try {
               const stats = await getUserStats(userId, serverId);
               
@@ -587,6 +584,7 @@ module.exports = {
                   `⚡ **Speed:** \`${stats.total.speed}\` (Base: ${stats.base.speed} | Weekly: +${stats.weekly.speed} | Potion: +${stats.activeBuffs.speed})\n` +
                   `🔮 **Magic:** \`${stats.total.magic}\` (Base: ${stats.base.magic} | Weekly: +${stats.weekly.magic} | Potion: +${stats.activeBuffs.magic})\n`
                 )
+                .setFooter({ text: '⚠️ This message will self-destruct in 8 seconds!' })
                 .setTimestamp();
 
               // Add Divine Shield info
@@ -604,15 +602,19 @@ module.exports = {
                 embed.addFields({ name: '🧪 Active Potion Buffs', value: potionList, inline: false });
               }
 
-              // Send to user's DMs
-              await message.author.send({ embeds: [embed] });
+              // Send in channel and schedule deletion of both message and trigger
+              await message.channel.send({ embeds: [embed] }).then(msg => {
+                setTimeout(() => {
+                  msg.delete().catch(() => {});
+                  message.delete().catch(() => {});
+                }, 8000);
+              });
 
-              // Send temporary channel confirmation
-              return sendTempMessage(message.channel, `📬 **${message.author.username}**, I've sent your core stats to your Direct Messages!`);
-            } catch (dmError) {
-              console.error(`Failed to DM stats to user ${userId}:`, dmError);
-              return sendTempMessage(message.channel, `❌ **${message.author.username}**, I couldn't send you a Direct Message. Please check your Discord privacy settings for this server.`);
+            } catch (error) {
+              console.error(`Failed to show stats for user ${userId}:`, error);
+              return sendTempMessage(message.channel, `❌ An error occurred while retrieving your stats.`);
             }
+            return;
           }
 
           if (commandName === 'shop') {
