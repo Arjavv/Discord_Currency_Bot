@@ -53,14 +53,33 @@ if (fs.existsSync(eventsPath)) {
   }
 }
 
-// Start HTTP health check server for hosting platforms (Render/Koyeb)
+// Serve the docs/ website and act as health check for Render
 const http = require('http');
 const port = process.env.PORT || 8000;
+const docsPath = path.join(__dirname, '..', 'docs');
+
+const mimeTypes = {
+  '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript',
+  '.png': 'image/png', '.gif': 'image/gif', '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json'
+};
+
 http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Soul Currency Bot is online!\n');
+  let filePath = path.join(docsPath, req.url === '/' ? 'index.html' : req.url);
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('Soul Currency Bot is online!\n');
+    } else {
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(data);
+    }
+  });
 }).listen(port, () => {
-  console.log(`Health check server listening on port ${port}`);
+  console.log(`Web server listening on port ${port}`);
 });
 
 // Main Boot Sequence
