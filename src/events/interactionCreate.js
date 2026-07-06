@@ -20,7 +20,7 @@ module.exports = {
     const control = await getBotControlState();
     const isAdminCommand = interaction.commandName === 'admin';
 
-    if (control.maintenanceMode && !isAdminCommand && !isReadonlySlashCommand(interaction.commandName)) {
+    if (control.maintenanceMode && !isAdminCommand) {
       return interaction.reply({
         content: control.maintenanceMessage,
         ephemeral: true

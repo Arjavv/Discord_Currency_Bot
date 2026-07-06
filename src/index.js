@@ -148,6 +148,11 @@ app.post('/api/settings', requireLogin, async (req, res) => {
       const result = await setGlobalSetting(key, value);
       results.push(result);
     }
+    
+    // Dynamically update the bot's Discord presence status if maintenance mode changed
+    const { updateBotPresence } = require('./utils/botControl');
+    await updateBotPresence(client);
+
     res.json({ success: true, results });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update settings' });

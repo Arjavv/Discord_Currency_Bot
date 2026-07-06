@@ -1,6 +1,7 @@
 const { REST, Routes, EmbedBuilder } = require('discord.js');
 const { pool } = require('../database/db');
 const { scheduleNextDrop } = require('../utils/drops');
+const { updateBotPresence } = require('../utils/botControl');
 require('dotenv').config();
 
 module.exports = {
@@ -45,6 +46,9 @@ module.exports = {
       }
 
       console.log('Successfully reloaded application (/) commands.');
+
+      // Set bot presence based on current maintenance mode state
+      await updateBotPresence(client);
 
       // Send startup notifications to all servers inside #soul-logs channel
       client.guilds.cache.forEach(async (guild) => {

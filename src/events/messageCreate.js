@@ -113,7 +113,7 @@ module.exports = {
       const commandName = args.shift().toLowerCase();
       const control = await getBotControlState();
 
-      if (control.maintenanceMode && !isAdminPrefixCommand(commandName) && !isReadonlyPrefixCommand(commandName)) {
+      if (control.maintenanceMode && !isAdminPrefixCommand(commandName)) {
         return sendTempMessage(message.channel, control.maintenanceMessage);
       }
 

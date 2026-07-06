@@ -76,6 +76,30 @@ function getRandomCheckinAmount(state) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+async function updateBotPresence(client) {
+  if (!client || !client.user) return;
+  try {
+    const { ActivityType } = require('discord.js');
+    const state = await getBotControlState();
+    
+    if (state.maintenanceMode) {
+      client.user.setPresence({
+        activities: [{ name: '🔧 Under Maintenance', type: ActivityType.Playing }],
+        status: 'dnd'
+      });
+      console.log('Bot presence set to: Maintenance Mode (dnd)');
+    } else {
+      client.user.setPresence({
+        activities: [{ name: '⚔️ Souls Economy', type: ActivityType.Competing }],
+        status: 'online'
+      });
+      console.log('Bot presence set to: Live (online)');
+    }
+  } catch (error) {
+    console.error('Error updating bot presence:', error);
+  }
+}
+
 module.exports = {
   ADMIN_PREFIX_COMMANDS,
   READONLY_PREFIX_COMMANDS,
@@ -86,5 +110,6 @@ module.exports = {
   isReadonlySlashCommand,
   getFeatureForPrefixCommand,
   getFeatureForSlashCommand,
-  getRandomCheckinAmount
+  getRandomCheckinAmount,
+  updateBotPresence
 };
