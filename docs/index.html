@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soul Currency System | Official Reference & Guidelines</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Official rules, guidelines, commands, and calculators for the Discord Soul Currency system. Earn, gamble, and claim Souls daily.">
+  <meta name="keywords" content="Discord, Currency Bot, Souls, Casino, Leaderboard, Games">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <img src="assets/logo.png" alt="Soul Logo" class="brand-logo">
+        <span class="brand-name">SOUL CURRENCY</span>
+      </div>
+      
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle Navigation">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      
+      <div class="nav-menu" id="nav-menu">
+        <a href="#hero" class="nav-link active">Home</a>
+        <a href="#rules" class="nav-link">Rules</a>
+        <a href="#commands" class="nav-link">Commands</a>
+        <a href="#calculator" class="nav-link">Simulator</a>
+        <a href="https://discord.gg" target="_blank" class="nav-btn"><i class="fa-brands fa-discord"></i> Join Discord</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero" id="hero">
+    <div class="hero-glow"></div>
+    <div class="hero-container">
+      <div class="hero-content">
+        <div class="badge"><i class="fa-solid fa-circle-nodes"></i> SERVER ENGAGEMENT SYSTEM</div>
+        <h1 class="hero-title">Wield the Power of <span class="gold-text">Souls</span></h1>
+        <p class="hero-subtitle">Chat, claim, and compete in the ultimate server economy. Earn Souls for active engagement, challenge your luck in the casino, and dominate the monthly leaderboard.</p>
+        <div class="hero-actions">
+          <a href="#rules" class="btn btn-primary">Get Started <i class="fa-solid fa-arrow-down"></i></a>
+          <a href="#calculator" class="btn btn-secondary">Simulate Earnings <i class="fa-solid fa-calculator"></i></a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="logo-coin-container">
+          <img src="assets/soul_coin.png" alt="Soul Coin" class="logo-coin">
+          <div class="coin-shadow"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Rules & Guidelines Section -->
+  <section class="rules-section" id="rules">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Core <span class="gold-text">Guidelines</span> & Economy</h2>
+        <p class="section-subtitle">Earn currency automatically and safely. Read our guidelines to maximize your Souls.</p>
+      </div>
+      
+      <div class="rules-grid">
+        <!-- Rule 1: Daily Checkin -->
+        <div class="rule-card">
+          <div class="rule-icon"><i class="fa-solid fa-calendar-check"></i></div>
+          <h3 class="rule-title">Daily Allowance</h3>
+          <p class="rule-desc">Claim your daily reward of <span class="white-text">20 Souls</span> once every 24 hours. Keep your streak alive to inflate your balance!</p>
+          <div class="rule-channel-lock"><i class="fa-solid fa-lock"></i> Locked to: <code>#💵-soul-bots</code></div>
+        </div>
+
+        <!-- Rule 2: Active Chatting -->
+        <div class="rule-card highlighted">
+          <div class="card-glow"></div>
+          <div class="rule-icon"><i class="fa-solid fa-comments"></i></div>
+          <h3 class="rule-title">Chat Milestones</h3>
+          <p class="rule-desc">Get rewarded for engaging in chats. For every 100 qualifying messages sent, you earn <span class="gold-text">+10 Souls</span>!</p>
+          <ul class="rule-list">
+            <li><i class="fa-solid fa-shield-halved"></i> <strong>Anti-Spam:</strong> 15-second message rate-limit.</li>
+            <li><i class="fa-solid fa-font"></i> <strong>Quality Check:</strong> Minimum 5 words per message.</li>
+            <li><i class="fa-solid fa-gauge-high"></i> <strong>Daily Cap:</strong> Max 20 Souls earned per day.</li>
+          </ul>
+          <div class="rule-channel-lock"><i class="fa-solid fa-bullhorn"></i> Announced in: <code>#💵-soul-currency-logs</code></div>
+        </div>
+
+        <!-- Rule 3: Casino Games -->
+        <div class="rule-card">
+          <div class="rule-icon"><i class="fa-solid fa-dice"></i></div>
+          <h3 class="rule-title">Casino Flips</h3>
+          <p class="rule-desc">Risk your Souls in double-or-nothing coin flips! Predict heads or tails correctly to double your bet amount.</p>
+          <div class="rule-channel-lock"><i class="fa-solid fa-lock"></i> Locked to: <code>#💵-soul-casino</code></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Commands Reference Section -->
+  <section class="commands-section" id="commands">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Slash <span class="gold-text">Commands</span></h2>
+        <p class="section-subtitle">A comprehensive list of bot commands to interact with the Soul Currency system.</p>
+      </div>
+
+      <div class="commands-layout">
+        <!-- Search and Filters -->
+        <div class="commands-filter-bar">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="command-search" placeholder="Search commands (e.g. checkin, flip)...">
+          </div>
+          <div class="tab-filters">
+            <button class="filter-tab active" data-filter="all">All</button>
+            <button class="filter-tab" data-filter="user">User</button>
+            <button class="filter-tab" data-filter="casino">Casino</button>
+            <button class="filter-tab" data-filter="admin">Admin</button>
+          </div>
+        </div>
+
+        <!-- Commands List -->
+        <div class="commands-list" id="commands-list">
+          
+          <!-- Command 1: /checkin -->
+          <div class="command-item" data-category="user" id="cmd-checkin">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">/checkin</span>
+                <span class="command-tag user-tag">User</span>
+              </div>
+              <span class="command-short-desc">Claim your daily allowance reward.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Triggers the 24-hour daily allowance checkin. Awards <strong>20 Souls</strong> atomically. If run while on cooldown, displays a relative unlock timer embed.</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>/checkin</code>
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in <code>#💵-soul-bots</code> (ephemeral block in other channels).
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 2: /balance -->
+          <div class="command-item" data-category="user" id="cmd-balance">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">/balance <span class="optional-param">[user]</span></span>
+                <span class="command-tag user-tag">User</span>
+              </div>
+              <span class="command-short-desc">Check your wallet balance or search for another user's balance.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Fetches the balance of Souls. You can optionally check another user's wallet balance by tagging them in the parameter.</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>/balance [user: @username]</code>
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in <code>#💵-soul-bots</code>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 3: /leaderboard -->
+          <div class="command-item" data-category="user" id="cmd-leaderboard">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">/leaderboard</span>
+                <span class="command-tag user-tag">User</span>
+              </div>
+              <span class="command-short-desc">View the top 10 richest users in the current cycle.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Displays an embed listing the top 10 richest users ranked in descending order of their current active Soul balances.</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>/leaderboard</code>
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in <code>#💵-soul-leaderboard</code>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 4: /casino flip -->
+          <div class="command-item" data-category="casino" id="cmd-casino">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">/casino flip <span class="required-param">&lt;choice&gt;</span> <span class="required-param">&lt;bet&gt;</span></span>
+                <span class="command-tag casino-tag">Casino</span>
+              </div>
+              <span class="command-short-desc">Flip a coin for double or nothing.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Bets a specific positive amount of Souls on a coin toss outcome. Correct guesses award twice the bet amount (wins net your bet amount). Wrong guesses deduct the bet amount. Checks for balance sufficiency before running.</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>/casino flip choice:[Heads/Tails] bet:[positive integer]</code>
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in <code>#💵-soul-casino</code>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 5: /admin -->
+          <div class="command-item" data-category="admin" id="cmd-admin">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">/admin <span class="required-param">&lt;subcommand&gt;</span></span>
+                <span class="command-tag admin-tag">Admin</span>
+              </div>
+              <span class="command-short-desc">Administrative controls for settings and cycle resets.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Set server-wide currency options or reset the cycle. Restricted to Server Administrators.</p>
+              <ul class="admin-subcommands">
+                <li><code>set-currency-name &lt;name&gt;</code>: Customizes the display name of the currency server-wide (default is <em>Souls</em>).</li>
+                <li><code>set-currency-icon &lt;icon&gt;</code>: Sets a new custom emoji tag as the balance symbol.</li>
+                <li><code>reset-cycle</code>: Closes current monthly cycle, archives the rankings, and resets all balances & message counters to 0 server-wide.</li>
+              </ul>
+              <div class="detail-row">
+                <strong>Permission:</strong> Server Administrators only.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Earnings Simulator Section -->
+  <section class="calculator-section" id="calculator">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Souls Earnings <span class="gold-text">Simulator</span></h2>
+        <p class="section-subtitle">Estimate how many Souls you can accumulate based on your weekly chat and check-in activity.</p>
+      </div>
+
+      <div class="calc-wrapper">
+        <div class="calc-inputs">
+          <h3 class="calc-panel-title"><i class="fa-solid fa-sliders"></i> Adjust Activity</h3>
+          
+          <!-- Input 1: Daily Checkins -->
+          <div class="input-group">
+            <label for="checkins-input">Daily Check-ins per week: <span class="value-display" id="checkins-val">5</span></label>
+            <input type="range" id="checkins-input" min="0" max="7" value="5" class="slider">
+            <span class="slider-hint">Earns 20 Souls per claim</span>
+          </div>
+
+          <!-- Input 2: Average Messages per day -->
+          <div class="input-group">
+            <label for="messages-input">Average Messages sent per day: <span class="value-display" id="messages-val">80</span></label>
+            <input type="range" id="messages-input" min="0" max="400" step="10" value="80" class="slider">
+            <span class="slider-hint">Earns 10 Souls per 100 messages (20 Souls daily cap, min 5 words, 15s delay)</span>
+          </div>
+
+          <!-- Input 3: Casino gambling estimation -->
+          <div class="input-group">
+            <label for="casino-bet">Estimated Casino Win/Loss (per week): <span class="value-display" id="casino-val">+0</span></label>
+            <input type="range" id="casino-bet" min="-100" max="200" step="10" value="0" class="slider">
+            <span class="slider-hint">Net luck projections</span>
+          </div>
+        </div>
+
+        <div class="calc-results">
+          <h3 class="calc-panel-title"><i class="fa-solid fa-chart-line"></i> Projections</h3>
+          
+          <div class="results-grid">
+            <div class="result-box">
+              <span class="result-label">Weekly Projections</span>
+              <div class="result-value"><span id="weekly-souls">150</span> <span class="coin-icon">💵</span></div>
+            </div>
+            <div class="result-box highlighted">
+              <span class="result-label">Monthly Projections</span>
+              <div class="result-value"><span id="monthly-souls">600</span> <span class="coin-icon">💵</span></div>
+            </div>
+          </div>
+
+          <div class="chart-progress-wrapper">
+            <div class="progress-bar-label">
+              <span>Leaderboard Goal Target (1,000 Souls)</span>
+              <span id="target-progress-text">60%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-bar" id="calc-progress-bar"></div>
+            </div>
+          </div>
+          
+          <p class="calc-disclaimer"><i class="fa-solid fa-circle-info"></i> Calculations assume standard chat anti-spam conditions and consistent daily activity caps. Actual values may vary based on casino outcomes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cycle Reset Information Banner -->
+  <section class="banner-section">
+    <div class="container">
+      <div class="banner-card">
+        <div class="banner-badge">Cycle Archival System</div>
+        <h3 class="banner-title">Manual Monthly Reset Wipes</h3>
+        <p class="banner-desc">To keep server standings competitive and fresh, currency balances and chat counters do not persist forever. Administrators manually archive standings into snapshots at the end of each month before wiping active balances to 0 for a new cycle.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <img src="assets/logo.png" alt="Soul Brand" class="footer-logo">
+          <span class="footer-brand-name">SOUL CURRENCY</span>
+        </div>
+        <div class="footer-links">
+          <a href="#hero">Home</a>
+          <a href="#rules">Rules</a>
+          <a href="#commands">Commands</a>
+          <a href="#calculator">Simulator</a>
+        </div>
+      </div>
+      <hr class="footer-divider">
+      <div class="footer-bottom">
+        <p class="copyright">&copy; 2026 Soul Currency System. All rights reserved. Game assets powered by Supabase.</p>
+        <div class="social-links">
+          <a href="https://discord.gg" target="_blank" aria-label="Discord Guild"><i class="fa-brands fa-discord"></i></a>
+          <a href="https://github.com" target="_blank" aria-label="Github Repo"><i class="fa-brands fa-github"></i></a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>
