@@ -218,7 +218,31 @@
             </div>
           </div>
 
-          <!-- Command 5: s flip -->
+          <!-- Command 5: s rob -->
+          <div class="command-item" data-category="casino" id="cmd-rob">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">s rob <span class="required-param">@user</span></span>
+                <span class="command-tag casino-tag">Casino</span>
+              </div>
+              <span class="command-short-desc">Attempt a bank heist on another user.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Try to steal 10% of another user's wallet! There is a 30% chance of success. If you get caught (70% chance), you pay them a fine equal to 5% of your wallet. Both users must have at least 20 Souls. (Aliases: <code>s rob</code>, <code>s steal</code>, <code>s heist</code>).</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>s rob @username</code>
+              </div>
+              <div class="detail-row">
+                <strong>Cooldown:</strong> 6 hours per robbery attempt.
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 6: s flip -->
           <div class="command-item" data-category="casino" id="cmd-casino">
             <div class="command-trigger">
               <div class="command-name-wrapper">

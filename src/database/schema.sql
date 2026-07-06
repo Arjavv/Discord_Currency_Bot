@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     server_id VARCHAR(64) NOT NULL,
     coin_balance INT NOT NULL DEFAULT 0,
     last_checkin_at TIMESTAMP,
+    last_rob_at TIMESTAMP,
     message_count INT NOT NULL DEFAULT 0,
     PRIMARY KEY (discord_id, server_id)
 );
@@ -72,3 +73,6 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS message_count INT NOT NULL DEFAULT 0;
 
 -- Migration: Add drop_channel_id to server_settings table if not exists
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS drop_channel_id VARCHAR(64);
+
+-- Migration: Add last_rob_at to users table if not exists
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_rob_at TIMESTAMP;

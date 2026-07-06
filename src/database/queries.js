@@ -649,6 +649,111 @@ async function transferCoins(senderId, receiverId, serverId, amount) {
   }
 }
 
+/**
+ * Attempts to rob a user.
+ */
+async function attemptRob(robberId, targetId, serverId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Ensure both users exist
+    await ensureUserExists(client, robberId, serverId);
+    await ensureUserExists(client, targetId, serverId);
+
+    // 2. Fetch robber data with row lock
+    const robberQuery = `
+      SELECT coin_balance, last_rob_at 
+      FROM users 
+      WHERE discord_id = $1 AND server_id = $2 
+      FOR UPDATE
+    `;
+    const robberRes = await client.query(robberQuery, [robberId, serverId]);
+    const robberBalance = robberRes.rows[0].coin_balance;
+    const lastRobAt = robberRes.rows[0].last_rob_at;
+
+    // 3. Check 6-hour cooldown
+    if (lastRobAt) {
+      const msSinceLastRob = Date.now() - new Date(lastRobAt).getTime();
+      const cooldownMs = 6 * 60 * 60 * 1000;
+      if (msSinceLastRob < cooldownMs) {
+        await client.query('ROLLBACK');
+        return { success: false, reason: 'cooldown', cooldownRemainingMs: cooldownMs - msSinceLastRob };
+      }
+    }
+
+    // 4. Fetch target balance with row lock
+    const targetQuery = `
+      SELECT coin_balance 
+      FROM users 
+      WHERE discord_id = $1 AND server_id = $2 
+      FOR UPDATE
+    `;
+    const targetRes = await client.query(targetQuery, [targetId, serverId]);
+    const targetBalance = targetRes.rows[0].coin_balance;
+
+    // Minimum balance checks to make robbing fair (both need at least 20 coins)
+    if (robberBalance < 20) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'robber_poor' };
+    }
+    if (targetBalance < 20) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'target_poor' };
+    }
+
+    // 5. Update last_rob_at for robber immediately so they can't spam
+    const updateRobTimeQuery = `
+      UPDATE users SET last_rob_at = NOW() 
+      WHERE discord_id = $1 AND server_id = $2
+    `;
+    await client.query(updateRobTimeQuery, [robberId, serverId]);
+
+    // 6. Roll the dice! (30% success chance)
+    const isSuccess = Math.random() < 0.30;
+
+    if (isSuccess) {
+      // Steal 10% of target's wallet
+      const stolenAmount = Math.floor(targetBalance * 0.10);
+      
+      if (stolenAmount <= 0) {
+        await client.query('ROLLBACK');
+        return { success: false, reason: 'target_poor' }; // Failsafe
+      }
+
+      await client.query(`UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = $3`, [stolenAmount, targetId, serverId]);
+      await client.query(`UPDATE users SET coin_balance = coin_balance + $1 WHERE discord_id = $2 AND server_id = $3`, [stolenAmount, robberId, serverId]);
+      
+      await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, $2, $3, 'rob_success_gain')`, [robberId, serverId, stolenAmount]);
+      await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, $2, $3, 'rob_success_loss')`, [targetId, serverId, -stolenAmount]);
+
+      await client.query('COMMIT');
+      return { success: true, amount: stolenAmount, newBalance: robberBalance + stolenAmount };
+    } else {
+      // Caught! Pay 5% of robber's wallet
+      const fineAmount = Math.floor(robberBalance * 0.05);
+
+      if (fineAmount > 0) {
+        await client.query(`UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = $3`, [fineAmount, robberId, serverId]);
+        await client.query(`UPDATE users SET coin_balance = coin_balance + $1 WHERE discord_id = $2 AND server_id = $3`, [fineAmount, targetId, serverId]);
+        
+        await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, $2, $3, 'rob_caught_fine')`, [robberId, serverId, -fineAmount]);
+        await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, $2, $3, 'rob_caught_reward')`, [targetId, serverId, fineAmount]);
+      }
+
+      await client.query('COMMIT');
+      return { success: false, reason: 'caught', amount: fineAmount, newBalance: robberBalance - fineAmount };
+    }
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in attemptRob for server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
@@ -661,5 +766,6 @@ module.exports = {
   updateDropChannel,
   toggleAutoDrops,
   awardDropCoins,
-  transferCoins
+  transferCoins,
+  attemptRob
 };

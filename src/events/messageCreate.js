@@ -9,7 +9,8 @@ const {
   recordCasinoGame,
   updateDropChannel,
   awardDropCoins,
-  transferCoins
+  transferCoins,
+  attemptRob
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const path = require('path');
@@ -297,7 +298,7 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'gift', 'give', 'send', 'transfer', 'help'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist'].includes(commandName)) {
           // Lock user commands to #soul-bot
           if (!message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
@@ -394,6 +395,52 @@ module.exports = {
               return sendTempMessage(message.channel, `❌ You don't have enough funds to gift that amount. Your current balance is **${result.currentBalance}** ${currencyIcon} ${currencyName}.`);
             } else {
               return sendTempMessage(message.channel, '❌ An error occurred while transferring funds.');
+            }
+          }
+
+          if (['rob', 'steal', 'heist'].includes(commandName)) {
+            const targetUser = message.mentions.users.first();
+            
+            if (!targetUser) {
+              return sendTempMessage(message.channel, '❌ Invalid syntax. Use `s rob @user`.');
+            }
+            if (targetUser.id === message.author.id) {
+              return sendTempMessage(message.channel, '❌ You cannot rob yourself.');
+            }
+            if (targetUser.bot) {
+              return sendTempMessage(message.channel, '❌ You cannot rob bots.');
+            }
+
+            const result = await attemptRob(message.author.id, targetUser.id, serverId);
+
+            if (result.success) {
+              // Successfully robbed 10%
+              const embed = new EmbedBuilder()
+                .setColor('#00ffaa')
+                .setTitle('🥷 Bank Heist: SUCCESS!')
+                .setDescription(`You successfully sneaked into ${targetUser}'s wallet and stole **${result.amount}** ${currencyIcon} ${currencyName}!`)
+                .addFields({ name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` })
+                .setTimestamp();
+              return await message.reply({ embeds: [embed] }).catch(() => {});
+            } else {
+              if (result.reason === 'cooldown') {
+                const hoursLeft = Math.floor(result.cooldownRemainingMs / (1000 * 60 * 60));
+                const minsLeft = Math.floor((result.cooldownRemainingMs % (1000 * 60 * 60)) / (1000 * 60));
+                return sendTempMessage(message.channel, `⏳ You are lying low. You can attempt another robbery in **${hoursLeft}h ${minsLeft}m**.`);
+              } else if (result.reason === 'robber_poor') {
+                return sendTempMessage(message.channel, `❌ You need at least 20 ${currencyIcon} ${currencyName} to attempt a robbery (gotta buy the lockpicks).`);
+              } else if (result.reason === 'target_poor') {
+                return sendTempMessage(message.channel, `❌ ${targetUser.username} is too poor to be robbed (they have less than 20 ${currencyName}). Pick on someone your own size!`);
+              } else if (result.reason === 'caught') {
+                // Failed and paid fine
+                const embed = new EmbedBuilder()
+                  .setColor('#ff3366')
+                  .setTitle('🚨 Bank Heist: CAUGHT!')
+                  .setDescription(`You tripped the alarm and got caught trying to rob ${targetUser}!\n\nYou were forced to pay them a fine of **${result.amount}** ${currencyIcon} ${currencyName} (5% of your wallet).`)
+                  .addFields({ name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` })
+                  .setTimestamp();
+                return await message.reply({ embeds: [embed] }).catch(() => {});
+              }
             }
           }
 
