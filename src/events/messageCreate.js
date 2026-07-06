@@ -1,5 +1,22 @@
-const { recordMessageActivity, getServerSettings } = require('../database/queries');
-const { EmbedBuilder } = require('discord.js');
+const { 
+  recordMessageActivity, 
+  getServerSettings,
+  updateServerSetting,
+  checkInUser,
+  getUserBalance,
+  getLeaderboard,
+  resetCycle,
+  recordCasinoGame
+} = require('../database/queries');
+const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
+const path = require('path');
+
+// Helper to send a temporary message that deletes itself after 5 seconds
+const sendTempMessage = (channel, content) => {
+  channel.send(content).then(msg => {
+    setTimeout(() => msg.delete().catch(() => {}), 5000);
+  }).catch(err => console.error('Failed to send temp message:', err));
+};
 
 module.exports = {
   name: 'messageCreate',
@@ -8,49 +25,352 @@ module.exports = {
     // Ignore bots and direct messages (DMs)
     if (message.author.bot || !message.guild) return;
 
+    const content = message.content.trim();
     const userId = message.author.id;
     const serverId = message.guild.id;
 
+    // Check if the message is a prefix command (starts with "s " case-insensitive)
+    if (content.toLowerCase().startsWith('s ')) {
+      const args = content.slice(2).trim().split(/\s+/);
+      const commandName = args.shift().toLowerCase();
+
+      try {
+        const settings = await getServerSettings(serverId);
+        const currencyName = settings.currency_name;
+        const currencyIcon = settings.currency_icon_url;
+
+        // --- 1. ADMIN COMMANDS ---
+        if (['setup', 'set-name', 'set-icon', 'reset-cycle'].includes(commandName)) {
+          // Check administrator permission
+          if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => {});
+          }
+
+          // setup can be run anywhere; other admin commands are restricted to #admin-logs
+          if (commandName !== 'setup') {
+            if (message.channel.name.toLowerCase() !== 'admin-logs') {
+              return sendTempMessage(message.channel, '❌ This administrative command can only be used in the **#admin-logs** channel.');
+            }
+          }
+
+          // Execute admin commands
+          if (commandName === 'setup') {
+            // Check if the bot has permission to manage channels
+            const botMember = message.guild.members.me || await message.guild.members.fetch(message.client.user.id).catch(() => null);
+            if (botMember && !botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
+              return message.reply('❌ **Setup Failed**: The bot is missing the **Manage Channels** permission in this server. Please grant this permission to the bot or its role in Server Settings and try again.').catch(() => {});
+            }
+
+            const channelsToCreate = [
+              { 
+                name: 'soul-bot', 
+                topic: 'Command usage (s daily, s cash, s lb, s flip) and active chat milestone rewards.',
+                private: false 
+              },
+              { 
+                name: 'admin-logs', 
+                topic: 'Administrative logs and configuration settings for the Soul Currency system.',
+                private: true 
+              }
+            ];
+
+            // Find or create category
+            const currentChannels = await message.guild.channels.fetch().catch(() => message.guild.channels.cache);
+            let category = currentChannels.find(
+              c => c.name.toLowerCase() === 'soul' && c.type === ChannelType.GuildCategory
+            );
+
+            if (!category) {
+              category = await message.guild.channels.create({
+                name: 'Soul',
+                type: ChannelType.GuildCategory
+              });
+            }
+
+            const updatedChannels = await message.guild.channels.fetch().catch(() => message.guild.channels.cache);
+            const created = [];
+            const skipped = [];
+
+            for (const ch of channelsToCreate) {
+              const exists = updatedChannels.find(
+                c => c.name.toLowerCase() === ch.name.toLowerCase() && c.type === ChannelType.GuildText
+              );
+              if (!exists) {
+                const options = {
+                  name: ch.name,
+                  type: ChannelType.GuildText,
+                  topic: ch.topic,
+                  parent: category.id
+                };
+
+                if (ch.private) {
+                  options.permissionOverwrites = [
+                    {
+                      id: message.guild.roles.everyone.id,
+                      deny: [PermissionFlagsBits.ViewChannel]
+                    }
+                  ];
+                }
+
+                await message.guild.channels.create(options);
+                created.push(`#${ch.name}`);
+              } else {
+                skipped.push(`#${ch.name}`);
+              }
+            }
+
+            const embed = new EmbedBuilder()
+              .setColor('#00ffaa')
+              .setTitle('✅ Server Setup Complete')
+              .setDescription('Soul Currency channels have been configured!')
+              .addFields(
+                { name: 'Created', value: created.length > 0 ? created.join('\n') : 'None (all existed)', inline: true },
+                { name: 'Skipped', value: skipped.length > 0 ? skipped.join('\n') : 'None', inline: true }
+              )
+              .setTimestamp();
+
+            return await message.reply({ embeds: [embed] }).catch(() => {});
+          }
+
+          if (commandName === 'set-name') {
+            const newName = args.join(' ');
+            if (!newName) {
+              return message.reply('❌ **Usage**: `s set-name <new_name>`').catch(() => {});
+            }
+            const updated = await updateServerSetting(serverId, newName, null);
+            const embed = new EmbedBuilder()
+              .setColor('#00ffaa')
+              .setTitle('⚙️ Setting Updated')
+              .setDescription(`Currency name has been successfully updated to **${updated.currency_name}**.`);
+            return await message.reply({ embeds: [embed] }).catch(() => {});
+          }
+
+          if (commandName === 'set-icon') {
+            const newIcon = args[0];
+            if (!newIcon) {
+              return message.reply('❌ **Usage**: `s set-icon <emoji>`').catch(() => {});
+            }
+            const updated = await updateServerSetting(serverId, null, newIcon);
+            const embed = new EmbedBuilder()
+              .setColor('#00ffaa')
+              .setTitle('⚙️ Setting Updated')
+              .setDescription(`Currency icon has been successfully updated to ${updated.currency_icon_url}.`);
+            return await message.reply({ embeds: [embed] }).catch(() => {});
+          }
+
+          if (commandName === 'reset-cycle') {
+            const result = await resetCycle(serverId);
+            const embed = new EmbedBuilder()
+              .setColor('#ff3300')
+              .setTitle('🔄 Monthly Cycle Reset Completed')
+              .setDescription('The current monthly cycle has been successfully closed and reset.')
+              .addFields(
+                { name: 'Rankings Archived', value: `**${result.archivedCount}** members snapshotted`, inline: true },
+                { name: 'Database Action', value: 'Balances set to 0, check-ins cleared', inline: true }
+              )
+              .setFooter({ text: `Note: rankings were archived under Cycle ID #${result.oldCycleId}` })
+              .setTimestamp();
+            return await message.reply({ embeds: [embed] }).catch(() => {});
+          }
+        }
+
+        // --- 2. USER COMMANDS ---
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet'].includes(commandName)) {
+          // Lock user commands to #soul-bot
+          if (message.channel.name.toLowerCase() !== 'soul-bot') {
+            return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
+          }
+
+          if (['daily', 'checkin', 'claim'].includes(commandName)) {
+            const checkinAmount = 20;
+            const res = await checkInUser(userId, serverId, checkinAmount);
+
+            if (res.success) {
+              const embed = new EmbedBuilder()
+                .setColor('#00ffaa')
+                .setTitle('📅 Daily Check-in Success!')
+                .setDescription(`You have claimed your daily reward of **${checkinAmount}** ${currencyIcon} ${currencyName}!`)
+                .addFields({ name: 'New Balance', value: `💰 **${res.newBalance}** ${currencyIcon} ${currencyName}` })
+                .setTimestamp();
+              return await message.reply({ embeds: [embed] }).catch(() => {});
+            } else {
+              const cooldownHours = (res.cooldownRemainingMs / (1000 * 60 * 60)).toFixed(2);
+              const embed = new EmbedBuilder()
+                .setColor('#ff3300')
+                .setTitle('⏳ Daily Check-in Cooldown')
+                .setDescription(`You have already claimed your daily reward today. Please try again in **${cooldownHours}** hours.`)
+                .setTimestamp();
+              return await message.reply({ embeds: [embed] }).catch(() => {});
+            }
+          }
+
+          if (['cash', 'balance', 'bal', 'money'].includes(commandName)) {
+            const targetUser = message.mentions.users.first() || message.author;
+            const balanceInfo = await getUserBalance(targetUser.id, serverId);
+            const embed = new EmbedBuilder()
+              .setColor('#ffd700')
+              .setTitle(`${targetUser.username}'s Wallet`)
+              .setDescription(`Holding **${balanceInfo.balance}** ${currencyIcon} ${currencyName}`)
+              .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
+              .setTimestamp();
+            return await message.reply({ embeds: [embed] }).catch(() => {});
+          }
+
+          if (['leaderboard', 'lb', 'rich'].includes(commandName)) {
+            const { rankings } = await getLeaderboard(serverId, 10);
+            const embed = new EmbedBuilder()
+              .setColor('#ffd700')
+              .setTitle(`🏆 ${message.guild.name} Monthly Leaderboard`)
+              .setTimestamp();
+
+            if (rankings.length === 0) {
+              embed.setDescription('No active rankings found for this cycle yet. Start chatting to join the board!');
+            } else {
+              const listStr = rankings.map((r, i) => {
+                let medal = '';
+                if (i === 0) medal = '🥇 ';
+                else if (i === 1) medal = '🥈 ';
+                else if (i === 2) medal = '🥉 ';
+                else medal = `\`#${i + 1}\` `;
+                return `${medal} <@${r.discord_id}> — **${r.coin_balance}** ${currencyIcon} ${currencyName}`;
+              }).join('\n');
+              embed.setDescription(listStr);
+            }
+            return await message.reply({ embeds: [embed] }).catch(() => {});
+          }
+
+          if (['flip', 'casino', 'bet'].includes(commandName)) {
+            let choiceInput = args[0] ? args[0].toLowerCase() : '';
+            let betInput = args[1] ? args[1] : '';
+
+            // Swap arguments if input order is swapped
+            if (!isNaN(choiceInput) && isNaN(betInput)) {
+              const temp = choiceInput;
+              choiceInput = betInput.toLowerCase();
+              betInput = temp;
+            }
+
+            let choice = '';
+            if (choiceInput === 'heads' || choiceInput === 'h') choice = 'heads';
+            if (choiceInput === 'tails' || choiceInput === 't') choice = 'tails';
+
+            const bet = parseInt(betInput);
+
+            if (!choice || isNaN(bet) || bet <= 0) {
+              return await message.reply('❌ **Usage**: `s flip <heads/tails> <bet_amount>`').catch(() => {});
+            }
+
+            // Verify user balance
+            const balanceInfo = await getUserBalance(userId, serverId);
+            if (balanceInfo.balance < bet) {
+              const errorEmbed = new EmbedBuilder()
+                .setColor('#ff3366')
+                .setTitle('❌ Insufficient Coins')
+                .setDescription(`You don't have enough coins to place that bet!`)
+                .addFields(
+                  { name: 'Your Balance', value: `**${balanceInfo.balance}** ${currencyIcon} ${currencyName}`, inline: true },
+                  { name: 'Attempted Bet', value: `**${bet}** ${currencyIcon} ${currencyName}`, inline: true }
+                )
+                .setTimestamp();
+              return await message.reply({ embeds: [errorEmbed] }).catch(() => {});
+            }
+
+            const flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
+            const isWin = choice === flipResult;
+
+            const result = await recordCasinoGame(userId, serverId, bet, isWin);
+
+            const capitalizedChoice = choice.charAt(0).toUpperCase() + choice.slice(1);
+            const capitalizedResult = flipResult.charAt(0).toUpperCase() + flipResult.slice(1);
+
+            const displayChoice = choice === 'heads' ? '<:Soul_Head:1523605643158618214>' : '<:Soul_Tail:1523605605787373610>';
+            const displayResult = flipResult === 'heads' ? '<:Soul_Head:1523605643158618214>' : '<:Soul_Tail:1523605605787373610>';
+
+            const gifName = flipResult === 'heads' ? 'heads.gif' : 'tails.gif';
+            const gifPath = path.join(__dirname, '..', 'assets', gifName);
+            const attachment = new AttachmentBuilder(gifPath, { name: gifName });
+
+            const embed = new EmbedBuilder()
+              .setAuthor({
+                name: `${message.author.username}'s Coin Flip`,
+                iconURL: message.author.displayAvatarURL({ dynamic: true })
+              })
+              .setImage(`attachment://${gifName}`)
+              .setTimestamp();
+
+            if (isWin) {
+              embed
+                .setColor('#00ffaa')
+                .setTitle('<:Soul_Head:1523605643158618214> Double or Nothing: WIN!')
+                .setDescription(`The coin spun in the air and landed on ${displayResult} **${capitalizedResult}**!`)
+                .addFields(
+                  { name: 'Your Prediction', value: `${displayChoice} **${capitalizedChoice}**`, inline: true },
+                  { name: 'Coin Landed On', value: `${displayResult} **${capitalizedResult}**`, inline: true },
+                  { name: 'Net Earnings', value: `**+${bet}** ${currencyIcon} ${currencyName}`, inline: false },
+                  { name: 'New Wallet Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}`, inline: false }
+                );
+            } else {
+              embed
+                .setColor('#ff3366')
+                .setTitle('<:Soul_Head:1523605643158618214> Double or Nothing: LOSS')
+                .setDescription(`The coin spun in the air and landed on ${displayResult} **${capitalizedResult}**...`)
+                .addFields(
+                  { name: 'Your Prediction', value: `${displayChoice} **${capitalizedChoice}**`, inline: true },
+                  { name: 'Coin Landed On', value: `${displayResult} **${capitalizedResult}**`, inline: true },
+                  { name: 'Lost Bet', value: `**-${bet}** ${currencyIcon} ${currencyName}`, inline: false },
+                  { name: 'New Wallet Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}`, inline: false }
+                );
+            }
+
+            return await message.reply({ embeds: [embed], files: [attachment] }).catch(() => {});
+          }
+        }
+      } catch (err) {
+        console.error(`Error processing prefix command ${commandName} for user ${userId}:`, err);
+        return await message.reply('❌ An error occurred while executing this command.').catch(() => {});
+      }
+
+      // Exit early so prefix command messages don't earn activity points
+      return;
+    }
+
+    // --- 3. REGULAR CHAT ACTIVITY PROCESSING ---
     // Filter and count words (ignoring extra whitespace)
-    const words = message.content.trim().split(/\s+/).filter(Boolean);
+    const words = content.split(/\s+/).filter(Boolean);
     if (words.length < 5) return; // Ignore short messages to prevent spam
 
     try {
       // Award 10 coins for milestone, 15 seconds cooldown, daily cap of 20 coins
       const result = await recordMessageActivity(userId, serverId, 10, 15, 20);
 
-      if (result.success) {
-        if (result.awardedMilestone) {
-          console.log(`[Activity Earning] User ${message.author.tag} (${userId}) reached milestone: ${result.totalMessages} messages. Awarded ${result.amountAwarded} coins.`);
+      if (result.success && result.awardedMilestone) {
+        console.log(`[Activity Earning] User ${message.author.tag} (${userId}) reached milestone: ${result.totalMessages} messages. Awarded ${result.amountAwarded} coins.`);
 
-          // Find the log channel named 'soul-bot'
-          const logChannel = message.guild.channels.cache.find(
-            c => c.name.toLowerCase() === 'soul-bot' && c.isTextBased()
-          );
+        // Find the log channel named 'soul-bot'
+        const logChannel = message.guild.channels.cache.find(
+          c => c.name.toLowerCase() === 'soul-bot' && c.isTextBased()
+        );
 
-          if (logChannel) {
-            const settings = await getServerSettings(serverId);
-            const currencyName = settings.currency_name;
-            const currencyIcon = settings.currency_icon_url;
+        if (logChannel) {
+          const settings = await getServerSettings(serverId);
+          const currencyName = settings.currency_name;
+          const currencyIcon = settings.currency_icon_url;
 
-            const milestoneEmbed = new EmbedBuilder()
-              .setColor('#ffd700') // Bright Gold
-              .setTitle('🎉 Chat Milestone Reached!')
-              .setDescription(`Congratulations to ${message.author} for active engagement in the server!`)
-              .addFields(
-                { name: 'Messages Sent', value: `💬 **${result.totalMessages}** messages`, inline: true },
-                { name: 'Milestone Reward', value: `**+${result.amountAwarded}** ${currencyIcon} ${currencyName}`, inline: true },
-                { name: 'New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}`, inline: false }
-              )
-              .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
-              .setTimestamp();
+          const milestoneEmbed = new EmbedBuilder()
+            .setColor('#ffd700')
+            .setTitle('🎉 Chat Milestone Reached!')
+            .setDescription(`Congratulations to ${message.author} for active engagement in the server!`)
+            .addFields(
+              { name: 'Messages Sent', value: `💬 **${result.totalMessages}** messages`, inline: true },
+              { name: 'Milestone Reward', value: `**+${result.amountAwarded}** ${currencyIcon} ${currencyName}`, inline: true },
+              { name: 'New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}`, inline: false }
+            )
+            .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
+            .setTimestamp();
 
-            await logChannel.send({ embeds: [milestoneEmbed] }).catch(err => {
-              console.error(`Failed to send milestone message to #currency_logs:`, err);
-            });
-          } else {
-            console.warn(`[Activity Earning] User reached milestone but #currency_logs channel was not found.`);
-          }
+          await logChannel.send({ embeds: [milestoneEmbed] }).catch(err => {
+            console.error(`Failed to send milestone message to #soul-bot:`, err);
+          });
         }
       }
     } catch (error) {
