@@ -605,7 +605,25 @@ module.exports = {
               }
 
               // Send privately via DM
-              await message.author.send({ embeds: [embed] }).catch(() => {});
+              let dmSuccess = true;
+              await message.author.send({ embeds: [embed] }).catch(() => {
+                dmSuccess = false;
+              });
+
+              if (dmSuccess) {
+                // Post temporary group notification that self-destructs after 4 seconds
+                message.channel.send(`📬 **${message.author.username}**, I have DM'd you your profile details!`).then(tempMsg => {
+                  setTimeout(() => {
+                    tempMsg.delete().catch(() => {});
+                  }, 4000);
+                }).catch(() => {});
+              } else {
+                message.channel.send(`❌ **${message.author.username}**, I couldn't send you a DM. Please enable direct messages in your privacy settings.`).then(tempMsg => {
+                  setTimeout(() => {
+                    tempMsg.delete().catch(() => {});
+                  }, 4000);
+                }).catch(() => {});
+              }
             } catch (err) {
               console.error(`Failed to DM stats to user ${userId}:`, err);
             }
