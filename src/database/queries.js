@@ -185,8 +185,8 @@ async function recordMessageActivity(discordId, serverId, coinAmount = 10, coold
     const messageCount = incRes.rows[0].message_count;
     let balance = incRes.rows[0].coin_balance;
 
-    // 5. Check if we hit the 100-message milestone
-    if (messageCount > 0 && messageCount % 100 === 0) {
+    // 5. Check if we hit the 10-message milestone
+    if (messageCount > 0 && messageCount % 10 === 0) {
       // Check daily cap from message rewards in last 24 hours
       const dailyQuery = `
         SELECT COALESCE(SUM(amount), 0) AS daily_sum 
@@ -672,10 +672,10 @@ async function attemptRob(robberId, targetId, serverId) {
     const robberBalance = robberRes.rows[0].coin_balance;
     const lastRobAt = robberRes.rows[0].last_rob_at;
 
-    // 3. Check 6-hour cooldown
+    // 3. Check 1-hour cooldown
     if (lastRobAt) {
       const msSinceLastRob = Date.now() - new Date(lastRobAt).getTime();
-      const cooldownMs = 6 * 60 * 60 * 1000;
+      const cooldownMs = 1 * 60 * 60 * 1000;
       if (msSinceLastRob < cooldownMs) {
         await client.query('ROLLBACK');
         return { success: false, reason: 'cooldown', cooldownRemainingMs: cooldownMs - msSinceLastRob };

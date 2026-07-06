@@ -315,7 +315,7 @@ module.exports = {
                   { name: '🏆 `s lb`', value: 'View the top 10 richest users in the current monthly cycle.' },
                   { name: '🎁 `s gift @user <amount>`', value: 'Send Souls to another user from your wallet.' },
                   { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
-                  { name: '🥷 `s rob @user`', value: 'Attempt to steal 10% of their wallet (30% success rate). Caught? Pay a 5% fine! (6hr cooldown).' },
+                  { name: '🥷 `s rob @user`', value: 'Attempt to steal 10% of their wallet (30% success rate). Caught? Pay a 5% fine! (1hr cooldown).' },
                   { name: '🏃‍♂️ `soul`', value: 'Type exactly this word when a Soul Coin drops to catch it before anyone else!' }
                 )
                 .setFooter({ text: 'Tip: You also passively earn Souls by chatting in active channels!' })
@@ -325,8 +325,8 @@ module.exports = {
             }
 
             if (['daily', 'checkin', 'claim'].includes(commandName)) {
-            const checkinAmount = 20;
-            const res = await checkInUser(userId, serverId, checkinAmount);
+              const checkinAmount = Math.floor(Math.random() * (1000 - 500 + 1)) + 500;
+              const res = await checkInUser(userId, serverId, checkinAmount);
 
             if (res.success) {
               const embed = new EmbedBuilder()
@@ -547,8 +547,8 @@ module.exports = {
     if (words.length < 5) return; // Ignore short messages to prevent spam
 
     try {
-      // Award 10 coins for milestone, 15 seconds cooldown, daily cap of 20 coins
-      const result = await recordMessageActivity(userId, serverId, 10, 15, 20);
+        // Award 100 coins for milestone (every 10 messages), 15 seconds cooldown, daily cap of 5000 coins
+        const result = await recordMessageActivity(userId, serverId, 100, 15, 5000);
 
       if (result.success && result.awardedMilestone) {
         console.log(`[Activity Earning] User ${message.author.tag} (${userId}) reached milestone: ${result.totalMessages} messages. Awarded ${result.amountAwarded} coins.`);
