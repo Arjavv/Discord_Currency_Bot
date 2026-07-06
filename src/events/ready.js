@@ -1,4 +1,4 @@
-const { REST, Routes } = require('discord.js');
+const { REST, Routes, EmbedBuilder } = require('discord.js');
 require('dotenv').config();
 
 module.exports = {
@@ -43,6 +43,26 @@ module.exports = {
       }
 
       console.log('Successfully reloaded application (/) commands.');
+
+      // Send startup notifications to all servers inside #admin-logs channel
+      client.guilds.cache.forEach(async (guild) => {
+        try {
+          const adminLogsChannel = guild.channels.cache.find(
+            c => c.name.toLowerCase() === 'admin-logs' && c.isTextBased()
+          );
+          if (adminLogsChannel) {
+            const startupEmbed = new EmbedBuilder()
+              .setColor('#00ffaa')
+              .setTitle('🟢 Bot Online')
+              .setDescription('Soul Currency system has successfully booted up and connected to the database.')
+              .setTimestamp();
+            await adminLogsChannel.send({ embeds: [startupEmbed] }).catch(() => {});
+          }
+        } catch (e) {
+          console.error(`Failed to send startup alert to guild ${guild.name}:`, e);
+        }
+      });
+
     } catch (error) {
       console.error('Error while registering application commands:', error);
     }
