@@ -568,30 +568,29 @@ module.exports = {
           }
 
           if (['stats', 'profile'].includes(commandName)) {
-            const targetUser = message.mentions.users.first() || message.author;
-            const isSelf = targetUser.id === message.author.id;
-            
-            const stats = await getUserStats(targetUser.id, serverId);
-            
-            const embed = new EmbedBuilder()
-              .setAuthor({
-                name: `${targetUser.username}'s Profile`,
-                iconURL: targetUser.displayAvatarURL({ dynamic: true })
-              })
-              .setTimestamp();
+            // Delete user's command message to keep channel completely clean and private
+            message.delete().catch(() => {});
 
-            if (isSelf) {
-              embed.setColor('#ffd700')
+            try {
+              const stats = await getUserStats(userId, serverId);
+              
+              const embed = new EmbedBuilder()
+                .setAuthor({
+                  name: `${message.author.username}'s Profile`,
+                  iconURL: message.author.displayAvatarURL({ dynamic: true })
+                })
+                .setColor('#ffd700')
                 .setTitle('📊 Your Core Stats')
                 .setDescription(
                   `⚔️ **Strength:** \`${stats.total.strength}\` (Base: ${stats.base.strength} | Weekly: +${stats.weekly.strength} | Potion: +${stats.activeBuffs.strength})\n` +
                   `🛡️ **Defense:** \`${stats.total.defense}\` (Base: ${stats.base.defense} | Weekly: +${stats.weekly.defense} | Potion: +${stats.activeBuffs.defense})\n` +
                   `⚡ **Speed:** \`${stats.total.speed}\` (Base: ${stats.base.speed} | Weekly: +${stats.weekly.speed} | Potion: +${stats.activeBuffs.speed})\n` +
                   `🔮 **Magic:** \`${stats.total.magic}\` (Base: ${stats.base.magic} | Weekly: +${stats.weekly.magic} | Potion: +${stats.activeBuffs.magic})\n`
-                );
+                )
+                .setTimestamp();
 
               // Add Divine Shield info
-              const inventory = await getUserInventory(targetUser.id, serverId);
+              const inventory = await getUserInventory(userId, serverId);
               const shieldCount = inventory.shield || 0;
               embed.addFields({ name: '🎒 Inventory', value: `🛡️ **Divine Shield:** \`${shieldCount}\``, inline: false });
 
@@ -604,32 +603,16 @@ module.exports = {
                 }).join('\n');
                 embed.addFields({ name: '🧪 Active Potion Buffs', value: potionList, inline: false });
               }
-            } else {
-              embed.setColor('#777777')
-                .setTitle(`📊 ${targetUser.username}'s Core Stats`)
-                .setDescription(
-                  `⚔️ **Strength:** \`???\`\n` +
-                  `🛡️ **Defense:** \`???\`\n` +
-                  `⚡ **Speed:** \`???\`\n` +
-                  `🔮 **Magic:** \`???\`\n\n` +
-                  `*Stats of other players are hidden to keep battles mysterious!*`
-                );
 
-              // Show active items (without showing the exact boost numbers)
-              if (stats.detailedBoosts.length > 0) {
-                const activeNames = [...new Set(stats.detailedBoosts.map(b => {
-                  let elixirName = '';
-                  if (b.stat_type === 'strength') elixirName = 'Rage Elixir';
-                  else if (b.stat_type === 'defense') elixirName = 'Aegis Serum';
-                  else if (b.stat_type === 'speed') elixirName = 'Adrenaline Pill';
-                  else if (b.stat_type === 'magic') elixirName = 'Mana Elixir';
-                  return `🧪 ${elixirName}`;
-                }))].join('\n');
-                embed.addFields({ name: '🧪 Active Potion Effects', value: activeNames, inline: false });
-              }
+              // Send to user's DMs
+              await message.author.send({ embeds: [embed] });
+
+              // Send temporary channel confirmation
+              return sendTempMessage(message.channel, `📬 **${message.author.username}**, I've sent your core stats to your Direct Messages!`);
+            } catch (dmError) {
+              console.error(`Failed to DM stats to user ${userId}:`, dmError);
+              return sendTempMessage(message.channel, `❌ **${message.author.username}**, I couldn't send you a Direct Message. Please check your Discord privacy settings for this server.`);
             }
-
-            return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
           if (commandName === 'shop') {
