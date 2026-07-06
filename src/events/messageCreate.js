@@ -297,13 +297,32 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'gift', 'give', 'send', 'transfer'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'gift', 'give', 'send', 'transfer', 'help'].includes(commandName)) {
           // Lock user commands to #soul-bot
           if (!message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
           }
 
-          if (['daily', 'checkin', 'claim'].includes(commandName)) {
+            if (['help'].includes(commandName)) {
+              const helpEmbed = new EmbedBuilder()
+                .setColor('#ffd700')
+                .setTitle(`${currencyName} Commands`)
+                .setDescription('Here are all the ways you can interact with the Soul Currency bot in this channel:')
+                .addFields(
+                  { name: '💰 `s daily`', value: 'Claim your daily allowance of Souls (resets every 24 hours).' },
+                  { name: '🏦 `s cash`', value: 'Check your wallet balance (or tag another user to check theirs).' },
+                  { name: '🏆 `s lb`', value: 'View the top 10 richest users in the current monthly cycle.' },
+                  { name: '🎁 `s gift @user <amount>`', value: 'Send Souls to another user from your wallet.' },
+                  { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
+                  { name: '🏃‍♂️ `soul`', value: 'Type exactly this word when a Soul Coin drops to catch it before anyone else!' }
+                )
+                .setFooter({ text: 'Tip: You also passively earn Souls by chatting in active channels!' })
+                .setTimestamp();
+              
+              return await message.reply({ embeds: [helpEmbed] }).catch(() => {});
+            }
+
+            if (['daily', 'checkin', 'claim'].includes(commandName)) {
             const checkinAmount = 20;
             const res = await checkInUser(userId, serverId, checkinAmount);
 
