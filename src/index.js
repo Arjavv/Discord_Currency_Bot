@@ -53,33 +53,88 @@ if (fs.existsSync(eventsPath)) {
   }
 }
 
-// Serve the docs/ website and act as health check for Render
-const http = require('http');
+// Serve the docs/ website, admin dashboard, and endpoints
+const express = require('express');
+const session = require('express-session');
+const { getGlobalSettings, setGlobalSetting } = require('./database/queries');
+
+const app = express();
 const port = process.env.PORT || 8000;
-const docsPath = path.join(__dirname, '..', 'docs');
+const adminPassword = process.env.ADMIN_PASSWORD || 'ChangeMe';
 
-const mimeTypes = {
-  '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript',
-  '.png': 'image/png', '.gif': 'image/gif', '.jpg': 'image/jpeg',
-  '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json'
-};
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-http.createServer((req, res) => {
-  let filePath = path.join(docsPath, req.url === '/' ? 'index.html' : req.url);
-  const ext = path.extname(filePath).toLowerCase();
-  const contentType = mimeTypes[ext] || 'application/octet-stream';
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'soul-currency-secret-key-123',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 60 * 60 * 1000 } // 1 hour session
+}));
 
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('Soul Currency Bot is online!\n');
-    } else {
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(data);
+// Serve static files from docs folder
+app.use(express.static(path.join(__dirname, '..', 'docs')));
+
+// Middleware to protect admin routes
+function requireLogin(req, res, next) {
+  if (req.session && req.session.isAdmin) {
+    return next();
+  }
+  res.status(401).json({ error: 'Unauthorized. Please login.' });
+}
+
+// Auth endpoints
+app.post('/api/login', (req, res) => {
+  const { password } = req.body;
+  if (password === adminPassword) {
+    req.session.isAdmin = true;
+    res.json({ success: true });
+  } else {
+    res.status(400).json({ error: 'Invalid password' });
+  }
+});
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ success: true });
+});
+
+app.get('/api/check-auth', (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.isAdmin) });
+});
+
+// Settings endpoints (Protected)
+app.get('/api/settings', requireLogin, async (req, res) => {
+  try {
+    const settings = await getGlobalSettings();
+    res.json(settings);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+app.post('/api/settings', requireLogin, async (req, res) => {
+  const updates = req.body;
+  try {
+    const results = [];
+    for (const [key, value] of Object.entries(updates)) {
+      const result = await setGlobalSetting(key, value);
+      results.push(result);
     }
-  });
-}).listen(port, () => {
-  console.log(`Web server listening on port ${port}`);
+    res.json({ success: true, results });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// Admin panel frontend HTML route
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'docs', 'admin.html'));
+});
+
+app.listen(port, () => {
+  console.log(`Express web server listening on port ${port}`);
 });
 
 // Main Boot Sequence

@@ -19,7 +19,8 @@ const {
   setShopPrice,
   getUserInventory,
   purchaseShopItem,
-  recordDuelLoss
+  recordDuelLoss,
+  getGlobalSettings
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 
@@ -105,7 +106,7 @@ module.exports = {
         const currencyIcon = settings.currency_icon_url;
 
         // --- 1. ADMIN COMMANDS ---
-        if (['setup', 'set-name', 'set-icon', 'reset-cycle', 'set-drop-channel', 'force-drop', 'set-price'].includes(commandName)) {
+        if (['setup', 'set-name', 'set-icon', 'reset-cycle', 'set-drop-channel', 'force-drop'].includes(commandName)) {
           // Check administrator permission
           if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => { });
@@ -225,6 +226,12 @@ module.exports = {
 
           if (commandName === 'reset-cycle') {
             const result = await resetCycle(serverId);
+            if (!result.success) {
+              if (result.reason === 'global_economy') {
+                return await message.reply('❌ Reset Cycle is disabled because the bot is running in Global Economy mode.').catch(() => { });
+              }
+              return await message.reply('❌ An error occurred resetting the cycle.').catch(() => { });
+            }
             const embed = new EmbedBuilder()
               .setColor('#ff3300')
               .setTitle('🔄 Monthly Cycle Reset Completed')
@@ -309,23 +316,6 @@ module.exports = {
             } else {
               return message.reply('❌ **Error**: Failed to send drop message. Please check permissions.').catch(() => { });
             }
-          }
-
-          if (commandName === 'set-price') {
-            const itemId = args[0];
-            const priceVal = parseInt(args[1], 10);
-
-            const validItems = ['dumbbell', 'vest', 'shoes', 'tome', 'rage', 'aegis', 'adrenaline', 'mana', 'shield'];
-            if (!itemId || !validItems.includes(itemId) || isNaN(priceVal) || priceVal < 0) {
-              return message.reply(`❌ **Usage**: \`s set-price <item_id> <price>\`\nValid Item IDs: ${validItems.map(i => `\`${i}\``).join(', ')}`).catch(() => { });
-            }
-
-            await setShopPrice(serverId, itemId, priceVal);
-            const embed = new EmbedBuilder()
-              .setColor('#00ffaa')
-              .setTitle('⚙️ Price Updated')
-              .setDescription(`The price for **${itemId}** has been set to **${priceVal}** ${currencyIcon} ${currencyName}.`);
-            return await message.reply({ embeds: [embed] }).catch(() => { });
           }
         }
 
@@ -813,8 +803,12 @@ module.exports = {
               return message.reply('❌ **Usage**: `s fight @user <bet_amount>`').catch(() => { });
             }
 
-            if (bet > 10000) {
-              return sendTempMessage(message.channel, '❌ The maximum bet for a duel is **10,000** coins!');
+            const globalSettings = await getGlobalSettings();
+            const maxBet = parseInt(globalSettings.max_fight_bet, 10) || 10000;
+            const cooldownHours = parseInt(globalSettings.duel_cooldown_hours, 10) || 6;
+
+            if (bet > maxBet) {
+              return sendTempMessage(message.channel, `❌ The maximum bet for a duel is **${maxBet.toLocaleString()}** coins!`);
             }
 
             if (targetUser.id === userId) {
@@ -841,7 +835,7 @@ module.exports = {
             const challengerStats = await getUserStats(userId, serverId);
             if (challengerStats.lastDuelLossAt) {
               const elapsed = Date.now() - new Date(challengerStats.lastDuelLossAt).getTime();
-              const cooldownMs = 6 * 60 * 60 * 1000; // 6 hours
+              const cooldownMs = cooldownHours * 60 * 60 * 1000;
               if (elapsed < cooldownMs) {
                 const remainingMin = Math.ceil((cooldownMs - elapsed) / (60 * 1000));
                 let remainingText = '';
@@ -860,7 +854,7 @@ module.exports = {
             const defenderStats = await getUserStats(targetUser.id, serverId);
             if (defenderStats.lastDuelLossAt) {
               const elapsed = Date.now() - new Date(defenderStats.lastDuelLossAt).getTime();
-              const cooldownMs = 6 * 60 * 60 * 1000; // 6 hours
+              const cooldownMs = cooldownHours * 60 * 60 * 1000;
               if (elapsed < cooldownMs) {
                 const remainingMin = Math.ceil((cooldownMs - elapsed) / (60 * 1000));
                 let remainingText = '';
@@ -970,7 +964,7 @@ module.exports = {
                     `👑 **Winner**: <@${winnerId}> (\`${winVal} ${category.name}\`)\n` +
                     `💀 **Loser**: <@${loserId}> (\`${loseVal} ${category.name}\`)\n\n` +
                     `<@${winnerId}> claimed the pot of **${pot}** ${currencyIcon} ${currencyName}!\n` +
-                    `*💀 <@${loserId}> has been placed on a 6-hour duel cooldown!*`
+                    `*💀 <@${loserId}> has been placed on a ${cooldownHours}-hour duel cooldown!*`
                   )
                   .setTimestamp();
 

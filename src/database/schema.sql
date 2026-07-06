@@ -129,3 +129,9 @@ CREATE TABLE IF NOT EXISTS shop_prices (
 -- Migration: Add last_duel_loss_at to user_stats if not exists
 ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS last_duel_loss_at TIMESTAMP;
 
+-- 11. Table for global bot config settings (prices, max bet, cooldowns)
+CREATE TABLE IF NOT EXISTS global_settings (
+    key VARCHAR(64) PRIMARY KEY,
+    value VARCHAR(256) NOT NULL
+);
+

@@ -66,33 +66,6 @@ module.exports = {
               { name: 'Stop', value: 'stop' }
             )
         )
-    )
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('set-price')
-        .setDescription('Set the shop price for a specific item (restricted to #soul-logs)')
-        .addStringOption(option =>
-          option.setName('item')
-            .setDescription('Select the item to change price')
-            .setRequired(true)
-            .addChoices(
-              { name: 'Iron Dumbbell (+5 Strength)', value: 'dumbbell' },
-              { name: 'Kevlar Vest (+5 Defense)', value: 'vest' },
-              { name: 'Running Shoes (+5 Speed)', value: 'shoes' },
-              { name: 'Ancient Tome (+5 Magic)', value: 'tome' },
-              { name: 'Rage Elixir (+15 Strength / 24h)', value: 'rage' },
-              { name: 'Aegis Serum (+15 Defense / 24h)', value: 'aegis' },
-              { name: 'Adrenaline Pill (+15 Speed / 24h)', value: 'adrenaline' },
-              { name: 'Mana Elixir (+15 Magic / 24h)', value: 'mana' },
-              { name: 'Divine Shield (Robbery Block)', value: 'shield' }
-            )
-        )
-        .addIntegerOption(option =>
-          option.setName('price')
-            .setDescription('New price in coins')
-            .setRequired(true)
-            .setMinValue(0)
-        )
     ),
 
   async execute(interaction) {
@@ -157,6 +130,13 @@ module.exports = {
       if (subcommand === 'reset-cycle') {
         const settings = await getServerSettings(serverId);
         const result = await resetCycle(serverId);
+
+        if (!result.success) {
+          if (result.reason === 'global_economy') {
+            return await interaction.editReply('❌ Reset Cycle is disabled because the bot is running in Global Economy mode.');
+          }
+          return await interaction.editReply('❌ An error occurred resetting the cycle.');
+        }
 
         const embed = new EmbedBuilder()
           .setColor('#ff3300') // Intense Red for destructive action
@@ -361,24 +341,6 @@ module.exports = {
           
           return await interaction.editReply({ embeds: [embed] });
         }
-      } else if (subcommand === 'set-price') {
-        const itemId = interaction.options.getString('item');
-        const priceVal = interaction.options.getInteger('price');
-        const settings = await getServerSettings(serverId);
-
-        await setShopPrice(serverId, itemId, priceVal);
-
-        const embed = new EmbedBuilder()
-          .setColor('#00ffaa')
-          .setTitle('⚙️ Price Updated')
-          .setDescription(`The price for item **${itemId}** has been successfully updated.`)
-          .addFields(
-            { name: 'Item', value: itemId, inline: true },
-            { name: 'New Price', value: `${priceVal} ${settings.currency_icon_url} ${settings.currency_name}`, inline: true }
-          )
-          .setTimestamp();
-
-        return await interaction.editReply({ embeds: [embed] });
       } else {
         // Fallback for unhandled subcommands
         return await interaction.editReply({

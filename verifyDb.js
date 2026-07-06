@@ -325,7 +325,7 @@ async function runTests() {
 
     // Cleanup any existing test data to ensure clean state
     if (!useMock) {
-      await pool.query('DELETE FROM users WHERE server_id = $1', [TEST_SERVER]);
+      await pool.query("DELETE FROM users WHERE server_id = $1 OR server_id = 'GLOBAL'", [TEST_SERVER]);
       await pool.query('DELETE FROM cycles WHERE server_id = $1', [TEST_SERVER]);
     } else {
       mockState.users.clear();
@@ -370,16 +370,16 @@ async function runTests() {
     // Fast forward user 2 to 99 messages to test the 100th milestone
     console.log('Simulating 100-message Milestone award (User 2)...');
     if (!useMock) {
-      await pool.query('DELETE FROM transactions WHERE user_id = $1 AND server_id = $2', [TEST_USER_2, TEST_SERVER]);
+      await pool.query('DELETE FROM transactions WHERE user_id = $1 AND server_id = \'GLOBAL\'', [TEST_USER_2]);
       await pool.query(
-        `INSERT INTO users (discord_id, server_id, coin_balance, message_count) VALUES ($1, $2, 0, 99) 
+        `INSERT INTO users (discord_id, server_id, coin_balance, message_count) VALUES ($1, 'GLOBAL', 0, 99) 
          ON CONFLICT (discord_id, server_id) DO UPDATE SET coin_balance = 0, message_count = 99`, 
-        [TEST_USER_2, TEST_SERVER]
+        [TEST_USER_2]
       );
     } else {
-      mockState.users.set(`${TEST_USER_2}_${TEST_SERVER}`, {
+      mockState.users.set(`${TEST_USER_2}_GLOBAL`, {
         discord_id: TEST_USER_2,
-        server_id: TEST_SERVER,
+        server_id: 'GLOBAL',
         coin_balance: 0,
         last_checkin_at: null,
         message_count: 99
@@ -396,9 +396,9 @@ async function runTests() {
     // Fast forward user 2 to 199 messages to test the 200th milestone
     console.log('Simulating 200-message Milestone award (User 2)...');
     if (!useMock) {
-      await pool.query('UPDATE users SET message_count = 199 WHERE discord_id = $1 AND server_id = $2', [TEST_USER_2, TEST_SERVER]);
+      await pool.query('UPDATE users SET message_count = 199 WHERE discord_id = $1 AND server_id = \'GLOBAL\'', [TEST_USER_2]);
     } else {
-      mockState.users.get(`${TEST_USER_2}_${TEST_SERVER}`).message_count = 199;
+      mockState.users.get(`${TEST_USER_2}_GLOBAL`).message_count = 199;
     }
 
     // Send the 200th message
@@ -411,9 +411,9 @@ async function runTests() {
     // Fast forward user 2 to 299 messages to test daily cap block (300th milestone)
     console.log('Simulating 300-message Milestone with Daily Cap check (User 2)...');
     if (!useMock) {
-      await pool.query('UPDATE users SET message_count = 299 WHERE discord_id = $1 AND server_id = $2', [TEST_USER_2, TEST_SERVER]);
+      await pool.query('UPDATE users SET message_count = 299 WHERE discord_id = $1 AND server_id = \'GLOBAL\'', [TEST_USER_2]);
     } else {
-      mockState.users.get(`${TEST_USER_2}_${TEST_SERVER}`).message_count = 299;
+      mockState.users.get(`${TEST_USER_2}_GLOBAL`).message_count = 299;
     }
 
     // Send the 300th message - should fail because daily cap of 20 coins is already hit!
@@ -486,35 +486,21 @@ async function runTests() {
     }
     console.log('✔ Drop channel settings and drop catch tests passed.');
 
-    // 6. Reset Cycle Test
-    console.log('\nTesting Cycle Reset...');
+    // 6. Reset Cycle Test (Should be blocked in global economy)
+    console.log('\nTesting Cycle Reset (should fail in global economy)...');
     const reset = await resetCycle(TEST_SERVER);
     console.log('Cycle reset result:', reset);
-    if (!reset.success || reset.archivedCount !== 2) {
-      throw new Error('Cycle reset failed or did not snapshot both users');
+    if (reset.success || reset.reason !== 'global_economy') {
+      throw new Error('Cycle reset should have failed under Global Economy mode');
     }
 
-    // Check that rankings are archived in cycle_results
-    let archiveRows = [];
-    if (!useMock) {
-      const archiveRes = await pool.query('SELECT * FROM cycle_results WHERE cycle_id = $1', [reset.oldCycleId]);
-      archiveRows = archiveRes.rows;
-    } else {
-      archiveRows = mockState.cycle_results.filter(r => r.cycle_id === reset.oldCycleId);
-    }
-    
-    console.log('Archived rankings in DB:', archiveRows);
-    if (archiveRows.length !== 2) {
-      throw new Error('Archived ranking snapshot size mismatch');
-    }
-
-    // Check balances are zeroed
+    // Check balances remain unchanged (User 1 retains 55 coins)
     const finalBalance1 = await getUserBalance(TEST_USER_1, TEST_SERVER);
-    console.log('User 1 Balance after reset:', finalBalance1.balance);
-    if (finalBalance1.balance !== 0) {
-      throw new Error('Balances were not reset to zero');
+    console.log('User 1 Balance after reset attempt:', finalBalance1.balance);
+    if (finalBalance1.balance !== 55) {
+      throw new Error('Balances should not be reset to zero in global economy mode');
     }
-    console.log('✔ Cycle reset test passed.');
+    console.log('✔ Cycle reset block test passed.');
 
     console.log('\n=========================================');
     console.log('ALL DATABASE INTEGRATION TESTS PASSED SUCCESSFULLY! 🎉');

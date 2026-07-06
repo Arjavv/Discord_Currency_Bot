@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | Soul Currency System</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root {
+      --bg-darkest: #070709;
+      --bg-darker: #0d0d12;
+      --bg-card: rgba(22, 22, 30, 0.85);
+      --bg-card-hover: rgba(30, 30, 42, 0.95);
+      
+      --color-gold: #f39c12;
+      --color-gold-glow: #f1c40f;
+      --color-gold-gradient: linear-gradient(135deg, #f1c40f, #e67e22);
+      --color-flame: #e74c3c;
+      --color-flame-gradient: linear-gradient(135deg, #ff4500, #ff8c00);
+      --color-text-primary: #ffffff;
+      --color-text-secondary: #a0a6b2;
+      --color-border: rgba(241, 196, 15, 0.15);
+      --color-border-hover: rgba(241, 196, 15, 0.4);
+      --glass-blur: blur(16px);
+      --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-darkest);
+      color: var(--color-text-secondary);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Radial Glow backgrounds */
+    .glow-bg {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(241, 196, 15, 0.05) 0%, rgba(0,0,0,0) 70%);
+      top: -100px;
+      left: -100px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .glow-bg-bottom {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(231, 76, 60, 0.03) 0%, rgba(0,0,0,0) 70%);
+      bottom: -100px;
+      right: -100px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Login Box (Glassmorphic) */
+    .login-container {
+      background: var(--bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      backdrop-filter: var(--glass-blur);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      transition: var(--transition-smooth);
+    }
+
+    .login-header h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 24px;
+      color: var(--color-text-primary);
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .gold-text {
+      color: var(--color-gold-glow);
+      text-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+      gap: 8px;
+      position: relative;
+    }
+
+    .input-group label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--color-text-primary);
+    }
+
+    .input-field-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-field-wrapper i {
+      position: absolute;
+      left: 16px;
+      color: var(--color-text-secondary);
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 14px 16px 14px 44px;
+      color: var(--color-text-primary);
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      transition: var(--transition-smooth);
+    }
+
+    .input-field:focus {
+      border-color: var(--color-gold);
+      box-shadow: 0 0 10px rgba(241, 196, 15, 0.2);
+    }
+
+    .btn {
+      font-family: 'Orbitron', sans-serif;
+      background: var(--color-gold-gradient);
+      color: #000000;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 28px;
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: var(--transition-smooth);
+    }
+
+    .btn:hover {
+      box-shadow: 0 0 15px var(--color-gold-glow);
+      transform: translateY(-2px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--color-border);
+      color: var(--color-text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--color-border-hover);
+      box-shadow: none;
+    }
+
+    /* Error Message Alert */
+    .error-msg {
+      background: rgba(231, 76, 60, 0.15);
+      border: 1px solid var(--color-flame);
+      color: #ff6b6b;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 14px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Main Dashboard Layout */
+    .dashboard-container {
+      width: 100%;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px;
+      z-index: 10;
+      display: none;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .dash-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: 20px;
+    }
+
+    .dash-header h2 {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--color-text-primary);
+      font-size: 28px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Configuration Panel Grid */
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
+    @media (min-width: 768px) {
+      .config-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .config-card {
+      background: var(--bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      padding: 24px;
+      backdrop-filter: var(--glass-blur);
+      transition: var(--transition-smooth);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .config-card:hover {
+      border-color: var(--color-border-hover);
+    }
+
+    .card-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 16px;
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 12px;
+    }
+
+    .card-title i {
+      color: var(--color-gold);
+    }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .input-row label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+
+    .number-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      max-width: 140px;
+    }
+
+    .number-input-wrapper span {
+      position: absolute;
+      right: 16px;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+
+    .number-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 10px 48px 10px 12px;
+      color: var(--color-text-primary);
+      font-size: 15px;
+      outline: none;
+      text-align: right;
+      font-family: inherit;
+    }
+
+    .number-input:focus {
+      border-color: var(--color-gold);
+    }
+
+    /* Save and Notification System */
+    .action-bar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #00ffaa;
+      color: #000000;
+      padding: 14px 24px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 15px;
+      box-shadow: 0 8px 24px rgba(0, 255, 170, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 100;
+      transform: translateY(150%);
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .toast.show {
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glow-bg"></div>
+  <div class="glow-bg-bottom"></div>
+
+  <!-- 1. LOGIN OVERLAY -->
+  <div class="login-container" id="login-panel">
+    <div class="login-header">
+      <h1>SOUL <span class="gold-text">ADMIN</span></h1>
+      <p>Secure Control Panel authentication</p>
+    </div>
+    
+    <div class="error-msg" id="error-alert">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span id="error-alert-text">Incorrect admin password.</span>
+    </div>
+
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="input-group">
+          <label for="password">Owner Passphrase</label>
+          <div class="input-field-wrapper">
+            <i class="fa-solid fa-key"></i>
+            <input type="password" id="password" class="input-field" placeholder="••••••••••••••••" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn">
+          <i class="fa-solid fa-shield-halved"></i> Access Panel
+        </button>
+      </div>
+    </form>
+    
+    <div style="font-size: 11px; margin-top: 10px;">
+      <a href="/" style="color: var(--color-text-secondary); text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Return to Main Website</a>
+    </div>
+  </div>
+
+  <!-- 2. DASHBOARD VIEW -->
+  <div class="dashboard-container" id="dashboard-panel">
+    <div class="dash-header">
+      <div>
+        <h2>Global <span class="gold-text">Settings</span></h2>
+        <p style="font-size: 14px;">Wielder profile values, training upgrade costs, and fight configuration</p>
+      </div>
+      <button class="btn btn-secondary" onclick="handleLogout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
+      </button>
+    </div>
+
+    <form id="settings-form" onsubmit="saveSettings(event)">
+      <div class="config-grid">
+        
+        <!-- Category A: Weekly Upgrades -->
+        <div class="config-card">
+          <div class="card-title">
+            <i class="fa-solid fa-dumbbell"></i>
+            <span>Weekly Training Upgrades</span>
+          </div>
+          <div class="input-row">
+            <label for="price_dumbbell">Iron Dumbbell (⚔️ Str)</label>
+            <div class="number-input-wrapper">
+              <input type="number" id="price_dumbbell" class="number-input" min="0" required>
+              <span>Souls</span>
+            </div>
+          </div>
+          <div class="input-row">
+            <label for="price_vest">Kevlar Vest (🛡️ Def)</label>
+            <div class="number-input-wrapper">
+              <input type="number" id="price_vest" class="number-input" min="0" required>
+              <span>Souls</span>
+            </div>
+          </div>
+          <div class="input-row">
+            <label for="price_shoes">Running Shoes (⚡ Speed)</label>
+            <div class="number-input-wrapper">
+              <input type="number" id="price_shoes" class="number-input" min="0" required>
+              <span>Souls</span>
+            </div>
+          </div>
+          <div class="input-row">
+            <label for="price_tome">Ancient Tome (🔮 Magic)</label>
+            <div class="number-input-wrapper">
+              <input type="number" id="price_tome" class="number-input" min="0" required>
+              <span>Souls</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category B: 24h Consumable Elixirs -->
+        <div class="config-card">
+          <div class="card-title">
+            <i class="fa-solid fa-flask"></i>
+            <span>24h Elixirs & Defenses</span>
+          </div>
+          <div class="input-row">
+            <label for="price_rage">Rage Elixir (⚔️ Str)</label>
+            <div class="number-input-wrapper">
+              <input type="number" id="price_rage" class="number-input" min="0" required>
+              <span>Souls</span>
+            </div>
+          </div>
+          <div class="input-row">
+            <label for="price_aegis">Aegis Serum (🛡️ Def)</label>
+            <div class="number-input-wrapper">
+              <input type="number" id="price_aegis" class="number-input" min="0" required>
+              <span>Souls</span>
+            </div>
+          </div>
+          <div class="input-row">
+            <label for="price_adrenaline">Adrenaline Pill (⚡ Speed)</label>
+            <div class="number-input-wrapper">
+              <input type="number" id="price_adrenaline" class="number-input" min="0" required>
+              <span>Souls</span>
+            </div>
+          </div>
+          <div class="input-row">
+            <label for="price_mana">Mana Elixir (🔮 Magic)</label>
+            <div class="number-input-wrapper">
+              <input type="number" id="price_mana" class="number-input" min="0" required>
+              <span>Souls</span>
+            </div>
+          </div>
+          <div class="input-row" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 12px; margin-top: 4px;">
+            <label for="price_shield">Divine Shield (Robbery Block)</label>
+            <div class="number-input-wrapper">
+              <input type="number" id="price_shield" class="number-input" min="0" required>
+              <span>Souls</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category C: Duel Showdown Configurations -->
+        <div class="config-card" style="grid-column: 1 / -1;">
+          <div class="card-title">
+            <i class="fa-solid fa-swords"></i>
+            <span>Showdown Combat Configuration</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+            <div class="input-row">
+              <label for="max_fight_bet" style="display: flex; flex-direction: column;">
+                <span>Maximum Showdown Bet Limit</span>
+                <span style="font-size: 11px; color: var(--color-text-secondary);">Enforces max wager per fight command globally</span>
+              </label>
+              <div class="number-input-wrapper">
+                <input type="number" id="max_fight_bet" class="number-input" min="1" required>
+                <span>Souls</span>
+              </div>
+            </div>
+            
+            <div class="input-row" style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 16px;">
+              <label for="duel_cooldown_hours" style="display: flex; flex-direction: column;">
+                <span>Duel Loss Cooldown Duration</span>
+                <span style="font-size: 11px; color: var(--color-text-secondary);">Wielder locked duration upon losing duel clash</span>
+              </label>
+              <div class="number-input-wrapper">
+                <input type="number" id="duel_cooldown_hours" class="number-input" min="1" required>
+                <span>Hours</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="action-bar">
+        <button type="submit" class="btn">
+          <i class="fa-solid fa-floppy-disk"></i> Save Global Configurations
+        </button>
+      </div>
+    </form>
+    
+    <div style="text-align: center; margin-top: 40px; font-size: 12px;">
+      <a href="/" style="color: var(--color-text-secondary); text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Return to Main Website</a>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast-notify">
+    <i class="fa-solid fa-circle-check"></i> Configurations saved successfully!
+  </div>
+
+  <script>
+    // Check initial authentication status
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/check-auth');
+        const data = await response.json();
+        
+        if (data.authenticated) {
+          showDashboard();
+        } else {
+          showLogin();
+        }
+      } catch (err) {
+        showLogin();
+      }
+    }
+
+    function showLogin() {
+      document.getElementById('login-panel').style.display = 'flex';
+      document.getElementById('dashboard-panel').style.display = 'none';
+      document.body.style.justifyContent = 'center';
+    }
+
+    function showDashboard() {
+      document.getElementById('login-panel').style.display = 'none';
+      document.getElementById('dashboard-panel').style.display = 'flex';
+      document.body.style.justifyContent = 'flex-start';
+      loadSettings();
+    }
+
+    // Handle Login authentication
+    async function handleLogin(event) {
+      event.preventDefault();
+      const password = document.getElementById('password').value;
+      const errorAlert = document.getElementById('error-alert');
+      errorAlert.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.success) {
+          showDashboard();
+        } else {
+          errorAlert.style.display = 'flex';
+          document.getElementById('error-alert-text').textContent = data.error || 'Login failed';
+        }
+      } catch (err) {
+        errorAlert.style.display = 'flex';
+        document.getElementById('error-alert-text').textContent = 'Web server connection error.';
+      }
+    }
+
+    // Handle Logout
+    async function handleLogout() {
+      try {
+        await fetch('/api/logout', { method: 'POST' });
+      } catch(err) {}
+      showLogin();
+    }
+
+    // Load current settings from database
+    async function loadSettings() {
+      try {
+        const response = await fetch('/api/settings');
+        if (!response.ok) throw new Error('Unauth');
+        const data = await response.json();
+
+        // Populate fields
+        for (const [key, value] of Object.entries(data)) {
+          const el = document.getElementById(key);
+          if (el) {
+            el.value = value;
+          }
+        }
+      } catch (err) {
+        showLogin();
+      }
+    }
+
+    // Save global settings changes to database
+    async function saveSettings(event) {
+      event.preventDefault();
+      const fields = [
+        'price_dumbbell', 'price_vest', 'price_shoes', 'price_tome',
+        'price_rage', 'price_aegis', 'price_adrenaline', 'price_mana', 'price_shield',
+        'max_fight_bet', 'duel_cooldown_hours'
+      ];
+      
+      const payload = {};
+      fields.forEach(f => {
+        payload[f] = document.getElementById(f).value;
+      });
+
+      try {
+        const response = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+          showToast();
+        } else {
+          alert('Failed to save settings. Please verify you are logged in.');
+        }
+      } catch (err) {
+        alert('Error saving settings to database.');
+      }
+    }
+
+    function showToast() {
+      const toast = document.getElementById('toast-notify');
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Start verification check
+    checkAuth();
+  </script>
+</body>
+</html>

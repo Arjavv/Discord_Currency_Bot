@@ -57,12 +57,23 @@ async function updateServerSetting(serverId, currencyName, currencyIconUrl) {
  * Helper to ensure a user exists in the database.
  */
 async function ensureUserExists(client, discordId, serverId) {
+  // Ensure the specific server user record exists (to satisfy local foreign keys like message_activity)
   const query = `
     INSERT INTO users (discord_id, server_id, coin_balance)
     VALUES ($1, $2, 0)
     ON CONFLICT (discord_id, server_id) DO NOTHING
   `;
   await client.query(query, [discordId, serverId]);
+
+  // Also ensure the global user record exists
+  if (serverId !== 'GLOBAL') {
+    const globalQuery = `
+      INSERT INTO users (discord_id, server_id, coin_balance)
+      VALUES ($1, 'GLOBAL', 0)
+      ON CONFLICT (discord_id, server_id) DO NOTHING
+    `;
+    await client.query(globalQuery, [discordId]);
+  }
 }
 
 /**
@@ -81,10 +92,10 @@ async function checkInUser(discordId, serverId, amount = 20) {
     const userQuery = `
       SELECT last_checkin_at, coin_balance 
       FROM users 
-      WHERE discord_id = $1 AND server_id = $2 
+      WHERE discord_id = $1 AND server_id = 'GLOBAL' 
       FOR UPDATE
     `;
-    const userRes = await client.query(userQuery, [discordId, serverId]);
+    const userRes = await client.query(userQuery, [discordId]);
     const user = userRes.rows[0];
 
     const now = new Date();
@@ -107,18 +118,18 @@ async function checkInUser(discordId, serverId, amount = 20) {
     const updateQuery = `
       UPDATE users 
       SET coin_balance = coin_balance + $1, last_checkin_at = $2
-      WHERE discord_id = $3 AND server_id = $4
+      WHERE discord_id = $3 AND server_id = 'GLOBAL'
       RETURNING coin_balance
     `;
-    const updateRes = await client.query(updateQuery, [amount, now, discordId, serverId]);
+    const updateRes = await client.query(updateQuery, [amount, now, discordId]);
     const newBalance = updateRes.rows[0].coin_balance;
 
     // 4. Log transaction
     const logQuery = `
       INSERT INTO transactions (user_id, server_id, amount, source, created_at)
-      VALUES ($1, $2, $3, 'checkin', $4)
+      VALUES ($1, 'GLOBAL', $2, 'checkin', $3)
     `;
-    await client.query(logQuery, [discordId, serverId, amount, now]);
+    await client.query(logQuery, [discordId, amount, now]);
 
     await client.query('COMMIT');
     return {
@@ -149,7 +160,7 @@ async function recordMessageActivity(discordId, serverId, coinAmount = 10, coold
 
     const now = new Date();
 
-    // 2. Check 60-second rate-limit
+    // 2. Check 60-second rate-limit (kept per-server)
     const limitQuery = `
       SELECT counted_at 
       FROM message_activity 
@@ -167,33 +178,33 @@ async function recordMessageActivity(discordId, serverId, coinAmount = 10, coold
       }
     }
 
-    // 3. Insert message activity log (qualifying chat event)
+    // 3. Insert message activity log (qualifying chat event - kept per-server)
     const activityQuery = `
       INSERT INTO message_activity (user_id, server_id, counted_at)
       VALUES ($1, $2, $3)
     `;
     await client.query(activityQuery, [discordId, serverId, now]);
 
-    // 4. Increment message count
+    // 4. Increment message count globally
     const incrementQuery = `
       UPDATE users 
       SET message_count = message_count + 1 
-      WHERE discord_id = $1 AND server_id = $2
+      WHERE discord_id = $1 AND server_id = 'GLOBAL'
       RETURNING message_count, coin_balance
     `;
-    const incRes = await client.query(incrementQuery, [discordId, serverId]);
+    const incRes = await client.query(incrementQuery, [discordId]);
     const messageCount = incRes.rows[0].message_count;
     let balance = incRes.rows[0].coin_balance;
 
     // 5. Check if we hit the 10-message milestone
     if (messageCount > 0 && messageCount % 10 === 0) {
-      // Check daily cap from message rewards in last 24 hours
+      // Check daily cap from message rewards in last 24 hours globally
       const dailyQuery = `
         SELECT COALESCE(SUM(amount), 0) AS daily_sum 
         FROM transactions 
-        WHERE user_id = $1 AND server_id = $2 AND source = 'message' AND created_at >= NOW() - INTERVAL '24 hours'
+        WHERE user_id = $1 AND server_id = 'GLOBAL' AND source = 'message' AND created_at >= NOW() - INTERVAL '24 hours'
       `;
-      const dailyRes = await client.query(dailyQuery, [discordId, serverId]);
+      const dailyRes = await client.query(dailyQuery, [discordId]);
       const dailySum = parseInt(dailyRes.rows[0].daily_sum, 10);
 
       if (dailySum >= dailyCap) {
@@ -222,22 +233,22 @@ async function recordMessageActivity(discordId, serverId, coinAmount = 10, coold
         };
       }
 
-      // Award milestone coins
+      // Award milestone coins globally
       const updateBalanceQuery = `
         UPDATE users 
         SET coin_balance = coin_balance + $1 
-        WHERE discord_id = $2 AND server_id = $3
+        WHERE discord_id = $2 AND server_id = 'GLOBAL'
         RETURNING coin_balance
       `;
-      const updateRes = await client.query(updateBalanceQuery, [amountToAward, discordId, serverId]);
+      const updateRes = await client.query(updateBalanceQuery, [amountToAward, discordId]);
       balance = updateRes.rows[0].coin_balance;
 
-      // Log transaction
+      // Log transaction globally
       const logQuery = `
         INSERT INTO transactions (user_id, server_id, amount, source, created_at)
-        VALUES ($1, $2, $3, 'message', $4)
+        VALUES ($1, 'GLOBAL', $2, 'message', $3)
       `;
-      await client.query(logQuery, [discordId, serverId, amountToAward, now]);
+      await client.query(logQuery, [discordId, amountToAward, now]);
 
       await client.query('COMMIT');
       return {
@@ -273,10 +284,10 @@ async function getUserBalance(discordId, serverId) {
   try {
     const settings = await getServerSettings(serverId);
 
-    // Ensure user exists first
+    // Ensure user exists first globally
     const client = await pool.connect();
     try {
-      await ensureUserExists(client, discordId, serverId);
+      await ensureUserExists(client, discordId, 'GLOBAL');
     } finally {
       client.release();
     }
@@ -284,9 +295,9 @@ async function getUserBalance(discordId, serverId) {
     const query = `
       SELECT coin_balance 
       FROM users 
-      WHERE discord_id = $1 AND server_id = $2
+      WHERE discord_id = $1 AND server_id = 'GLOBAL'
     `;
-    const res = await pool.query(query, [discordId, serverId]);
+    const res = await pool.query(query, [discordId]);
     const balance = res.rows.length > 0 ? res.rows[0].coin_balance : 0;
 
     return {
@@ -301,7 +312,7 @@ async function getUserBalance(discordId, serverId) {
 }
 
 /**
- * Retrieves the top 10 users ranked by coin_balance.
+ * Retrieves the top 10 users ranked globally by coin_balance.
  */
 async function getLeaderboard(serverId, limit = 10) {
   try {
@@ -309,11 +320,11 @@ async function getLeaderboard(serverId, limit = 10) {
     const query = `
       SELECT discord_id, coin_balance 
       FROM users 
-      WHERE server_id = $1 AND coin_balance > 0
+      WHERE server_id = 'GLOBAL' AND coin_balance > 0
       ORDER BY coin_balance DESC 
-      LIMIT $2
+      LIMIT $1
     `;
-    const res = await pool.query(query, [serverId, limit]);
+    const res = await pool.query(query, [limit]);
     return {
       rankings: res.rows,
       currencyName: settings.currency_name,
@@ -331,104 +342,10 @@ async function getLeaderboard(serverId, limit = 10) {
  * resets all balances, and launches a new cycle.
  */
 async function resetCycle(serverId) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    const now = new Date();
-
-    // 1. Find or create an active cycle
-    let activeCycleQuery = `
-      SELECT id FROM cycles 
-      WHERE server_id = $1 AND is_active = TRUE 
-      FOR UPDATE
-    `;
-    let cycleRes = await client.query(activeCycleQuery, [serverId]);
-    let cycleId;
-
-    if (cycleRes.rows.length === 0) {
-      // If no active cycle, create one that started immediately
-      const createCycleQuery = `
-        INSERT INTO cycles (server_id, started_at, is_active)
-        VALUES ($1, NOW() - INTERVAL '1 month', TRUE)
-        RETURNING id
-      `;
-      const createRes = await client.query(createCycleQuery, [serverId]);
-      cycleId = createRes.rows[0].id;
-    } else {
-      cycleId = cycleRes.rows[0].id;
-    }
-
-    // 2. Archive rankings of users with balance > 0
-    const rankingsQuery = `
-      SELECT discord_id, coin_balance 
-      FROM users 
-      WHERE server_id = $1 AND coin_balance > 0
-      ORDER BY coin_balance DESC
-    `;
-    const rankingsRes = await client.query(rankingsQuery, [serverId]);
-    const usersToArchive = rankingsRes.rows;
-
-    if (usersToArchive.length > 0) {
-      const insertResultQuery = `
-        INSERT INTO cycle_results (cycle_id, discord_id, final_coins, rank)
-        VALUES ($1, $2, $3, $4)
-      `;
-      for (let i = 0; i < usersToArchive.length; i++) {
-        const u = usersToArchive[i];
-        await client.query(insertResultQuery, [cycleId, u.discord_id, u.coin_balance, i + 1]);
-      }
-    }
-
-    // 3. Mark the active cycle as closed
-    const closeCycleQuery = `
-      UPDATE cycles 
-      SET is_active = FALSE, ended_at = $1 
-      WHERE id = $2
-    `;
-    await client.query(closeCycleQuery, [now, cycleId]);
-
-    // 4. Log transactions for auditing: reset check-in times and set coin balances to 0
-    // Record reset transaction for all users with >0 balance
-    const logTransactionQuery = `
-      INSERT INTO transactions (user_id, server_id, amount, source, created_at)
-      SELECT discord_id, server_id, -coin_balance, 'reset', $1
-      FROM users
-      WHERE server_id = $2 AND coin_balance > 0
-    `;
-    await client.query(logTransactionQuery, [now, serverId]);
-
-    // 5. Reset balances and message counts in the users table
-    const resetUsersQuery = `
-      UPDATE users 
-      SET coin_balance = 0, message_count = 0
-      WHERE server_id = $1
-    `;
-    await client.query(resetUsersQuery, [serverId]);
-
-    // 6. Create a new active cycle
-    const newCycleQuery = `
-      INSERT INTO cycles (server_id, started_at, is_active)
-      VALUES ($1, $2, TRUE)
-      RETURNING id
-    `;
-    const newCycleRes = await client.query(newCycleQuery, [serverId, now]);
-    const newCycleId = newCycleRes.rows[0].id;
-
-    await client.query('COMMIT');
-    return {
-      success: true,
-      archivedCount: usersToArchive.length,
-      oldCycleId: cycleId,
-      newCycleId
-    };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error(`Error in resetCycle for server ${serverId}:`, error);
-    throw error;
-  } finally {
-    client.release();
-  }
+  return {
+    success: false,
+    reason: 'global_economy'
+  };
 }
 
 /**
@@ -441,17 +358,17 @@ async function recordCasinoGame(discordId, serverId, betAmount, isWin) {
   try {
     await client.query('BEGIN');
 
-    // 1. Ensure user exists
+    // 1. Ensure user exists globally
     await ensureUserExists(client, discordId, serverId);
 
-    // 2. Fetch current user balance
+    // 2. Fetch current user balance globally
     const balanceQuery = `
       SELECT coin_balance 
       FROM users 
-      WHERE discord_id = $1 AND server_id = $2 
+      WHERE discord_id = $1 AND server_id = 'GLOBAL' 
       FOR UPDATE
     `;
-    const balanceRes = await client.query(balanceQuery, [discordId, serverId]);
+    const balanceRes = await client.query(balanceQuery, [discordId]);
     const currentBalance = balanceRes.rows[0].coin_balance;
 
     if (currentBalance < betAmount) {
@@ -459,24 +376,24 @@ async function recordCasinoGame(discordId, serverId, betAmount, isWin) {
       return { success: false, reason: 'insufficient_funds', currentBalance };
     }
 
-    // 3. Calculate new balance and amount to change
+    // 3. Calculate new balance globally
     const netChange = isWin ? betAmount : -betAmount;
     const updateQuery = `
       UPDATE users 
       SET coin_balance = coin_balance + $1 
-      WHERE discord_id = $2 AND server_id = $3
+      WHERE discord_id = $2 AND server_id = 'GLOBAL'
       RETURNING coin_balance
     `;
-    const updateRes = await client.query(updateQuery, [netChange, discordId, serverId]);
+    const updateRes = await client.query(updateQuery, [netChange, discordId]);
     const newBalance = updateRes.rows[0].coin_balance;
 
-    // 4. Log transaction
+    // 4. Log transaction globally
     const logQuery = `
       INSERT INTO transactions (user_id, server_id, amount, source)
-      VALUES ($1, $2, $3, $4)
+      VALUES ($1, 'GLOBAL', $2, $3)
     `;
     const source = isWin ? 'casino_win' : 'casino_loss';
-    await client.query(logQuery, [discordId, serverId, netChange, source]);
+    await client.query(logQuery, [discordId, netChange, source]);
 
     await client.query('COMMIT');
     return {
@@ -535,32 +452,32 @@ async function toggleAutoDrops(serverId, enabled) {
 }
 
 /**
- * Awards coins from catching a drop.
+ * Awards coins from catching a drop globally.
  */
 async function awardDropCoins(discordId, serverId, amount) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // Ensure user exists
+    // Ensure user exists globally
     await ensureUserExists(client, discordId, serverId);
 
-    // Update user balance
+    // Update user balance globally
     const updateQuery = `
       UPDATE users 
       SET coin_balance = coin_balance + $1
-      WHERE discord_id = $2 AND server_id = $3
+      WHERE discord_id = $2 AND server_id = 'GLOBAL'
       RETURNING coin_balance
     `;
-    const updateRes = await client.query(updateQuery, [amount, discordId, serverId]);
+    const updateRes = await client.query(updateQuery, [amount, discordId]);
     const newBalance = updateRes.rows[0].coin_balance;
 
-    // Log transaction
+    // Log transaction globally
     const logQuery = `
       INSERT INTO transactions (user_id, server_id, amount, source)
-      VALUES ($1, $2, $3, 'drop_catch')
+      VALUES ($1, 'GLOBAL', $2, 'drop_catch')
     `;
-    await client.query(logQuery, [discordId, serverId, amount]);
+    await client.query(logQuery, [discordId, amount]);
 
     await client.query('COMMIT');
     return {
@@ -585,18 +502,18 @@ async function transferCoins(senderId, receiverId, serverId, amount) {
   try {
     await client.query('BEGIN');
 
-    // 1. Ensure both users exist
+    // 1. Ensure both users exist globally
     await ensureUserExists(client, senderId, serverId);
     await ensureUserExists(client, receiverId, serverId);
 
-    // 2. Fetch sender balance with row lock
+    // 2. Fetch sender balance globally with row lock
     const senderBalanceQuery = `
       SELECT coin_balance 
       FROM users 
-      WHERE discord_id = $1 AND server_id = $2 
+      WHERE discord_id = $1 AND server_id = 'GLOBAL' 
       FOR UPDATE
     `;
-    const senderRes = await client.query(senderBalanceQuery, [senderId, serverId]);
+    const senderRes = await client.query(senderBalanceQuery, [senderId]);
     const senderBalance = senderRes.rows[0].coin_balance;
 
     if (senderBalance < amount) {
@@ -604,36 +521,36 @@ async function transferCoins(senderId, receiverId, serverId, amount) {
       return { success: false, reason: 'insufficient_funds', currentBalance: senderBalance };
     }
 
-    // 3. Deduct from sender
+    // 3. Deduct from sender globally
     const deductQuery = `
       UPDATE users 
       SET coin_balance = coin_balance - $1
-      WHERE discord_id = $2 AND server_id = $3
+      WHERE discord_id = $2 AND server_id = 'GLOBAL'
       RETURNING coin_balance
     `;
-    const newSenderBalance = (await client.query(deductQuery, [amount, senderId, serverId])).rows[0].coin_balance;
+    const newSenderBalance = (await client.query(deductQuery, [amount, senderId])).rows[0].coin_balance;
 
-    // 4. Add to receiver
+    // 4. Add to receiver globally
     const addQuery = `
       UPDATE users 
       SET coin_balance = coin_balance + $1
-      WHERE discord_id = $2 AND server_id = $3
+      WHERE discord_id = $2 AND server_id = 'GLOBAL'
     `;
-    await client.query(addQuery, [amount, receiverId, serverId]);
+    await client.query(addQuery, [amount, receiverId]);
 
-    // 5. Log transaction for sender
+    // 5. Log transaction globally for sender
     const logSenderQuery = `
       INSERT INTO transactions (user_id, server_id, amount, source)
-      VALUES ($1, $2, $3, 'transfer_sent')
+      VALUES ($1, 'GLOBAL', $2, 'transfer_sent')
     `;
-    await client.query(logSenderQuery, [senderId, serverId, -amount]);
+    await client.query(logSenderQuery, [senderId, -amount]);
 
-    // 6. Log transaction for receiver
+    // 6. Log transaction globally for receiver
     const logReceiverQuery = `
       INSERT INTO transactions (user_id, server_id, amount, source)
-      VALUES ($1, $2, $3, 'transfer_received')
+      VALUES ($1, 'GLOBAL', $2, 'transfer_received')
     `;
-    await client.query(logReceiverQuery, [receiverId, serverId, amount]);
+    await client.query(logReceiverQuery, [receiverId, amount]);
 
     await client.query('COMMIT');
     return {
@@ -657,22 +574,22 @@ async function attemptRob(robberId, targetId, serverId) {
   try {
     await client.query('BEGIN');
 
-    // 1. Ensure both users exist
-    await ensureUserExists(client, robberId, serverId);
-    await ensureUserExists(client, targetId, serverId);
+    // 1. Ensure both users exist globally
+    await ensureUserExists(client, robberId, 'GLOBAL');
+    await ensureUserExists(client, targetId, 'GLOBAL');
 
-    // 2. Fetch robber data with row lock
+    // 2. Fetch robber data globally with row lock
     const robberQuery = `
       SELECT coin_balance, last_rob_at 
       FROM users 
-      WHERE discord_id = $1 AND server_id = $2 
+      WHERE discord_id = $1 AND server_id = 'GLOBAL' 
       FOR UPDATE
     `;
-    const robberRes = await client.query(robberQuery, [robberId, serverId]);
+    const robberRes = await client.query(robberQuery, [robberId]);
     const robberBalance = robberRes.rows[0].coin_balance;
     const lastRobAt = robberRes.rows[0].last_rob_at;
 
-    // 3. Check 1-hour cooldown
+    // 3. Check 1-hour cooldown globally
     if (lastRobAt) {
       const msSinceLastRob = Date.now() - new Date(lastRobAt).getTime();
       const cooldownMs = 1 * 60 * 60 * 1000;
@@ -682,14 +599,14 @@ async function attemptRob(robberId, targetId, serverId) {
       }
     }
 
-    // 4. Fetch target balance with row lock
+    // 4. Fetch target balance globally with row lock
     const targetQuery = `
       SELECT coin_balance 
       FROM users 
-      WHERE discord_id = $1 AND server_id = $2 
+      WHERE discord_id = $1 AND server_id = 'GLOBAL' 
       FOR UPDATE
     `;
-    const targetRes = await client.query(targetQuery, [targetId, serverId]);
+    const targetRes = await client.query(targetQuery, [targetId]);
     const targetBalance = targetRes.rows[0].coin_balance;
 
     // Minimum balance checks to make robbing fair (both need at least 20 coins)
@@ -702,15 +619,15 @@ async function attemptRob(robberId, targetId, serverId) {
       return { success: false, reason: 'target_poor' };
     }
 
-    // 5. Update last_rob_at for robber immediately so they can't spam
+    // 5. Update last_rob_at for robber immediately globally
     const updateRobTimeQuery = `
       UPDATE users SET last_rob_at = NOW() 
-      WHERE discord_id = $1 AND server_id = $2
+      WHERE discord_id = $1 AND server_id = 'GLOBAL'
     `;
-    await client.query(updateRobTimeQuery, [robberId, serverId]);
+    await client.query(updateRobTimeQuery, [robberId]);
 
-    // Check target's Divine Shield
-    const hasShield = await checkAndConsumeShield(client, targetId, serverId);
+    // Check target's Divine Shield globally
+    const hasShield = await checkAndConsumeShield(client, targetId, 'GLOBAL');
     if (hasShield) {
       await client.query('COMMIT');
       return { success: false, reason: 'shield_blocked' };
@@ -728,11 +645,11 @@ async function attemptRob(robberId, targetId, serverId) {
         return { success: false, reason: 'target_poor' }; // Failsafe
       }
 
-      await client.query(`UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = $3`, [stolenAmount, targetId, serverId]);
-      await client.query(`UPDATE users SET coin_balance = coin_balance + $1 WHERE discord_id = $2 AND server_id = $3`, [stolenAmount, robberId, serverId]);
+      await client.query(`UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = 'GLOBAL'`, [stolenAmount, targetId]);
+      await client.query(`UPDATE users SET coin_balance = coin_balance + $1 WHERE discord_id = $2 AND server_id = 'GLOBAL'`, [stolenAmount, robberId]);
       
-      await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, $2, $3, 'rob_success_gain')`, [robberId, serverId, stolenAmount]);
-      await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, $2, $3, 'rob_success_loss')`, [targetId, serverId, -stolenAmount]);
+      await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, 'GLOBAL', $2, 'rob_success_gain')`, [robberId, stolenAmount]);
+      await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, 'GLOBAL', $2, 'rob_success_loss')`, [targetId, -stolenAmount]);
 
       await client.query('COMMIT');
       return { success: true, amount: stolenAmount, newBalance: robberBalance + stolenAmount };
@@ -741,11 +658,11 @@ async function attemptRob(robberId, targetId, serverId) {
       const fineAmount = Math.floor(robberBalance * 0.05);
 
       if (fineAmount > 0) {
-        await client.query(`UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = $3`, [fineAmount, robberId, serverId]);
-        await client.query(`UPDATE users SET coin_balance = coin_balance + $1 WHERE discord_id = $2 AND server_id = $3`, [fineAmount, targetId, serverId]);
+        await client.query(`UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = 'GLOBAL'`, [fineAmount, robberId]);
+        await client.query(`UPDATE users SET coin_balance = coin_balance + $1 WHERE discord_id = $2 AND server_id = 'GLOBAL'`, [fineAmount, targetId]);
         
-        await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, $2, $3, 'rob_caught_fine')`, [robberId, serverId, -fineAmount]);
-        await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, $2, $3, 'rob_caught_reward')`, [targetId, serverId, fineAmount]);
+        await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, 'GLOBAL', $2, 'rob_caught_fine')`, [robberId, -fineAmount]);
+        await client.query(`INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, 'GLOBAL', $2, 'rob_caught_reward')`, [targetId, fineAmount]);
       }
 
       await client.query('COMMIT');
@@ -789,26 +706,26 @@ async function cleanupOldRecords() {
 }
 
 /**
- * Checks if target has a Divine Shield, consumes 1 and returns true.
+ * Checks if target has a Divine Shield, consumes 1 and returns true globally.
  */
 async function checkAndConsumeShield(client, discordId, serverId) {
   const selectRes = await client.query(`
     SELECT quantity FROM user_inventory
-    WHERE discord_id = $1 AND server_id = $2 AND item_id = 'shield' FOR UPDATE
-  `, [discordId, serverId]);
+    WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = 'shield' FOR UPDATE
+  `, [discordId]);
 
   if (selectRes.rows.length > 0 && selectRes.rows[0].quantity > 0) {
     const qty = selectRes.rows[0].quantity;
     if (qty > 1) {
       await client.query(`
         UPDATE user_inventory SET quantity = quantity - 1
-        WHERE discord_id = $1 AND server_id = $2 AND item_id = 'shield'
-      `, [discordId, serverId]);
+        WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = 'shield'
+      `, [discordId]);
     } else {
       await client.query(`
         DELETE FROM user_inventory
-        WHERE discord_id = $1 AND server_id = $2 AND item_id = 'shield'
-      `, [discordId, serverId]);
+        WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = 'shield'
+      `, [discordId]);
     }
     return true; // Shield consumed
   }
@@ -840,68 +757,68 @@ function isWeeklyResetDue(lastResetDate) {
 async function ensureUserStats(client, discordId, serverId) {
   const executor = client || pool;
 
-  // Make sure user exists in main table first
+  // Make sure user exists in main table first globally
   if (client) {
-    await ensureUserExists(client, discordId, serverId);
+    await ensureUserExists(client, discordId, 'GLOBAL');
   } else {
     const c = await pool.connect();
     try {
-      await ensureUserExists(c, discordId, serverId);
+      await ensureUserExists(c, discordId, 'GLOBAL');
     } finally {
       c.release();
     }
   }
 
-  // Fetch stats row with lock if inside a transaction
+  // Fetch stats row globally with lock if inside a transaction
   let res;
   if (client) {
     res = await executor.query(`
       SELECT last_weekly_reset FROM user_stats 
-      WHERE discord_id = $1 AND server_id = $2 FOR UPDATE
-    `, [discordId, serverId]);
+      WHERE discord_id = $1 AND server_id = 'GLOBAL' FOR UPDATE
+    `, [discordId]);
   } else {
     res = await executor.query(`
       SELECT last_weekly_reset FROM user_stats 
-      WHERE discord_id = $1 AND server_id = $2
-    `, [discordId, serverId]);
+      WHERE discord_id = $1 AND server_id = 'GLOBAL'
+    `, [discordId]);
   }
 
   if (res.rows.length === 0) {
     await executor.query(`
       INSERT INTO user_stats (discord_id, server_id, last_weekly_reset)
-      VALUES ($1, $2, NOW())
+      VALUES ($1, 'GLOBAL', NOW())
       ON CONFLICT (discord_id, server_id) DO NOTHING
-    `, [discordId, serverId]);
+    `, [discordId]);
   } else {
     const row = res.rows[0];
     if (isWeeklyResetDue(row.last_weekly_reset)) {
       await executor.query(`
         UPDATE user_stats
         SET boost_strength = 0, boost_defense = 0, boost_speed = 0, boost_magic = 0, last_weekly_reset = NOW()
-        WHERE discord_id = $1 AND server_id = $2
-      `, [discordId, serverId]);
-      console.log(`[Weekly Reset] Reset training boosts for user ${discordId} on server ${serverId}.`);
+        WHERE discord_id = $1 AND server_id = 'GLOBAL'
+      `, [discordId]);
+      console.log(`[Weekly Reset] Reset training boosts for user ${discordId} globally.`);
     }
   }
 }
 
 /**
- * Gets total active stats (Base + Weekly Upgrades + 24h Potion Buffs).
+ * Gets total active stats (Base + Weekly Upgrades + 24h Potion Buffs) globally.
  */
 async function getUserStats(discordId, serverId) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await ensureUserStats(client, discordId, serverId);
+    await ensureUserStats(client, discordId, 'GLOBAL');
 
-    // Fetch stats
+    // Fetch stats globally
     const statsRes = await client.query(`
       SELECT base_strength, base_defense, base_speed, base_magic,
              boost_strength, boost_defense, boost_speed, boost_magic,
              last_weekly_reset, last_duel_loss_at
       FROM user_stats
-      WHERE discord_id = $1 AND server_id = $2
-    `, [discordId, serverId]);
+      WHERE discord_id = $1 AND server_id = 'GLOBAL'
+    `, [discordId]);
 
     const stats = statsRes.rows[0] || {
       base_strength: 50, base_defense: 50, base_speed: 50, base_magic: 50,
@@ -910,32 +827,32 @@ async function getUserStats(discordId, serverId) {
       last_duel_loss_at: null
     };
 
-    // Prune expired boosts
+    // Prune expired boosts globally
     await client.query(`
       DELETE FROM active_boosts 
-      WHERE expires_at < NOW() AND discord_id = $1 AND server_id = $2
-    `, [discordId, serverId]);
+      WHERE expires_at < NOW() AND discord_id = $1 AND server_id = 'GLOBAL'
+    `, [discordId]);
 
-    // Sum active 24h boosts
+    // Sum active 24h boosts globally
     const activeRes = await client.query(`
       SELECT stat_type, SUM(amount) as total_amount
       FROM active_boosts
-      WHERE discord_id = $1 AND server_id = $2
+      WHERE discord_id = $1 AND server_id = 'GLOBAL'
       GROUP BY stat_type
-    `, [discordId, serverId]);
+    `, [discordId]);
 
     const activeBuffs = { strength: 0, defense: 0, speed: 0, magic: 0 };
     activeRes.rows.forEach(r => {
       activeBuffs[r.stat_type] = parseInt(r.total_amount, 10) || 0;
     });
 
-    // Get active boosts detail
+    // Get active boosts detail globally
     const detailedBoostsRes = await client.query(`
       SELECT stat_type, amount, expires_at
       FROM active_boosts
-      WHERE discord_id = $1 AND server_id = $2
+      WHERE discord_id = $1 AND server_id = 'GLOBAL'
       ORDER BY expires_at ASC
-    `, [discordId, serverId]);
+    `, [discordId]);
 
     const total = {
       strength: stats.base_strength + stats.boost_strength + activeBuffs.strength,
@@ -987,20 +904,96 @@ const DEFAULT_PRICES = {
 };
 
 /**
- * Gets customized item prices for a server, falls back to default.
+ * Fetches all global settings.
+ */
+async function getGlobalSettings() {
+  const query = 'SELECT key, value FROM global_settings';
+  try {
+    const res = await pool.query(query);
+    const settings = {};
+    res.rows.forEach(r => {
+      settings[r.key] = r.value;
+    });
+    
+    // Fill in defaults if any are missing
+    const defaults = {
+      max_fight_bet: '10000',
+      duel_cooldown_hours: '6',
+      price_dumbbell: '150',
+      price_vest: '150',
+      price_shoes: '150',
+      price_tome: '150',
+      price_rage: '300',
+      price_aegis: '300',
+      price_adrenaline: '300',
+      price_mana: '300',
+      price_shield: '500'
+    };
+    
+    for (const [key, val] of Object.entries(defaults)) {
+      if (settings[key] === undefined) {
+        settings[key] = val;
+        // Insert missing setting into database
+        await pool.query(
+          'INSERT INTO global_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+          [key, val]
+        ).catch(err => console.error(`Error inserting default global setting ${key}:`, err));
+      }
+    }
+    return settings;
+  } catch (error) {
+    console.error('Error in getGlobalSettings:', error);
+    // Return standard hardcoded fallbacks
+    return {
+      max_fight_bet: '10000',
+      duel_cooldown_hours: '6',
+      price_dumbbell: '150',
+      price_vest: '150',
+      price_shoes: '150',
+      price_tome: '150',
+      price_rage: '300',
+      price_aegis: '300',
+      price_adrenaline: '300',
+      price_mana: '300',
+      price_shield: '500'
+    };
+  }
+}
+
+/**
+ * Updates a single global setting.
+ */
+async function setGlobalSetting(key, value) {
+  const query = `
+    INSERT INTO global_settings (key, value)
+    VALUES ($1, $2)
+    ON CONFLICT (key)
+    DO UPDATE SET value = $2
+    RETURNING *
+  `;
+  const res = await pool.query(query, [key, String(value)]);
+  return res.rows[0];
+}
+
+/**
+ * Gets customized item prices globally from global_settings, falls back to default.
  */
 async function getShopPrices(serverId) {
   try {
-    const res = await pool.query('SELECT item_id, price FROM shop_prices WHERE server_id = $1', [serverId]);
-    const prices = { ...DEFAULT_PRICES };
-    res.rows.forEach(r => {
-      if (prices[r.item_id] !== undefined) {
-        prices[r.item_id] = r.price;
-      }
-    });
-    return prices;
+    const globalSettings = await getGlobalSettings();
+    return {
+      dumbbell: parseInt(globalSettings.price_dumbbell, 10) || 150,
+      vest: parseInt(globalSettings.price_vest, 10) || 150,
+      shoes: parseInt(globalSettings.price_shoes, 10) || 150,
+      tome: parseInt(globalSettings.price_tome, 10) || 150,
+      rage: parseInt(globalSettings.price_rage, 10) || 300,
+      aegis: parseInt(globalSettings.price_aegis, 10) || 300,
+      adrenaline: parseInt(globalSettings.price_adrenaline, 10) || 300,
+      mana: parseInt(globalSettings.price_mana, 10) || 300,
+      shield: parseInt(globalSettings.price_shield, 10) || 500
+    };
   } catch (error) {
-    console.error(`Error in getShopPrices for server ${serverId}:`, error);
+    console.error(`Error in getShopPrices:`, error);
     return DEFAULT_PRICES;
   }
 }
@@ -1027,8 +1020,8 @@ async function getUserInventory(discordId, serverId) {
   try {
     const res = await pool.query(`
       SELECT item_id, quantity FROM user_inventory
-      WHERE discord_id = $1 AND server_id = $2
-    `, [discordId, serverId]);
+      WHERE discord_id = $1 AND server_id = 'GLOBAL'
+    `, [discordId]);
 
     const inventory = {};
     res.rows.forEach(r => {
@@ -1056,33 +1049,33 @@ async function purchaseShopItem(discordId, serverId, itemId) {
       return { success: false, reason: 'invalid_item' };
     }
 
-    // Ensure stats exist
-    await ensureUserStats(client, discordId, serverId);
+    // Ensure stats exist globally
+    await ensureUserStats(client, discordId, 'GLOBAL');
 
-    // Get user wallet balance with lock
+    // Get user wallet balance with lock globally
     const balanceRes = await client.query(`
-      SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = $2 FOR UPDATE
-    `, [discordId, serverId]);
+      SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = 'GLOBAL' FOR UPDATE
+    `, [discordId]);
 
     if (balanceRes.rows.length === 0 || balanceRes.rows[0].coin_balance < cost) {
       await client.query('ROLLBACK');
       return { success: false, reason: 'insufficient_funds', cost };
     }
 
-    // Deduct coins
+    // Deduct coins globally
     await client.query(`
-      UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = $3
-    `, [cost, discordId, serverId]);
+      UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = 'GLOBAL'
+    `, [cost, discordId]);
 
-    // Log transaction
+    // Log transaction globally
     await client.query(`
       INSERT INTO transactions (user_id, server_id, amount, source)
-      VALUES ($1, $2, $3, $4)
-    `, [discordId, serverId, -cost, `buy_${itemId}`]);
+      VALUES ($1, 'GLOBAL', $2, $3)
+    `, [discordId, -cost, `buy_${itemId}`]);
 
     let effectMsg = '';
     if (['dumbbell', 'vest', 'shoes', 'tome'].includes(itemId)) {
-      // Weekly training (+5)
+      // Weekly training (+5) globally
       let field = '';
       if (itemId === 'dumbbell') field = 'boost_strength';
       else if (itemId === 'vest') field = 'boost_defense';
@@ -1092,12 +1085,12 @@ async function purchaseShopItem(discordId, serverId, itemId) {
       await client.query(`
         UPDATE user_stats
         SET ${field} = ${field} + 5
-        WHERE discord_id = $1 AND server_id = $2
-      `, [discordId, serverId]);
+        WHERE discord_id = $1 AND server_id = 'GLOBAL'
+      `, [discordId]);
 
       effectMsg = '+5 training boost applied';
     } else if (['rage', 'aegis', 'adrenaline', 'mana'].includes(itemId)) {
-      // 24h Potion (+15)
+      // 24h Potion (+15) globally
       let type = '';
       if (itemId === 'rage') type = 'strength';
       else if (itemId === 'aegis') type = 'defense';
@@ -1106,25 +1099,25 @@ async function purchaseShopItem(discordId, serverId, itemId) {
 
       await client.query(`
         INSERT INTO active_boosts (discord_id, server_id, stat_type, amount, expires_at)
-        VALUES ($1, $2, $3, 15, NOW() + INTERVAL '24 hours')
-      `, [discordId, serverId, type]);
+        VALUES ($1, 'GLOBAL', $2, 15, NOW() + INTERVAL '24 hours')
+      `, [discordId, type]);
 
       effectMsg = '+15 potion effect applied for 24 hours';
     } else if (itemId === 'shield') {
-      // Inventory shield
+      // Inventory shield globally
       await client.query(`
         INSERT INTO user_inventory (discord_id, server_id, item_id, quantity)
-        VALUES ($1, $2, 'shield', 1)
+        VALUES ($1, 'GLOBAL', 'shield', 1)
         ON CONFLICT (discord_id, server_id, item_id)
         DO UPDATE SET quantity = user_inventory.quantity + 1
-      `, [discordId, serverId]);
+      `, [discordId]);
 
       effectMsg = 'Divine Shield added to your inventory';
     }
 
     const finalBalanceRes = await client.query(`
-      SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = $2
-    `, [discordId, serverId]);
+      SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = 'GLOBAL'
+    `, [discordId]);
     const newBalance = finalBalanceRes.rows[0].coin_balance;
 
     await client.query('COMMIT');
@@ -1139,16 +1132,16 @@ async function purchaseShopItem(discordId, serverId, itemId) {
 }
 
 /**
- * Sets the last_duel_loss_at timestamp to now, initiating a 1-hour cooldown.
+ * Sets the last_duel_loss_at timestamp to now globally, initiating a 6-hour cooldown.
  */
 async function recordDuelLoss(discordId, serverId) {
-  await ensureUserStats(null, discordId, serverId);
+  await ensureUserStats(null, discordId, 'GLOBAL');
   const query = `
     UPDATE user_stats
     SET last_duel_loss_at = NOW()
-    WHERE discord_id = $1 AND server_id = $2
+    WHERE discord_id = $1 AND server_id = 'GLOBAL'
   `;
-  await pool.query(query, [discordId, serverId]);
+  await pool.query(query, [discordId]);
 }
 
 module.exports = {
@@ -1172,6 +1165,8 @@ module.exports = {
   setShopPrice,
   getUserInventory,
   purchaseShopItem,
-  recordDuelLoss
+  recordDuelLoss,
+  getGlobalSettings,
+  setGlobalSetting
 };
 
