@@ -130,13 +130,27 @@ document.addEventListener('DOMContentLoaded', () => {
     messagesVal.textContent = messages;
     casinoVal.textContent = (casinoLuck >= 0 ? '+' : '') + casinoLuck;
 
-    // 1. Calculate checkin earnings per week (20 Souls per claim)
-    const checkinWeekly = checkins * 20;
+    // 1. Calculate checkin earnings per week
+    // s daily / s checkin = random 500-1000 (avg ~750). /checkin = fixed 20.
+    // Simulator uses the prefix command average (750) as the estimate.
+    const checkinWeekly = checkins * 750;
 
     // 2. Calculate messaging earnings:
-    // - Awards 10 Souls per 100 messages
-    // - Daily Cap is 20 Souls (equivalent to 200 messages)
-    const messageDailySouls = Math.min(20, Math.floor(messages / 100) * 10);
+    // - Every 10 qualifying messages (min 5 words, 15s cooldown) awards 100 Souls
+    // - Max messages countable per day ≈ 5,760 (every 15s for 24h), but practically capped
+    // - Daily cap = 5,000 Souls => max 50 milestones/day
+    // - At 15s per message, 1 milestone = 10 messages = 150s ≈ 2.5 min
+    const MILESTONE_INTERVAL = 10;       // messages per milestone
+    const MILESTONE_REWARD = 100;        // Souls per milestone
+    const DAILY_CAP_SOULS = 5000;        // maximum message earnings per day
+    const COOLDOWN_SECONDS = 15;         // between counted messages
+
+    // Messages per day that can be counted (limited by cooldown)
+    const countablePerDay = Math.floor((24 * 3600) / COOLDOWN_SECONDS);
+    const actualCounted = Math.min(messages, countablePerDay);
+    const milestonesPerDay = Math.floor(actualCounted / MILESTONE_INTERVAL);
+    const rawDailySouls = milestonesPerDay * MILESTONE_REWARD;
+    const messageDailySouls = Math.min(rawDailySouls, DAILY_CAP_SOULS);
     const messageWeekly = messageDailySouls * 7;
 
     // 3. Weekly totals
@@ -149,8 +163,8 @@ document.addEventListener('DOMContentLoaded', () => {
     weeklySouls.textContent = totalWeekly.toLocaleString();
     monthlySouls.textContent = totalMonthly.toLocaleString();
 
-    // 5. Update Leaderboard Target Progress bar (Goal = 1,000 Souls)
-    const goalTarget = 1000;
+    // 5. Update Leaderboard Target Progress bar (Goal = 50,000 Souls)
+    const goalTarget = 50000;
     const progressPercent = Math.min(100, Math.max(0, Math.round((totalMonthly / goalTarget) * 100)));
     
     if (progressBar && progressText) {
@@ -194,5 +208,74 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  // ==========================================
+  // TOP SERVERS LEADERBOARD FETCH
+  // ==========================================
+  async function loadPublicLeaderboard() {
+    const container = document.getElementById('public-leaderboard-container');
+    if (!container) return;
+    try {
+      const response = await fetch('/api/public/top-servers');
+      if (!response.ok) throw new Error('Failed to fetch server standings.');
+      const data = await response.json();
+      
+      if (!data || data.length === 0) {
+        container.innerHTML = `<div class="loading-state"><i class="fa-solid fa-circle-info"></i>No server standings available yet.</div>`;
+        return;
+      }
+      
+      let html = `
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th style="width: 80px;">Rank</th>
+              <th>Server</th>
+              <th style="text-align: right;">Total Souls</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.forEach((server, index) => {
+        const rank = index + 1;
+        let rankClass = '';
+        if (rank === 1) rankClass = 'rank-1';
+        else if (rank === 2) rankClass = 'rank-2';
+        else if (rank === 3) rankClass = 'rank-3';
+        
+        // Short name or initials if there's no icon
+        const initials = server.name ? server.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
+        
+        const iconHtml = server.icon 
+          ? `<img src="${server.icon}" class="lb-server-icon" alt="${server.name}">`
+          : `<div class="lb-server-icon">${initials}</div>`;
+          
+        html += `
+          <tr class="leaderboard-row">
+            <td class="lb-rank ${rankClass}">#${rank}</td>
+            <td>
+              <div class="lb-server-info">
+                ${iconHtml}
+                <span class="lb-server-name">${server.name || 'Unknown Server'}</span>
+              </div>
+            </td>
+            <td class="lb-souls">${Number(server.totalCoins).toLocaleString()} <span>Souls</span></td>
+          </tr>
+        `;
+      });
+      
+      html += `
+          </tbody>
+        </table>
+      `;
+      container.innerHTML = html;
+    } catch (error) {
+      console.error(error);
+      container.innerHTML = `<div class="loading-state"><i class="fa-solid fa-triangle-exclamation"></i>Error loading server standings.</div>`;
+    }
+  }
+
+  loadPublicLeaderboard();
 
 });

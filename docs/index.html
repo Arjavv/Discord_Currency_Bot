@@ -37,6 +37,7 @@
       <div class="nav-menu" id="nav-menu">
         <a href="#hero" class="nav-link active">Home</a>
         <a href="#rules" class="nav-link">Rules</a>
+        <a href="#leaderboard" class="nav-link">Standings</a>
         <a href="#commands" class="nav-link">Commands</a>
         <a href="#calculator" class="nav-link">Simulator</a>
         <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands" target="_blank" class="nav-btn"><i class="fa-solid fa-robot"></i> Add to Server</a>
@@ -108,6 +109,27 @@
     </div>
   </section>
 
+  <!-- Top Servers Leaderboard Section -->
+  <section class="leaderboard-section" id="leaderboard">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Top <span class="gold-text">Servers Leaderboard</span></h2>
+        <p class="section-subtitle">Real-time standings of the top Discord guilds ranked by the total circulating amount of Souls.</p>
+      </div>
+      
+      <div class="leaderboard-wrap">
+        <div id="public-leaderboard-container">
+          <div class="loading-state">
+            <i class="fa-solid fa-spinner fa-spin"></i> Loading server standings...
+          </div>
+        </div>
+        <div class="leaderboard-footer-info">
+          <i class="fa-solid fa-clock-rotate-left"></i> Standings are updated automatically every 1 hour.
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Commands Reference Section -->
   <section class="commands-section" id="commands">
     <div class="container">
@@ -134,20 +156,20 @@
         <!-- Commands List -->
         <div class="commands-list" id="commands-list">
           
-          <!-- Command 1: s daily -->
+          <!-- Command 1: s daily & /checkin -->
           <div class="command-item" data-category="user" id="cmd-checkin">
             <div class="command-trigger">
               <div class="command-name-wrapper">
-                <span class="command-name">s daily</span>
+                <span class="command-name">s daily / /checkin</span>
                 <span class="command-tag user-tag">User</span>
               </div>
               <span class="command-short-desc">Claim your daily allowance reward.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Triggers the 24-hour daily allowance checkin. Awards <strong>20 Souls</strong> atomically. (Aliases: <code>s daily</code>, <code>s checkin</code>, <code>s claim</code>). If run while on cooldown, displays a relative unlock timer embed.</p>
+              <p>Triggers the 24-hour daily allowance checkin. Using the prefix command <code>s daily</code> (or aliases: <code>s checkin</code>, <code>s claim</code>) awards a random amount between <strong>500 and 1,000 Souls</strong>. Using the slash command <code>/checkin</code> awards a fixed amount (default: <strong>20 Souls</strong>). If run while on cooldown, displays a relative unlock timer embed.</p>
               <div class="detail-row">
-                <strong>Syntax:</strong> <code>s daily</code>
+                <strong>Syntax:</strong> <code>s daily</code> or <code>/checkin</code>
               </div>
               <div class="detail-row">
                 <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
@@ -395,33 +417,54 @@
 
 
 
-          <!-- Command 5: /admin -->
-          <div class="command-item" data-category="admin" id="cmd-admin">
+          <!-- Admin Prefix Commands -->
+          <div class="command-item" data-category="admin" id="cmd-admin-prefix">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">s <span class="required-param">&lt;admin-command&gt;</span></span>
+                <span class="command-tag admin-tag">Admin</span>
+              </div>
+              <span class="command-short-desc">Prefix commands for server setup and drop management.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>These prefix commands are restricted to members with the <strong>Administrator</strong> permission on the server. They can be run in any channel unless noted.</p>
+              <ul class="admin-subcommands">
+                <li><code>s setup</code>: Automatically creates the "Soul" category with <code>#soul-bot</code> (public) and <code>#soul-logs</code> (private admin) channels.</li>
+                <li><code>s set-drop-channel [#channel]</code>: Configures which channel random Soul Coin drops will spawn in. Defaults to the current channel if no argument is given.</li>
+                <li><code>s force-drop</code>: Instantly forces a Soul Coin drop in the configured drop channel.</li>
+                <li><code>s reset-cycle</code>: Archives current standings and resets all balances to 0. <strong>Restricted to <code>#soul-logs</code>. Disabled in Global Economy mode.</strong></li>
+              </ul>
+              <div class="detail-row">
+                <strong>Permission:</strong> Server Administrators only.
+              </div>
+            </div>
+          </div>
+
+          <!-- Slash Admin Commands -->
+          <div class="command-item" data-category="admin" id="cmd-admin-slash">
             <div class="command-trigger">
               <div class="command-name-wrapper">
                 <span class="command-name">/admin <span class="required-param">&lt;subcommand&gt;</span></span>
                 <span class="command-tag admin-tag">Admin</span>
               </div>
-              <span class="command-short-desc">Slash commands for settings, setup, and cycle resets.</span>
+              <span class="command-short-desc">Slash commands for server setup, drops, and cycle management.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Set server-wide currency options, initialize channels, manage drops, or reset cycles. Restricted to Server Administrators only.</p>
+              <p>All <code>/admin</code> slash subcommands require the <strong>Administrator</strong> permission. These are the officially registered Discord slash commands.</p>
               <ul class="admin-subcommands">
-                <li><code>/admin setup</code>: Automatically creates the category "Soul" and the <code>#soul-bot</code> and <code>#soul-logs</code> channels if they do not exist.</li>
-                <li><code>/admin set-name &lt;new_name&gt;</code>: Customizes the display name of the currency server-wide (default is <em>Souls</em>).</li>
-                <li><code>/admin set-icon &lt;emoji&gt;</code>: Sets a new custom emoji tag as the balance symbol.</li>
-                <li><code>/admin reset-cycle</code>: Closes current monthly cycle, archives the rankings, and resets all balances & message counters to 0 server-wide.</li>
-                <li><code>/admin set-drop-channel &lt;channel&gt;</code>: Sets the designated channel for Soul Coin drops.</li>
-                <li><code>/admin force-drop</code>: Instantly spawns a Soul Coin drop in the configured drop channel.</li>
-                <li><code>/admin auto-drops &lt;start/stop&gt;</code>: Starts or stops the automated 10-minute continuous Soul Coin drop cycle.</li>
-                <li><code>/admin set-price &lt;item&gt; &lt;price&gt;</code>: Customize pricing of shop items for this server. Restricted to #soul-logs.</li>
+                <li><code>/admin setup</code>: Creates the Soul category and both bot channels if they don't already exist. Can be run anywhere.</li>
+                <li><code>/admin set-drop-channel [channel]</code>: Sets the Soul Coin drop target channel. Defaults to current channel. Can be run anywhere.</li>
+                <li><code>/admin force-drop</code>: Immediately triggers a Soul Coin drop in the drop channel. Can be run anywhere.</li>
+                <li><code>/admin auto-drops &lt;start/stop&gt;</code>: Starts or stops the automated 10-minute drop cycle in the configured drop channel. Can be run anywhere.</li>
+                <li><code>/admin reset-cycle</code>: Closes the current cycle, archives rankings, and resets all balances to 0. <strong>Restricted to <code>#soul-logs</code>. Disabled in Global Economy mode.</strong></li>
               </ul>
               <div class="detail-row">
                 <strong>Permission:</strong> Server Administrators only.
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Configuration commands (name, icon, reset) run ONLY in <code>#soul-logs</code>.
+                <strong>Note:</strong> <code>/admin reset-cycle</code> must be run in <code>#soul-logs</code>. All other subcommands can be run from any channel.
               </div>
             </div>
           </div>
@@ -465,21 +508,21 @@
           <div class="input-group">
             <label for="checkins-input">Daily Check-ins per week: <span class="value-display" id="checkins-val">5</span></label>
             <input type="range" id="checkins-input" min="0" max="7" value="5" class="slider">
-            <span class="slider-hint">Earns 20 Souls per claim</span>
+            <span class="slider-hint">Prefix <code>s daily</code>: 500–1,000 Souls (random) &bull; Slash <code>/checkin</code>: 20 Souls (fixed)</span>
           </div>
 
           <!-- Input 2: Average Messages per day -->
           <div class="input-group">
             <label for="messages-input">Average Messages sent per day: <span class="value-display" id="messages-val">80</span></label>
-            <input type="range" id="messages-input" min="0" max="400" step="10" value="80" class="slider">
-            <span class="slider-hint">Earns 10 Souls per 100 messages (20 Souls daily cap, min 5 words, 15s delay)</span>
+            <input type="range" id="messages-input" min="0" max="500" step="10" value="80" class="slider">
+            <span class="slider-hint">Earns 100 Souls per 10 qualifying messages (5,000 Souls daily cap, min 5 words, 15s cooldown)</span>
           </div>
 
           <!-- Input 3: Casino gambling estimation -->
           <div class="input-group">
             <label for="casino-bet">Estimated Casino Win/Loss (per week): <span class="value-display" id="casino-val">+0</span></label>
-            <input type="range" id="casino-bet" min="-100" max="200" step="10" value="0" class="slider">
-            <span class="slider-hint">Net luck projections</span>
+            <input type="range" id="casino-bet" min="-5000" max="10000" step="100" value="0" class="slider">
+            <span class="slider-hint">Net luck projections (flip, crash, mines)</span>
           </div>
         </div>
 
@@ -499,7 +542,7 @@
 
           <div class="chart-progress-wrapper">
             <div class="progress-bar-label">
-              <span>Leaderboard Goal Target (1,000 Souls)</span>
+              <span>Leaderboard Goal Target (50,000 Souls)</span>
               <span id="target-progress-text">60%</span>
             </div>
             <div class="progress-track">

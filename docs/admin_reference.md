@@ -28,30 +28,26 @@ These setup and configuration commands are available to **local server administr
 
 ### Setup & Channel Management
 * **`s setup`** or **`/admin setup`**
-  - **Description**: Automatically creates a dedicated category (`SOUL SYSTEM`) along with the `#soul-bot` channel (for user games/checkins) and the `#soul-logs` channel (restricted logs channel).
+  - **Description**: Automatically creates a dedicated category (`SOUL SYSTEM`) along with the `#soul-bot` channel (for user games/check-ins) and the `#soul-logs` channel (restricted admin logs).
   - **Permissions**: Restricted to Server Administrators. Can be run in any channel.
 
-* **`s set-drop-channel <#channel>`** or **`/admin set-drop-channel <#channel>`**
-  - **Description**: Configures the target channel where random currency drops will spawn.
+* **`s set-drop-channel <#channel>`** or **`/admin set-drop-channel [#channel]`**
+  - **Description**: Configures the target channel where random currency drops will spawn. Defaults to the current channel if no argument is given.
   - **Permissions**: Restricted to Server Administrators. Can be run in any channel.
-
-### Custom Server Branding
-* **`s set-name <new_name>`** or **`/admin set-name <new_name>`**
-  - **Description**: Updates the currency name (e.g. "Souls", "ApexGold", "Coins") for this server.
-  - **Permissions**: Restricted to Server Administrators. **Must be run in `#soul-logs`**.
-
-* **`s set-icon <emoji>`** or **`/admin set-icon <emoji>`**
-  - **Description**: Updates the currency icon/emoji displayed in embeds and messages on this server.
-  - **Permissions**: Restricted to Server Administrators. **Must be run in `#soul-logs`**.
 
 ### Random Drop Management
-* **`s auto-drops <start/stop>`** or **`/admin auto-drops <action>`**
-  - **Description**: Enables or disables the bot's automated background drop loop. When enabled, a drop spawns randomly every 10 minutes in the configured drop channel.
+* **`/admin auto-drops <start/stop>`**
+  - **Description**: Enables or disables the bot's automated background drop loop (slash command only). When enabled, a drop spawns randomly every 10 minutes in the configured drop channel.
   - **Permissions**: Restricted to Server Administrators. Can be run in any channel.
 
 * **`s force-drop`** or **`/admin force-drop`**
   - **Description**: Instantly forces a drop of random coins to spawn in the drop channel for users to claim.
   - **Permissions**: Restricted to Server Administrators. Can be run in any channel.
+
+### Cycle Management
+* **`s reset-cycle`** or **`/admin reset-cycle`**
+  - **Description**: Archives current cycle standings and resets all member balances to 0 for a new cycle. **Disabled in Global Economy mode.**
+  - **Permissions**: Restricted to Server Administrators. **Must be run in `#soul-logs`**.
 
 ---
 
@@ -60,5 +56,8 @@ These setup and configuration commands are available to **local server administr
 * **Weekly Upgrade Reset**: training stats (Dumbbell, Vest, Shoes, Tome boosts) reset automatically back to `0` for every user on **Sunday midnight (00:00 UTC)**.
 * **Potion Buff Expiry**: Potion buffs expire exactly **24 hours** after the time of purchase.
 * **Daily Check-in Allowance**: Available exactly once every **24 hours** from the user's last check-in time.
+  - `s daily` / `s checkin` / `s claim`: Awards a random **500–1,000 Souls** per claim.
+  - `/checkin` (slash): Awards a fixed **20 Souls** per claim.
+* **Message Earnings**: Every **10 qualifying messages** (min 5 words, 15s cooldown between counted messages) awards **100 Souls**. Daily cap is **5,000 Souls** from message activity.
 * **Robbery Cooldown**: A user is placed on a **1-hour robbery cooldown** after executing a rob command.
 * **Monthly Cycle Reset**: **Disabled** globally to preserve the global economy database.
