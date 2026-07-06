@@ -263,6 +263,49 @@
             </div>
           </div>
 
+          <!-- Command 7: s crash -->
+          <div class="command-item" data-category="casino" id="cmd-crash">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">s crash <span class="required-param">&lt;bet&gt;</span></span>
+                <span class="command-tag casino-tag">Casino</span>
+              </div>
+              <span class="command-short-desc">Watch the multiplier climb and cash out before it crashes.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Place a bet and watch the multiplier tick up in real-time from <code>1.00x</code>. Hit the <strong>Cash Out</strong> button to secure your winnings before the game randomly crashes! <strong>Note: Game auto-crashes if you do not cash out within 15 seconds.</strong> Uses a house-edged probability curve capped at 10x multiplier.</p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>s crash 100</code>
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
+              </div>
+            </div>
+          </div>
+
+          <!-- Command 8: s mines -->
+          <div class="command-item" data-category="casino" id="cmd-mines">
+            <div class="command-trigger">
+              <div class="command-name-wrapper">
+                <span class="command-name">s mines <span class="required-param">&lt;bet&gt;</span> <span class="optional-param">[mines_count]</span></span>
+                <span class="command-tag casino-tag">Casino</span>
+              </div>
+              <span class="command-short-desc">Interactive grid-based Mines game.</span>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+            <div class="command-details">
+              <p>Stake-style mines game. Reveal tiles on a 4x5 button grid. Safe tiles (💎) increase your multiplier, while hitting a mine (💣) instantly crashes the game and loses your bet. You can cash out at any time after revealing at least one safe tile. <strong>Note: Auto-times out after 60 seconds of inactivity.</strong></p>
+              <div class="detail-row">
+                <strong>Syntax:</strong> <code>s mines 100</code> (defaults to 3 mines) or <code>s mines 100 5</code> (5 mines, range: 1-19)
+              </div>
+              <div class="detail-row">
+                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
+              </div>
+            </div>
+          </div>
+
+
           <!-- Command 5: /admin -->
           <div class="command-item" data-category="admin" id="cmd-admin">
             <div class="command-trigger">
