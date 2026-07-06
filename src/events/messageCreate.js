@@ -367,24 +367,28 @@ module.exports = {
           }
 
           if (['flip', 'casino', 'bet'].includes(commandName)) {
-            let choiceInput = args[0] ? args[0].toLowerCase() : '';
-            let betInput = args[1] ? args[1] : '';
-
-            // Swap arguments if input order is swapped
-            if (!isNaN(choiceInput) && isNaN(betInput)) {
-              const temp = choiceInput;
-              choiceInput = betInput.toLowerCase();
-              betInput = temp;
+            let bet = 0;
+            let choice = 'heads'; // default
+            
+            if (args.length === 1 && !isNaN(parseInt(args[0]))) {
+              bet = parseInt(args[0]);
+            } else if (args.length >= 2) {
+              let choiceInput = args[0].toLowerCase();
+              let betInput = args[1];
+              
+              if (!isNaN(choiceInput) && isNaN(parseInt(betInput))) {
+                const temp = choiceInput;
+                choiceInput = betInput.toLowerCase();
+                betInput = temp;
+              }
+              
+              if (choiceInput === 'heads' || choiceInput === 'h') choice = 'heads';
+              if (choiceInput === 'tails' || choiceInput === 't') choice = 'tails';
+              bet = parseInt(betInput);
             }
 
-            let choice = '';
-            if (choiceInput === 'heads' || choiceInput === 'h') choice = 'heads';
-            if (choiceInput === 'tails' || choiceInput === 't') choice = 'tails';
-
-            const bet = parseInt(betInput);
-
-            if (!choice || isNaN(bet) || bet <= 0) {
-              return await message.reply('❌ **Usage**: `s flip <heads/tails> <bet_amount>`').catch(() => {});
+            if (isNaN(bet) || bet <= 0) {
+              return await message.reply('❌ **Usage**: `s flip <bet_amount>` (defaults to heads) OR `s flip <heads/tails> <bet_amount>`').catch(() => {});
             }
 
             // Verify user balance
@@ -417,39 +421,14 @@ module.exports = {
             const gifPath = path.join(__dirname, '..', 'assets', gifName);
             const attachment = new AttachmentBuilder(gifPath, { name: gifName });
 
-            const embed = new EmbedBuilder()
-              .setAuthor({
-                name: `${message.author.username}'s Coin Flip`,
-                iconURL: message.author.displayAvatarURL({ dynamic: true })
-              })
-              .setImage(`attachment://${gifName}`)
-              .setTimestamp();
-
+            let outputText = `**${message.author.username}** spent ${currencyIcon} **${bet}** and chose **${choice}**\n`;
             if (isWin) {
-              embed
-                .setColor('#00ffaa')
-                .setTitle('<:Soul_Head:1523605643158618214> Double or Nothing: WIN!')
-                .setDescription(`The coin spun in the air and landed on ${displayResult} **${capitalizedResult}**!`)
-                .addFields(
-                  { name: 'Your Prediction', value: `${displayChoice} **${capitalizedChoice}**`, inline: true },
-                  { name: 'Coin Landed On', value: `${displayResult} **${capitalizedResult}**`, inline: true },
-                  { name: 'Net Earnings', value: `**+${bet}** ${currencyIcon} ${currencyName}`, inline: false },
-                  { name: 'New Wallet Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}`, inline: false }
-                );
+              outputText += `The coin spins... ${displayResult} and you won ${currencyIcon} **${bet * 2}**!!`;
             } else {
-              embed
-                .setColor('#ff3366')
-                .setTitle('<:Soul_Head:1523605643158618214> Double or Nothing: LOSS')
-                .setDescription(`The coin spun in the air and landed on ${displayResult} **${capitalizedResult}**...`)
-                .addFields(
-                  { name: 'Your Prediction', value: `${displayChoice} **${capitalizedChoice}**`, inline: true },
-                  { name: 'Coin Landed On', value: `${displayResult} **${capitalizedResult}**`, inline: true },
-                  { name: 'Lost Bet', value: `**-${bet}** ${currencyIcon} ${currencyName}`, inline: false },
-                  { name: 'New Wallet Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}`, inline: false }
-                );
+              outputText += `The coin spins... ${displayResult} and you lost it all...`;
             }
 
-            return await message.reply({ embeds: [embed], files: [attachment] }).catch(() => {});
+            return await message.reply({ content: outputText, files: [attachment] }).catch(() => {});
           }
         }
       } catch (err) {

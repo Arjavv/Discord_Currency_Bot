@@ -69,7 +69,7 @@ async function generateGif() {
     fs.mkdirSync(ASSETS_DIR, { recursive: true });
   }
 
-  const coinSize = 160; // High-resolution larger coin size for crisp details
+  const coinSize = 100; // Reduced for faster generation
   
   // Load Gold coin
   console.log('Loading Gold heads face...');
@@ -84,13 +84,13 @@ async function generateGif() {
   tailsBase.resize({ w: coinSize, h: coinSize });
 
   // Toss Physics parameters
-  const canvasWidth = 240;
-  const canvasHeight = 240;
-  const totalFrames = 28; // Higher frame count for smoother motion
-  const frameDelayCentiseconds = 5; // 50ms delay for fluid 60fps feel
-  const maxHeight = 50; // Parabolic peak height
-  const totalFlips = 5; // Complete 360 vertical flips
-  const totalSpins = 3.5; // Axis rotations
+  const canvasWidth = 160;
+  const canvasHeight = 160;
+  const totalFrames = 16; // Reduced frame count for faster generation/loading
+  const frameDelayCentiseconds = 6; // slightly longer delay per frame to keep length okay
+  const maxHeight = 30; // Parabolic peak height
+  const totalFlips = 3; // Complete 360 vertical flips
+  const totalSpins = 2; // Axis rotations
 
   const headsFrames = [];
   const tailsFrames = [];
