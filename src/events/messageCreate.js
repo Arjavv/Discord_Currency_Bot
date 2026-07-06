@@ -317,12 +317,99 @@ module.exports = {
 
         // --- 2. USER COMMANDS ---
         if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist'].includes(commandName)) {
-          // Lock user commands to #soul-bot
-          if (!message.channel.name.toLowerCase().includes('soul-bot')) {
+          // Lock user commands to #soul-bot — EXCEPT 's help admin' which admins can run anywhere
+          const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
+          if (!isAdminHelpRequest && !message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
           }
 
           if (['help'].includes(commandName)) {
+            // --- ADMIN HELP ---
+            if (args[0] && args[0].toLowerCase() === 'admin') {
+              // Check administrator permission
+              if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                return sendTempMessage(message.channel, '❌ **Admin Help** is restricted to Server Administrators only.');
+              }
+
+              const prefixEmbed = new EmbedBuilder()
+                .setColor('#7b2fff')
+                .setTitle('🛡️ Admin Prefix Commands (`s <command>`)')
+                .setDescription('These commands use the `s ` prefix and require **Administrator** permission.')
+                .addFields(
+                  {
+                    name: '🏗️ `s setup`',
+                    value: 'Creates the **Soul** category with `#soul-bot` (public) and `#soul-logs` (private) channels.\n> Can be run in **any channel**.',
+                    inline: false
+                  },
+                  {
+                    name: '📍 `s set-drop-channel [#channel]`',
+                    value: 'Sets the channel where random Soul Coin drops will spawn.\nLeave blank to use the current channel.\n> Can be run in **any channel**.',
+                    inline: false
+                  },
+                  {
+                    name: '💥 `s force-drop`',
+                    value: 'Immediately triggers a Soul Coin drop in the configured drop channel.\n> Can be run in **any channel**.',
+                    inline: false
+                  },
+                  {
+                    name: '🔄 `s reset-cycle`',
+                    value: 'Archives current cycle standings, then resets **all member balances to 0** for a fresh cycle.\n⚠️ **Disabled in Global Economy mode.**\n> Must be run in **#soul-logs** only.',
+                    inline: false
+                  }
+                )
+                .setFooter({ text: 'Prefix commands are typed directly in chat with the "s " prefix.' })
+                .setTimestamp();
+
+              const slashEmbed = new EmbedBuilder()
+                .setColor('#a855f7')
+                .setTitle('⚡ Admin Slash Commands (`/admin`)')
+                .setDescription('These are registered Discord slash commands. Type `/admin` to see them in the command picker.')
+                .addFields(
+                  {
+                    name: '🏗️ `/admin setup`',
+                    value: 'Creates the **Soul** category with `#soul-bot` and `#soul-logs` channels if they don\'t exist.\n> Can be run in **any channel**.',
+                    inline: false
+                  },
+                  {
+                    name: '📍 `/admin set-drop-channel [channel]`',
+                    value: 'Sets the Soul Coin drop channel. Leave blank to use the current channel.\n> Can be run in **any channel**.',
+                    inline: false
+                  },
+                  {
+                    name: '💥 `/admin force-drop`',
+                    value: 'Immediately triggers a Soul Coin drop in the configured drop channel.\n> Can be run in **any channel**.',
+                    inline: false
+                  },
+                  {
+                    name: '🔁 `/admin auto-drops <start/stop>`',
+                    value: 'Starts or stops the **automated 10-minute Soul Coin drop cycle** in the drop channel.\n> Can be run in **any channel**.',
+                    inline: false
+                  },
+                  {
+                    name: '🔄 `/admin reset-cycle`',
+                    value: 'Archives current cycle standings, then resets **all member balances to 0** for a fresh cycle.\n⚠️ **Disabled in Global Economy mode.**\n> Must be run in **#soul-logs** only.',
+                    inline: false
+                  }
+                )
+                .setFooter({ text: 'Slash commands show up in Discord\'s command picker when you type /admin.' })
+                .setTimestamp();
+
+              const noteEmbed = new EmbedBuilder()
+                .setColor('#3b0764')
+                .setTitle('📋 Quick Reference')
+                .addFields(
+                  { name: '✅ Available Anywhere', value: '`s setup` · `s set-drop-channel` · `s force-drop`\n`/admin setup` · `/admin set-drop-channel` · `/admin force-drop` · `/admin auto-drops`', inline: false },
+                  { name: '🔒 Restricted to `#soul-logs`', value: '`s reset-cycle` · `/admin reset-cycle`', inline: false },
+                  { name: '⚡ Slash-Only (no prefix version)', value: '`/admin auto-drops`', inline: false },
+                  { name: '⛔ Globally Disabled', value: 'Currency name & icon changes · Shop price overrides\n*(These were removed from this bot\'s configuration.)*', inline: false }
+                )
+                .setFooter({ text: `Run by ${message.author.tag} · Soul Currency Admin Reference` })
+                .setTimestamp();
+
+              return await message.reply({ embeds: [prefixEmbed, slashEmbed, noteEmbed] }).catch(() => { });
+            }
+
+            // --- REGULAR USER HELP ---
             const helpEmbed = new EmbedBuilder()
               .setColor('#ffd700')
               .setTitle(`${currencyName} Commands`)
@@ -342,7 +429,7 @@ module.exports = {
                 { name: '🥷 `s rob @user`', value: 'Attempt to steal 10% of their wallet (30% success rate). Caught? Pay a 5% fine! (1hr cooldown).' },
                 { name: '🏃‍♂️ `soul`', value: 'Type exactly this word when a Soul Coin drops to catch it before anyone else!' }
               )
-              .setFooter({ text: 'Tip: You also passively earn Souls by chatting in active channels!' })
+              .setFooter({ text: 'Tip: Passively earn Souls by chatting in active channels! · Admins: use `s help admin` in any channel.' })
               .setTimestamp();
 
             return await message.reply({ embeds: [helpEmbed] }).catch(() => { });

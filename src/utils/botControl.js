@@ -1,6 +1,7 @@
 const { getGlobalSettings, getServerFeatureOverrides } = require('../database/queries');
 
-const ADMIN_PREFIX_COMMANDS = ['setup', 'reset-cycle', 'set-drop-channel', 'force-drop', 'auto-drops'];
+const ADMIN_PREFIX_COMMANDS = ['setup', 'reset-cycle', 'set-drop-channel', 'force-drop', 'auto-drops', 'help'];
+
 const READONLY_PREFIX_COMMANDS = ['cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'stats', 'profile', 'help'];
 const READONLY_SLASH_COMMANDS = ['balance', 'leaderboard', 'stats'];
 
