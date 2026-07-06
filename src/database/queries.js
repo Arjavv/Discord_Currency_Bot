@@ -577,6 +577,78 @@ async function awardDropCoins(discordId, serverId, amount) {
   }
 }
 
+/**
+ * Transfers coins from one user to another.
+ */
+async function transferCoins(senderId, receiverId, serverId, amount) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Ensure both users exist
+    await ensureUserExists(client, senderId, serverId);
+    await ensureUserExists(client, receiverId, serverId);
+
+    // 2. Fetch sender balance with row lock
+    const senderBalanceQuery = `
+      SELECT coin_balance 
+      FROM users 
+      WHERE discord_id = $1 AND server_id = $2 
+      FOR UPDATE
+    `;
+    const senderRes = await client.query(senderBalanceQuery, [senderId, serverId]);
+    const senderBalance = senderRes.rows[0].coin_balance;
+
+    if (senderBalance < amount) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'insufficient_funds', currentBalance: senderBalance };
+    }
+
+    // 3. Deduct from sender
+    const deductQuery = `
+      UPDATE users 
+      SET coin_balance = coin_balance - $1
+      WHERE discord_id = $2 AND server_id = $3
+      RETURNING coin_balance
+    `;
+    const newSenderBalance = (await client.query(deductQuery, [amount, senderId, serverId])).rows[0].coin_balance;
+
+    // 4. Add to receiver
+    const addQuery = `
+      UPDATE users 
+      SET coin_balance = coin_balance + $1
+      WHERE discord_id = $2 AND server_id = $3
+    `;
+    await client.query(addQuery, [amount, receiverId, serverId]);
+
+    // 5. Log transaction for sender
+    const logSenderQuery = `
+      INSERT INTO transactions (user_id, server_id, amount, source)
+      VALUES ($1, $2, $3, 'transfer_sent')
+    `;
+    await client.query(logSenderQuery, [senderId, serverId, -amount]);
+
+    // 6. Log transaction for receiver
+    const logReceiverQuery = `
+      INSERT INTO transactions (user_id, server_id, amount, source)
+      VALUES ($1, $2, $3, 'transfer_received')
+    `;
+    await client.query(logReceiverQuery, [receiverId, serverId, amount]);
+
+    await client.query('COMMIT');
+    return {
+      success: true,
+      newSenderBalance
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in transferCoins for server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
@@ -588,5 +660,6 @@ module.exports = {
   recordCasinoGame,
   updateDropChannel,
   toggleAutoDrops,
-  awardDropCoins
+  awardDropCoins,
+  transferCoins
 };

@@ -8,7 +8,8 @@ const {
   resetCycle,
   recordCasinoGame,
   updateDropChannel,
-  awardDropCoins
+  awardDropCoins,
+  transferCoins
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const path = require('path');
@@ -296,7 +297,7 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'gift', 'give', 'send', 'transfer'].includes(commandName)) {
           // Lock user commands to #soul-bot
           if (!message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
@@ -335,6 +336,46 @@ module.exports = {
               .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
               .setTimestamp();
             return await message.reply({ embeds: [embed] }).catch(() => {});
+          }
+
+          if (['gift', 'give', 'send', 'transfer'].includes(commandName)) {
+            const targetUser = message.mentions.users.first();
+            let amount = 0;
+            
+            // Try to find amount in arguments
+            for (const arg of args) {
+              const parsed = parseInt(arg);
+              if (!isNaN(parsed) && parsed > 0) {
+                amount = parsed;
+                break;
+              }
+            }
+
+            if (!targetUser || amount <= 0) {
+              return sendTempMessage(message.channel, '❌ Invalid syntax. Use `s gift @user <amount>`.');
+            }
+            if (targetUser.id === message.author.id) {
+              return sendTempMessage(message.channel, '❌ You cannot gift yourself.');
+            }
+            if (targetUser.bot) {
+              return sendTempMessage(message.channel, '❌ You cannot gift bots.');
+            }
+
+            const result = await transferCoins(message.author.id, targetUser.id, serverId, amount);
+
+            if (result.success) {
+              const embed = new EmbedBuilder()
+                .setColor('#00ffaa')
+                .setTitle('🎁 Gift Sent!')
+                .setDescription(`Successfully sent **${amount}** ${currencyIcon} ${currencyName} to ${targetUser}!`)
+                .addFields({ name: 'Your New Balance', value: `**${result.newSenderBalance}** ${currencyIcon} ${currencyName}` })
+                .setTimestamp();
+              return await message.reply({ embeds: [embed] }).catch(() => {});
+            } else if (result.reason === 'insufficient_funds') {
+              return sendTempMessage(message.channel, `❌ You don't have enough funds to gift that amount. Your current balance is **${result.currentBalance}** ${currencyIcon} ${currencyName}.`);
+            } else {
+              return sendTempMessage(message.channel, '❌ An error occurred while transferring funds.');
+            }
           }
 
           if (['leaderboard', 'lb', 'rich'].includes(commandName)) {
