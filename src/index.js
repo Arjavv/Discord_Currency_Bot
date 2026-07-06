@@ -91,6 +91,12 @@ async function startBot() {
     // 2. Log in to Discord
     console.log('Logging in to Discord...');
     await client.login(token);
+
+    // 3. Start periodic cleanup of old transactions & message_activity (every 6 hours)
+    const { cleanupOldRecords } = require('./database/queries');
+    cleanupOldRecords(); // Run once on startup
+    setInterval(cleanupOldRecords, 6 * 60 * 60 * 1000);
+    console.log('Scheduled database cleanup every 6 hours.');
   } catch (error) {
     console.error('Failed to start the bot:', error);
     process.exit(1);
@@ -98,3 +104,4 @@ async function startBot() {
 }
 
 startBot();
+

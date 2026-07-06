@@ -1,4 +1,7 @@
 const {
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType
+} = require('discord.js');
+const {
   recordMessageActivity,
   getServerSettings,
   updateServerSetting,
@@ -13,6 +16,9 @@ const {
   attemptRob
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
+
+// Track active crash games per user to prevent multiple simultaneous games
+const activeCrashGames = new Set();
 const path = require('path');
 const { activeDrops, triggerDrop, scheduleNextDrop } = require('../utils/drops');
 
@@ -298,7 +304,7 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist'].includes(commandName)) {
           // Lock user commands to #soul-bot
           if (!message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
@@ -315,6 +321,7 @@ module.exports = {
                 { name: '🏆 `s lb`', value: 'View the top 10 richest users in the current monthly cycle.' },
                 { name: '🎁 `s gift @user <amount>`', value: 'Send Souls to another user from your wallet.' },
                 { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
+                { name: '🚀 `s crash <amount>`', value: 'Watch the multiplier rise and cash out before it crashes! Higher risk, higher reward.' },
                 { name: '🥷 `s rob @user`', value: 'Attempt to steal 10% of their wallet (30% success rate). Caught? Pay a 5% fine! (1hr cooldown).' },
                 { name: '🏃‍♂️ `soul`', value: 'Type exactly this word when a Soul Coin drops to catch it before anyone else!' }
               )
@@ -528,6 +535,226 @@ module.exports = {
             }
 
             return await message.reply({ content: outputText }).catch(() => { });
+          }
+
+          if (commandName === 'crash') {
+            let bet = parseInt(args[0]);
+
+            if (isNaN(bet) || bet <= 0) {
+              return await message.reply('❌ **Usage**: `s crash <bet_amount>`').catch(() => { });
+            }
+
+            // Prevent multiple simultaneous crash games per user
+            const gameKey = `${userId}_${serverId}`;
+            if (activeCrashGames.has(gameKey)) {
+              return sendTempMessage(message.channel, '❌ You already have an active crash game! Finish it first.');
+            }
+
+            // Deduct bet upfront (recorded as a loss)
+            const deductResult = await recordCasinoGame(userId, serverId, bet, false);
+            if (!deductResult.success) {
+              if (deductResult.reason === 'insufficient_funds') {
+                const errorEmbed = new EmbedBuilder()
+                  .setColor('#ff3366')
+                  .setTitle('❌ Insufficient Coins')
+                  .setDescription(`You don't have enough coins to place that bet!`)
+                  .addFields(
+                    { name: 'Your Balance', value: `**${deductResult.currentBalance}** ${currencyIcon} ${currencyName}`, inline: true },
+                    { name: 'Attempted Bet', value: `**${bet}** ${currencyIcon} ${currencyName}`, inline: true }
+                  )
+                  .setTimestamp();
+                return await message.reply({ embeds: [errorEmbed] }).catch(() => { });
+              }
+              throw new Error('Database transaction failed');
+            }
+
+            // Mark game as active
+            activeCrashGames.add(gameKey);
+
+            // Generate crash point with house edge
+            const r = Math.random();
+            let crashPoint;
+            if (r < 0.03) {
+              crashPoint = 1.00; // 3% instant crash
+            } else {
+              crashPoint = Math.min(10.0, 1 / (1 - r));
+              crashPoint = Math.floor(crashPoint * 100) / 100;
+            }
+
+            let currentMultiplier = 1.00;
+            const barLength = 15;
+
+            // Build initial embed
+            function buildCrashEmbed(multiplier, state, winnings) {
+              const embed = new EmbedBuilder()
+                .setAuthor({
+                  name: `${message.author.username}'s Crash Game`,
+                  iconURL: message.author.displayAvatarURL({ dynamic: true })
+                })
+                .setTimestamp();
+
+              const filled = Math.min(barLength, Math.round((multiplier / 10) * barLength));
+              const progressBar = '🟩'.repeat(filled) + '⬛'.repeat(barLength - filled);
+
+              if (state === 'rising') {
+                embed.setColor('#ffaa00')
+                  .setTitle('🚀 Crash — Multiplier Rising!')
+                  .setDescription(
+                    `The multiplier is climbing...\n\n` +
+                    `### 💰 Current: \`${multiplier.toFixed(2)}x\`\n\n` +
+                    `${progressBar}\n\n` +
+                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
+                    `**Potential Win:** ${Math.floor(bet * multiplier)} ${currencyIcon} ${currencyName}\n\n` +
+                    `⚠️ *Hit **Cash Out** before it crashes!*`
+                  );
+              } else if (state === 'cashed_out') {
+                embed.setColor('#00ffaa')
+                  .setTitle('💰 Crash — CASHED OUT!')
+                  .setDescription(
+                    `You cashed out just in time!\n\n` +
+                    `### ✅ Cashed Out At: \`${multiplier.toFixed(2)}x\`\n\n` +
+                    `${progressBar}\n\n` +
+                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
+                    `**Winnings:** +${winnings} ${currencyIcon} ${currencyName}\n` +
+                    `**Net Profit:** +${winnings - bet} ${currencyIcon} ${currencyName}\n\n` +
+                    `*The rocket crashed at \`${crashPoint.toFixed(2)}x\`*`
+                  );
+              } else if (state === 'crashed') {
+                embed.setColor('#ff3366')
+                  .setTitle('💥 Crash — CRASHED!')
+                  .setDescription(
+                    `The rocket exploded!\n\n` +
+                    `### 💥 Crashed At: \`${crashPoint.toFixed(2)}x\`\n\n` +
+                    `${'🟥'.repeat(barLength)}\n\n` +
+                    `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n\n` +
+                    `*You didn't cash out in time...*`
+                  );
+              } else if (state === 'timeout') {
+                embed.setColor('#ff3366')
+                  .setTitle('⏰ Crash — TIMED OUT!')
+                  .setDescription(
+                    `You didn't press Cash Out in time!\n\n` +
+                    `### 💥 Crashed At: \`${crashPoint.toFixed(2)}x\`\n\n` +
+                    `${'🟥'.repeat(barLength)}\n\n` +
+                    `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n\n` +
+                    `*The game auto-crashed after 15 seconds.*`
+                  );
+              }
+              return embed;
+            }
+
+            // Create Cash Out button
+            const buttonId = `crash_cashout_${userId}_${Date.now()}`;
+            const cashOutButton = new ButtonBuilder()
+              .setCustomId(buttonId)
+              .setLabel(`Cash Out (${bet} coins)`)
+              .setStyle(ButtonStyle.Success)
+              .setEmoji('💰');
+
+            const row = new ActionRowBuilder().addComponents(cashOutButton);
+            const initialEmbed = buildCrashEmbed(currentMultiplier, 'rising', 0);
+
+            const gameMessage = await message.reply({
+              embeds: [initialEmbed],
+              components: [row]
+            });
+
+            // Game state
+            let gameEnded = false;
+            let tickCount = 0;
+            const maxTicks = 10;
+            const tickInterval = 1500;
+
+            function getNextMultiplier(current, tick) {
+              const increment = 0.10 + (tick * 0.08);
+              return Math.round((current + increment) * 100) / 100;
+            }
+
+            // Start multiplier ticker
+            const ticker = setInterval(async () => {
+              if (gameEnded) {
+                clearInterval(ticker);
+                return;
+              }
+
+              tickCount++;
+              currentMultiplier = getNextMultiplier(currentMultiplier, tickCount);
+
+              if (currentMultiplier >= crashPoint || tickCount >= maxTicks) {
+                gameEnded = true;
+                clearInterval(ticker);
+                activeCrashGames.delete(gameKey);
+
+                const disabledButton = new ButtonBuilder()
+                  .setCustomId(buttonId)
+                  .setLabel('Crashed!')
+                  .setStyle(ButtonStyle.Danger)
+                  .setDisabled(true);
+                const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
+
+                const crashEmbed = buildCrashEmbed(currentMultiplier, 'crashed', 0);
+                await gameMessage.edit({ embeds: [crashEmbed], components: [disabledRow] }).catch(() => {});
+                return;
+              }
+
+              // Update embed with rising multiplier
+              const updatedButton = new ButtonBuilder()
+                .setCustomId(buttonId)
+                .setLabel(`Cash Out (${Math.floor(bet * currentMultiplier)} coins)`)
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('💰');
+              const updatedRow = new ActionRowBuilder().addComponents(updatedButton);
+              const updatedEmbed = buildCrashEmbed(currentMultiplier, 'rising', 0);
+              await gameMessage.edit({ embeds: [updatedEmbed], components: [updatedRow] }).catch(() => {});
+            }, tickInterval);
+
+            // Listen for Cash Out button
+            const collector = gameMessage.createMessageComponentCollector({
+              componentType: ComponentType.Button,
+              time: 16000,
+              filter: (i) => i.user.id === userId
+            });
+
+            collector.on('collect', async (buttonInteraction) => {
+              if (gameEnded) return;
+
+              gameEnded = true;
+              clearInterval(ticker);
+              activeCrashGames.delete(gameKey);
+
+              const winnings = Math.floor(bet * currentMultiplier);
+              await recordCasinoGame(userId, serverId, winnings, true);
+
+              const disabledButton = new ButtonBuilder()
+                .setCustomId(buttonId)
+                .setLabel(`Cashed Out at ${currentMultiplier.toFixed(2)}x`)
+                .setStyle(ButtonStyle.Success)
+                .setDisabled(true);
+              const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
+
+              const winEmbed = buildCrashEmbed(currentMultiplier, 'cashed_out', winnings);
+              await buttonInteraction.update({ embeds: [winEmbed], components: [disabledRow] }).catch(() => {});
+            });
+
+            collector.on('end', async () => {
+              if (!gameEnded) {
+                gameEnded = true;
+                clearInterval(ticker);
+                activeCrashGames.delete(gameKey);
+
+                const disabledButton = new ButtonBuilder()
+                  .setCustomId(buttonId)
+                  .setLabel('Timed Out!')
+                  .setStyle(ButtonStyle.Danger)
+                  .setDisabled(true);
+                const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
+
+                const timeoutEmbed = buildCrashEmbed(currentMultiplier, 'timeout', 0);
+                await gameMessage.edit({ embeds: [timeoutEmbed], components: [disabledRow] }).catch(() => {});
+              }
+            });
+
+            return;
           }
         }
       } catch (err) {

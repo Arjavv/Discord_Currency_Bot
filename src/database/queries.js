@@ -754,6 +754,33 @@ async function attemptRob(robberId, targetId, serverId) {
   }
 }
 
+/**
+ * Cleans up old transaction and message_activity records.
+ * Keeps the last 48 hours of data (24h needed for daily cap checks + 24h safety buffer).
+ * Should be called on a periodic interval to prevent unbounded table growth.
+ */
+async function cleanupOldRecords() {
+  try {
+    const txResult = await pool.query(
+      "DELETE FROM transactions WHERE created_at < NOW() - INTERVAL '48 hours'"
+    );
+    const maResult = await pool.query(
+      "DELETE FROM message_activity WHERE counted_at < NOW() - INTERVAL '48 hours'"
+    );
+
+    const txDeleted = txResult.rowCount || 0;
+    const maDeleted = maResult.rowCount || 0;
+
+    if (txDeleted > 0 || maDeleted > 0) {
+      console.log(`[Cleanup] Purged ${txDeleted} old transactions and ${maDeleted} old message_activity records.`);
+    }
+
+    return { transactionsDeleted: txDeleted, messageActivityDeleted: maDeleted };
+  } catch (error) {
+    console.error('Error in cleanupOldRecords:', error);
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
@@ -767,5 +794,6 @@ module.exports = {
   toggleAutoDrops,
   awardDropCoins,
   transferCoins,
-  attemptRob
+  attemptRob,
+  cleanupOldRecords
 };
