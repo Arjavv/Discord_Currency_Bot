@@ -106,7 +106,7 @@ module.exports = {
         const currencyIcon = settings.currency_icon_url;
 
         // --- 1. ADMIN COMMANDS ---
-        if (['setup', 'set-name', 'set-icon', 'reset-cycle', 'set-drop-channel', 'force-drop'].includes(commandName)) {
+        if (['setup', 'reset-cycle', 'set-drop-channel', 'force-drop'].includes(commandName)) {
           // Check administrator permission
           if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => { });
@@ -195,32 +195,6 @@ module.exports = {
               )
               .setTimestamp();
 
-            return await message.reply({ embeds: [embed] }).catch(() => { });
-          }
-
-          if (commandName === 'set-name') {
-            const newName = args.join(' ');
-            if (!newName) {
-              return message.reply('❌ **Usage**: `s set-name <new_name>`').catch(() => { });
-            }
-            const updated = await updateServerSetting(serverId, newName, null);
-            const embed = new EmbedBuilder()
-              .setColor('#00ffaa')
-              .setTitle('⚙️ Setting Updated')
-              .setDescription(`Currency name has been successfully updated to **${updated.currency_name}**.`);
-            return await message.reply({ embeds: [embed] }).catch(() => { });
-          }
-
-          if (commandName === 'set-icon') {
-            const newIcon = args[0];
-            if (!newIcon) {
-              return message.reply('❌ **Usage**: `s set-icon <emoji>`').catch(() => { });
-            }
-            const updated = await updateServerSetting(serverId, null, newIcon);
-            const embed = new EmbedBuilder()
-              .setColor('#00ffaa')
-              .setTitle('⚙️ Setting Updated')
-              .setDescription(`Currency icon has been successfully updated to ${updated.currency_icon_url}.`);
             return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 

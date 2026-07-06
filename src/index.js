@@ -1,7 +1,7 @@
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { initDatabase } = require('./database/db');
+const { initDatabase, pool } = require('./database/db');
 require('dotenv').config();
 
 const token = process.env.DISCORD_TOKEN;
@@ -125,6 +125,35 @@ app.post('/api/settings', requireLogin, async (req, res) => {
     res.json({ success: true, results });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// Servers list & stats endpoint (Protected)
+app.get('/api/servers-info', requireLogin, async (req, res) => {
+  try {
+    const dbRes = await pool.query(`
+      SELECT u.server_id, COUNT(DISTINCT u.discord_id) as member_count, COALESCE(SUM(g.coin_balance), 0) as total_coins
+      FROM users u
+      JOIN users g ON g.discord_id = u.discord_id AND g.server_id = 'GLOBAL'
+      WHERE u.server_id != 'GLOBAL'
+      GROUP BY u.server_id
+    `);
+
+    const servers = dbRes.rows.map(row => {
+      const guild = client.guilds.cache.get(row.server_id);
+      return {
+        id: row.server_id,
+        name: guild ? guild.name : 'Unknown Server',
+        icon: guild && guild.icon ? guild.iconURL({ size: 64 }) : null,
+        membersCount: parseInt(row.member_count, 10),
+        totalCoins: parseInt(row.total_coins, 10)
+      };
+    });
+
+    res.json(servers);
+  } catch (err) {
+    console.error('Error fetching servers info:', err);
+    res.status(500).json({ error: 'Failed to fetch servers info' });
   }
 });
 

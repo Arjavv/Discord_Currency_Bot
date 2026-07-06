@@ -12,7 +12,8 @@ const mockState = {
   message_activity: [],
   cycles: [],
   cycle_results: [],
-  server_settings: new Map() // key: serverId
+  server_settings: new Map(), // key: serverId
+  global_settings: new Map()  // key: settingKey
 };
 
 let nextCycleId = 1;
@@ -24,9 +25,33 @@ let nextResultId = 1;
 function mockQueryExecutor(sql, params) {
   const normalizedSql = sql.replace(/\s+/g, ' ').trim();
 
+  // 0. SELECT global_settings
+  if (normalizedSql.includes('SELECT key, value FROM global_settings')) {
+    const rows = [];
+    mockState.global_settings.forEach((val, key) => {
+      rows.push({ key, value: val });
+    });
+    return { rows };
+  }
+
+  // 0.1 INSERT/UPDATE global_settings
+  if (normalizedSql.includes('INSERT INTO global_settings')) {
+    const [key, val] = params;
+    if (normalizedSql.includes('DO UPDATE')) {
+      mockState.global_settings.set(key, val);
+    } else {
+      // ON CONFLICT DO NOTHING
+      if (!mockState.global_settings.has(key)) {
+        mockState.global_settings.set(key, val);
+      }
+    }
+    return { rows: [{ key, value: val }] };
+  }
+
   // 1. SELECT server_settings
   if (normalizedSql.includes('SELECT currency_name, currency_icon_url, drop_channel_id FROM server_settings') ||
-      normalizedSql.includes('SELECT currency_name, currency_icon_url FROM server_settings')) {
+      normalizedSql.includes('SELECT currency_name, currency_icon_url FROM server_settings') ||
+      normalizedSql.includes('SELECT drop_channel_id, auto_drops_enabled FROM server_settings')) {
     const [serverId] = params;
     const settings = mockState.server_settings.get(serverId);
     return { rows: settings ? [settings] : [] };
@@ -298,7 +323,7 @@ async function runTests() {
 
   const {
     getServerSettings,
-    updateServerSetting,
+    setGlobalSetting,
     checkInUser,
     recordMessageActivity,
     getUserBalance,
@@ -315,7 +340,8 @@ async function runTests() {
     let settings = await getServerSettings(TEST_SERVER);
     console.log(`Default settings: Name="${settings.currency_name}", Icon="${settings.currency_icon_url}"`);
 
-    await updateServerSetting(TEST_SERVER, 'ApexGold', '🪙');
+    await setGlobalSetting('currency_name', 'ApexGold');
+    await setGlobalSetting('currency_icon_url', '🪙');
     settings = await getServerSettings(TEST_SERVER);
     console.log(`Updated settings: Name="${settings.currency_name}", Icon="${settings.currency_icon_url}"`);
     if (settings.currency_name !== 'ApexGold' || settings.currency_icon_url !== '🪙') {

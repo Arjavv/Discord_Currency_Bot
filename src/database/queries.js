@@ -4,27 +4,26 @@ const { pool } = require('./db');
  * Gets server currency settings. Returns default values if settings don't exist.
  */
 async function getServerSettings(serverId) {
+  const globalSettings = await getGlobalSettings();
   const query = `
-    SELECT currency_name, currency_icon_url, drop_channel_id, auto_drops_enabled 
+    SELECT drop_channel_id, auto_drops_enabled 
     FROM server_settings 
     WHERE server_id = $1
   `;
   try {
     const res = await pool.query(query, [serverId]);
-    if (res.rows.length > 0) {
-      return res.rows[0];
-    }
+    const settings = res.rows[0] || { drop_channel_id: null, auto_drops_enabled: false };
     return {
-      currency_name: 'Souls',
-      currency_icon_url: '<:Soul_Head:1523605643158618214>',
-      drop_channel_id: null,
-      auto_drops_enabled: false
+      currency_name: globalSettings.currency_name || 'Souls',
+      currency_icon_url: globalSettings.currency_icon_url || '🪙',
+      drop_channel_id: settings.drop_channel_id,
+      auto_drops_enabled: settings.auto_drops_enabled
     };
   } catch (error) {
     console.error(`Error in getServerSettings for server ${serverId}:`, error);
     return {
-      currency_name: 'Souls',
-      currency_icon_url: '<:Soul_Head:1523605643158618214>',
+      currency_name: globalSettings.currency_name || 'Souls',
+      currency_icon_url: globalSettings.currency_icon_url || '🪙',
       drop_channel_id: null,
       auto_drops_enabled: false
     };
@@ -927,7 +926,9 @@ async function getGlobalSettings() {
       price_aegis: '300',
       price_adrenaline: '300',
       price_mana: '300',
-      price_shield: '500'
+      price_shield: '500',
+      currency_name: 'Souls',
+      currency_icon_url: '<:Soul_Head:1523605643158618214>'
     };
     
     for (const [key, val] of Object.entries(defaults)) {
@@ -955,7 +956,9 @@ async function getGlobalSettings() {
       price_aegis: '300',
       price_adrenaline: '300',
       price_mana: '300',
-      price_shield: '500'
+      price_shield: '500',
+      currency_name: 'Souls',
+      currency_icon_url: '<:Soul_Head:1523605643158618214>'
     };
   }
 }

@@ -9,26 +9,6 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Restricts visibility to server admins by default
     .addSubcommand(subcommand =>
       subcommand
-        .setName('set-currency-name')
-        .setDescription('Set the currency name for the server')
-        .addStringOption(option =>
-          option.setName('name')
-            .setDescription('New name for the currency (e.g. Gold, Credits, Gems)')
-            .setRequired(true)
-        )
-    )
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('set-currency-icon')
-        .setDescription('Set the currency emoji/icon for the server')
-        .addStringOption(option =>
-          option.setName('icon')
-            .setDescription('Emoji or shortcode (e.g. 🪙, 💎, :coin:)')
-            .setRequired(true)
-        )
-    )
-    .addSubcommand(subcommand =>
-      subcommand
         .setName('reset-cycle')
         .setDescription('Close current cycle, archive rankings, and reset all balances to 0 for a new cycle')
     )
@@ -93,40 +73,6 @@ module.exports = {
     await interaction.deferReply();
 
     try {
-      if (subcommand === 'set-currency-name') {
-        const name = interaction.options.getString('name');
-        const settings = await updateServerSetting(serverId, name, null);
-
-        const embed = new EmbedBuilder()
-          .setColor('#00ffaa')
-          .setTitle('⚙️ Setting Updated')
-          .setDescription(`Currency name has been successfully updated.`)
-          .addFields(
-            { name: 'New Name', value: name, inline: true },
-            { name: 'Current Icon', value: settings.currency_icon_url, inline: true }
-          )
-          .setTimestamp();
-
-        return await interaction.editReply({ embeds: [embed] });
-      }
-
-      if (subcommand === 'set-currency-icon') {
-        const icon = interaction.options.getString('icon');
-        const settings = await updateServerSetting(serverId, null, icon);
-
-        const embed = new EmbedBuilder()
-          .setColor('#00ffaa')
-          .setTitle('⚙️ Setting Updated')
-          .setDescription(`Currency icon has been successfully updated.`)
-          .addFields(
-            { name: 'Current Name', value: settings.currency_name, inline: true },
-            { name: 'New Icon', value: icon, inline: true }
-          )
-          .setTimestamp();
-
-        return await interaction.editReply({ embeds: [embed] });
-      }
-
       if (subcommand === 'reset-cycle') {
         const settings = await getServerSettings(serverId);
         const result = await resetCycle(serverId);
