@@ -56,11 +56,13 @@ if (fs.existsSync(eventsPath)) {
 // Serve the docs/ website, admin dashboard, and endpoints
 const express = require('express');
 const session = require('express-session');
-const { getGlobalSettings, setGlobalSetting } = require('./database/queries');
+const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel } = require('./database/queries');
+const { getBotControlState } = require('./utils/botControl');
 
 const app = express();
 const port = process.env.PORT || 8000;
 const adminPassword = process.env.ADMIN_PASSWORD || 'ChangeMe';
+const botStartedAt = Date.now();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -104,6 +106,30 @@ app.get('/api/check-auth', (req, res) => {
   res.json({ authenticated: !!(req.session && req.session.isAdmin) });
 });
 
+// Bot status & economy overview (Protected)
+app.get('/api/bot-status', requireLogin, async (req, res) => {
+  try {
+    const [economy, control] = await Promise.all([
+      getGlobalEconomyStats(),
+      getBotControlState()
+    ]);
+
+    res.json({
+      discordReady: client.isReady(),
+      uptimeMs: Date.now() - botStartedAt,
+      guildCount: client.guilds.cache.size,
+      totalMembers: client.guilds.cache.reduce((sum, g) => sum + (g.memberCount || 0), 0),
+      economy,
+      maintenanceMode: control.maintenanceMode,
+      maintenanceMessage: control.maintenanceMessage,
+      features: control.features
+    });
+  } catch (err) {
+    console.error('Error fetching bot status:', err);
+    res.status(500).json({ error: 'Failed to fetch bot status' });
+  }
+});
+
 // Settings endpoints (Protected)
 app.get('/api/settings', requireLogin, async (req, res) => {
   try {
@@ -131,33 +157,68 @@ app.post('/api/settings', requireLogin, async (req, res) => {
 // Servers list & stats endpoint (Protected)
 app.get('/api/servers-info', requireLogin, async (req, res) => {
   try {
-    // Sum balances directly from server-specific rows (not via GLOBAL join)
     const dbRes = await pool.query(`
-      SELECT server_id,
-             COUNT(DISTINCT discord_id) AS member_count,
-             COALESCE(SUM(coin_balance), 0) AS total_coins
-      FROM users
-      WHERE server_id != 'GLOBAL'
-        AND server_id NOT LIKE '9999%'
-      GROUP BY server_id
+      SELECT 
+        u.server_id,
+        ss.drop_channel_id,
+        ss.auto_drops_enabled,
+        COUNT(DISTINCT u.discord_id) as registered_users,
+        COUNT(DISTINCT CASE WHEN g.coin_balance > 0 THEN u.discord_id END) as active_users_with_currency,
+        COALESCE(SUM(g.coin_balance), 0) as total_coins
+      FROM users u
+      JOIN users g ON g.discord_id = u.discord_id AND g.server_id = 'GLOBAL'
+      LEFT JOIN server_settings ss ON ss.server_id = u.server_id
+      WHERE u.server_id != 'GLOBAL' AND u.server_id NOT LIKE '9999%'
+      GROUP BY u.server_id, ss.drop_channel_id, ss.auto_drops_enabled
       ORDER BY total_coins DESC
     `);
 
-    const servers = dbRes.rows.map(row => {
+    const servers = await Promise.all(dbRes.rows.map(async (row) => {
       const guild = client.guilds.cache.get(row.server_id);
+      const settings = await getServerSettings(row.server_id);
+      const dropChannel = row.drop_channel_id
+        ? client.channels.cache.get(row.drop_channel_id)
+        : null;
+
       return {
         id: row.server_id,
         name: guild ? guild.name : `Server ${row.server_id}`,
         icon: guild && guild.icon ? guild.iconURL({ size: 64 }) : null,
-        membersCount: parseInt(row.member_count, 10),
-        totalCoins: parseInt(row.total_coins, 10)
+        membersCount: parseInt(row.active_users_with_currency, 10) || 0,
+        totalCoins: parseInt(row.total_coins, 10) || 0,
+        dropChannelId: row.drop_channel_id,
+        dropChannelName: dropChannel ? `#${dropChannel.name}` : null,
+        autoDropsEnabled: row.auto_drops_enabled === true,
+        currencyName: settings.currency_name,
+        currencyIcon: settings.currency_icon_url
       };
-    });
+    }));
 
     res.json(servers);
   } catch (err) {
     console.error('Error fetching servers info:', err);
     res.status(500).json({ error: 'Failed to fetch servers info' });
+  }
+});
+
+// Per-server admin override from web panel (Protected)
+app.patch('/api/server/:serverId', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  const { auto_drops_enabled, drop_channel_id } = req.body;
+
+  try {
+    if (auto_drops_enabled !== undefined) {
+      await toggleAutoDrops(serverId, auto_drops_enabled === true || auto_drops_enabled === 'true');
+    }
+    if (drop_channel_id !== undefined) {
+      await updateDropChannel(serverId, drop_channel_id || null);
+    }
+
+    const settings = await getServerSettings(serverId);
+    res.json({ success: true, settings });
+  } catch (err) {
+    console.error('Error updating server settings:', err);
+    res.status(500).json({ error: 'Failed to update server settings' });
   }
 });
 
