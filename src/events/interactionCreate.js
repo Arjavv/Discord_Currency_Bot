@@ -21,10 +21,14 @@ module.exports = {
         ephemeral: true
       };
 
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(errorMessage).catch(err => console.error('Failed to send error followUp:', err));
-      } else {
-        await interaction.reply(errorMessage).catch(err => console.error('Failed to send error reply:', err));
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp(errorMessage);
+        } else {
+          await interaction.reply(errorMessage);
+        }
+      } catch (err) {
+        console.error('Failed to send error fallback response:', err);
       }
     }
   }

@@ -6,10 +6,13 @@ const {
   getUserBalance,
   getLeaderboard,
   resetCycle,
-  recordCasinoGame
+  recordCasinoGame,
+  updateDropChannel,
+  awardDropCoins
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const path = require('path');
+const { activeDrops, lastDropTimes, triggerDrop } = require('../utils/drops');
 
 // Helper to send a temporary message that deletes itself after 5 seconds
 const sendTempMessage = (channel, content) => {
@@ -29,6 +32,56 @@ module.exports = {
     const userId = message.author.id;
     const serverId = message.guild.id;
 
+    // --- DROP CATCH INTERCEPT ---
+    if (activeDrops.has(message.channel.id) && content.toLowerCase() === 'soul') {
+      const drop = activeDrops.get(message.channel.id);
+      
+      // Delete immediately to prevent double catch race conditions
+      activeDrops.delete(message.channel.id);
+
+      // Set cooldown start time to now (catch time)
+      lastDropTimes.set(message.channel.id, Date.now());
+      
+      if (drop.timeoutId) {
+        clearTimeout(drop.timeoutId);
+      }
+
+      try {
+        const settings = await getServerSettings(serverId);
+        const currencyName = settings.currency_name;
+        const currencyIcon = settings.currency_icon_url;
+
+        const awardResult = await awardDropCoins(userId, serverId, drop.value);
+
+        // Edit original drop message
+        const dropMsg = await message.channel.messages.fetch(drop.messageId).catch(() => null);
+        if (dropMsg) {
+          const caughtEmbed = new EmbedBuilder()
+            .setColor('#00ffaa')
+            .setTitle('🎉 Soul Coin Caught! 🎉')
+            .setDescription(`**${message.author.username}** claimed the Soul Coin!\n\nReward: **${drop.value}** ${currencyIcon} ${currencyName}`)
+            .setTimestamp();
+
+          await dropMsg.edit({ embeds: [caughtEmbed] }).catch(() => {});
+        }
+
+        // Send congratulatory reply
+        const congratulateEmbed = new EmbedBuilder()
+          .setColor('#00ffaa')
+          .setTitle('💰 Coins Claimed!')
+          .setDescription(`Congratulations ${message.author}! You caught the Soul Coin and added **${drop.value}** ${currencyIcon} ${currencyName} to your wallet!`)
+          .addFields({ name: 'New Balance', value: `💰 **${awardResult.newBalance}** ${currencyIcon} ${currencyName}` })
+          .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
+          .setTimestamp();
+
+        await message.reply({ embeds: [congratulateEmbed] }).catch(() => {});
+      } catch (err) {
+        console.error(`Error claiming drop for user ${userId}:`, err);
+      }
+
+      return; // Exit early to prevent catching from counting as milestone activity
+    }
+
     // Check if the message is a prefix command (starts with "s " case-insensitive)
     if (content.toLowerCase().startsWith('s ')) {
       const args = content.slice(2).trim().split(/\s+/);
@@ -40,14 +93,14 @@ module.exports = {
         const currencyIcon = settings.currency_icon_url;
 
         // --- 1. ADMIN COMMANDS ---
-        if (['setup', 'set-name', 'set-icon', 'reset-cycle'].includes(commandName)) {
+        if (['setup', 'set-name', 'set-icon', 'reset-cycle', 'set-drop-channel', 'force-drop'].includes(commandName)) {
           // Check administrator permission
           if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => {});
           }
 
-          // setup can be run anywhere; other admin commands are restricted to #admin-logs
-          if (commandName !== 'setup') {
+          // setup, set-drop-channel, and force-drop can be run anywhere; other admin commands are restricted to #admin-logs
+          if (!['setup', 'set-drop-channel', 'force-drop'].includes(commandName)) {
             if (message.channel.name.toLowerCase() !== 'admin-logs') {
               return sendTempMessage(message.channel, '❌ This administrative command can only be used in the **#admin-logs** channel.');
             }
@@ -171,6 +224,79 @@ module.exports = {
               .setFooter({ text: `Note: rankings were archived under Cycle ID #${result.oldCycleId}` })
               .setTimestamp();
             return await message.reply({ embeds: [embed] }).catch(() => {});
+          }
+
+          if (commandName === 'set-drop-channel') {
+            const channelMention = args[0];
+            let targetChannelId = null;
+
+            if (channelMention) {
+              const match = channelMention.match(/^<#(\d+)>$/);
+              if (match) {
+                targetChannelId = match[1];
+              } else if (!isNaN(channelMention)) {
+                targetChannelId = channelMention;
+              } else {
+                // Resolve by name (case-insensitive)
+                const currentChannels = await message.guild.channels.fetch().catch(() => message.guild.channels.cache);
+                const channelByName = currentChannels.find(
+                  c => c.name.toLowerCase() === channelMention.toLowerCase() && c.type === ChannelType.GuildText
+                );
+                if (channelByName) {
+                  targetChannelId = channelByName.id;
+                }
+              }
+            } else {
+              // Fallback to the current channel
+              targetChannelId = message.channel.id;
+            }
+
+            if (!targetChannelId) {
+              return message.reply('❌ **Error**: Channel not found in this server. Usage: `s set-drop-channel [channel_name/mention/id]`').catch(() => {});
+            }
+
+            const channelExists = message.guild.channels.cache.get(targetChannelId) || 
+                                  await message.guild.channels.fetch(targetChannelId).catch(() => null);
+
+            if (!channelExists || channelExists.type !== ChannelType.GuildText) {
+              return message.reply('❌ **Error**: Channel not found or is not a text channel.').catch(() => {});
+            }
+
+            await updateDropChannel(serverId, targetChannelId);
+
+            const embed = new EmbedBuilder()
+              .setColor('#00ffaa')
+              .setTitle('⚙️ Drop Channel Configured')
+              .setDescription(`Random Soul Coin drops will now occur in the channel: <#${targetChannelId}>.`)
+              .setTimestamp();
+
+            return await message.reply({ embeds: [embed] }).catch(() => {});
+          }
+
+          if (commandName === 'force-drop') {
+            const settings = await getServerSettings(serverId);
+            let dropChannel = null;
+
+            if (settings.drop_channel_id) {
+              dropChannel = message.guild.channels.cache.get(settings.drop_channel_id) || 
+                            await message.guild.channels.fetch(settings.drop_channel_id).catch(() => null);
+            } else {
+              const currentChannels = await message.guild.channels.fetch().catch(() => message.guild.channels.cache);
+              dropChannel = currentChannels.find(
+                c => c.name.toLowerCase() === 'general' && c.type === ChannelType.GuildText
+              );
+            }
+
+            if (!dropChannel) {
+              return message.reply('❌ **Error**: Drop channel not configured or not found. Please set it using `s set-drop-channel <#channel>` or name a channel `#general`.').catch(() => {});
+            }
+
+            const dropResult = await triggerDrop(message.client, serverId, dropChannel);
+            if (dropResult) {
+              return message.reply(`✅ Successfully triggered a random coin drop in ${dropChannel}!`).catch(() => {});
+            } else {
+              return message.reply('❌ **Error**: Failed to send drop message. Please check permissions.').catch(() => {});
+            }
           }
         }
 
@@ -332,6 +458,36 @@ module.exports = {
 
       // Exit early so prefix command messages don't earn activity points
       return;
+    }
+
+    // Check if this is the drop channel to roll for a random drop
+    try {
+      const settings = await getServerSettings(serverId);
+      let isDropChannel = false;
+
+      if (settings.drop_channel_id) {
+        isDropChannel = message.channel.id === settings.drop_channel_id;
+      } else {
+        isDropChannel = message.channel.name.toLowerCase() === 'general';
+      }
+
+      if (isDropChannel) {
+        if (!activeDrops.has(message.channel.id)) {
+          const lastDrop = lastDropTimes.get(message.channel.id) || 0;
+          const timeSinceLastDrop = Date.now() - lastDrop;
+          const cooldown = 10 * 60 * 1000; // 10 minutes in ms
+
+          if (timeSinceLastDrop >= cooldown) {
+            const dropChance = 0.05; // 5% chance
+            if (Math.random() < dropChance) {
+              console.log(`[Random Drop] Triggering random coin drop in guild ${serverId}, channel ${message.channel.id}`);
+              await triggerDrop(message.client, serverId, message.channel);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`Error checking random drop for channel ${message.channel.id}:`, err);
     }
 
     // --- 3. REGULAR CHAT ACTIVITY PROCESSING ---

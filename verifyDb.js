@@ -25,7 +25,8 @@ function mockQueryExecutor(sql, params) {
   const normalizedSql = sql.replace(/\s+/g, ' ').trim();
 
   // 1. SELECT server_settings
-  if (normalizedSql.includes('SELECT currency_name, currency_icon_url FROM server_settings')) {
+  if (normalizedSql.includes('SELECT currency_name, currency_icon_url, drop_channel_id FROM server_settings') ||
+      normalizedSql.includes('SELECT currency_name, currency_icon_url FROM server_settings')) {
     const [serverId] = params;
     const settings = mockState.server_settings.get(serverId);
     return { rows: settings ? [settings] : [] };
@@ -33,15 +34,22 @@ function mockQueryExecutor(sql, params) {
 
   // 2. INSERT/UPDATE server_settings (upsert)
   if (normalizedSql.includes('INSERT INTO server_settings')) {
-    const [serverId, currencyName, currencyIconUrl] = params;
+    const [serverId] = params;
     const existing = mockState.server_settings.get(serverId) || {
       server_id: serverId,
       currency_name: 'Souls',
-      currency_icon_url: '<:Soul_Head:1523605643158618214>'
+      currency_icon_url: '<:Soul_Head:1523605643158618214>',
+      drop_channel_id: null
     };
 
-    if (currencyName !== null) existing.currency_name = currencyName;
-    if (currencyIconUrl !== null) existing.currency_icon_url = currencyIconUrl;
+    if (normalizedSql.includes('drop_channel_id')) {
+      const [, channelId] = params;
+      existing.drop_channel_id = channelId;
+    } else {
+      const [, currencyName, currencyIconUrl] = params;
+      if (currencyName !== null && currencyName !== undefined) existing.currency_name = currencyName;
+      if (currencyIconUrl !== null && currencyIconUrl !== undefined) existing.currency_icon_url = currencyIconUrl;
+    }
 
     mockState.server_settings.set(serverId, existing);
     return { rows: [existing] };
@@ -117,7 +125,8 @@ function mockQueryExecutor(sql, params) {
     } else {
       source = normalizedSql.includes("'checkin'") ? 'checkin' : 
                normalizedSql.includes("'message'") ? 'message' : 
-               normalizedSql.includes("'reset'") ? 'reset' : 'unknown';
+               normalizedSql.includes("'reset'") ? 'reset' : 
+               normalizedSql.includes("'drop_catch'") ? 'drop_catch' : 'unknown';
       createdAt = param3 || new Date();
     }
 
@@ -295,8 +304,10 @@ async function runTests() {
     getUserBalance,
     getLeaderboard,
     resetCycle,
-    recordCasinoGame
-  } = require('./src/database/queries');
+    recordCasinoGame,
+    updateDropChannel,
+    awardDropCoins
+} = require('./src/database/queries');
 
   try {
     // 2. Server Settings Test
@@ -458,6 +469,22 @@ async function runTests() {
       throw new Error(`Leaderboard should return 2 users, got ${leaderboard.rankings.length}`);
     }
     console.log('✔ Balance and Leaderboard tests passed.');
+
+    // 5.5 Testing Drop Channel and Drop Catch
+    console.log('\nTesting Drop Channel Settings and Drop Coin Catching...');
+    const dropChannelId = '123456789012345678';
+    const updatedSettings = await updateDropChannel(TEST_SERVER, dropChannelId);
+    console.log('Updated drop channel setting:', updatedSettings);
+    if (updatedSettings.drop_channel_id !== dropChannelId) {
+      throw new Error('Failed to update drop channel ID');
+    }
+
+    const testDropAward = await awardDropCoins(TEST_USER_1, TEST_SERVER, 35);
+    console.log('Award drop coins result:', testDropAward);
+    if (!testDropAward.success || testDropAward.amount !== 35 || testDropAward.newBalance !== 55) {
+      throw new Error('Failed to award drop coins correctly to user 1');
+    }
+    console.log('✔ Drop channel settings and drop catch tests passed.');
 
     // 6. Reset Cycle Test
     console.log('\nTesting Cycle Reset...');

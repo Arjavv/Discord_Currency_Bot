@@ -5,7 +5,7 @@ const { pool } = require('./db');
  */
 async function getServerSettings(serverId) {
   const query = `
-    SELECT currency_name, currency_icon_url 
+    SELECT currency_name, currency_icon_url, drop_channel_id 
     FROM server_settings 
     WHERE server_id = $1
   `;
@@ -16,13 +16,15 @@ async function getServerSettings(serverId) {
     }
     return {
       currency_name: 'Souls',
-      currency_icon_url: '<:Soul_Head:1523605643158618214>'
+      currency_icon_url: '<:Soul_Head:1523605643158618214>',
+      drop_channel_id: null
     };
   } catch (error) {
     console.error(`Error in getServerSettings for server ${serverId}:`, error);
     return {
       currency_name: 'Souls',
-      currency_icon_url: '<:Soul_Head:1523605643158618214>'
+      currency_icon_url: '<:Soul_Head:1523605643158618214>',
+      drop_channel_id: null
     };
   }
 }
@@ -490,6 +492,69 @@ async function recordCasinoGame(discordId, serverId, betAmount, isWin) {
   }
 }
 
+/**
+ * Updates the drop channel ID for a server.
+ */
+async function updateDropChannel(serverId, channelId) {
+  const query = `
+    INSERT INTO server_settings (server_id, drop_channel_id)
+    VALUES ($1, $2)
+    ON CONFLICT (server_id) 
+    DO UPDATE SET drop_channel_id = $2
+    RETURNING *
+  `;
+  try {
+    const res = await pool.query(query, [serverId, channelId]);
+    return res.rows[0];
+  } catch (error) {
+    console.error(`Error in updateDropChannel for server ${serverId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Awards coins from catching a drop.
+ */
+async function awardDropCoins(discordId, serverId, amount) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Ensure user exists
+    await ensureUserExists(client, discordId, serverId);
+
+    // Update user balance
+    const updateQuery = `
+      UPDATE users 
+      SET coin_balance = coin_balance + $1
+      WHERE discord_id = $2 AND server_id = $3
+      RETURNING coin_balance
+    `;
+    const updateRes = await client.query(updateQuery, [amount, discordId, serverId]);
+    const newBalance = updateRes.rows[0].coin_balance;
+
+    // Log transaction
+    const logQuery = `
+      INSERT INTO transactions (user_id, server_id, amount, source)
+      VALUES ($1, $2, $3, 'drop_catch')
+    `;
+    await client.query(logQuery, [discordId, serverId, amount]);
+
+    await client.query('COMMIT');
+    return {
+      success: true,
+      amount,
+      newBalance
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in awardDropCoins for user ${discordId} on server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
@@ -498,5 +563,7 @@ module.exports = {
   getUserBalance,
   getLeaderboard,
   resetCycle,
-  recordCasinoGame
+  recordCasinoGame,
+  updateDropChannel,
+  awardDropCoins
 };

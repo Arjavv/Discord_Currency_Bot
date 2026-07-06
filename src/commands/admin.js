@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = require('discord.js');
-const { updateServerSetting, resetCycle, getServerSettings } = require('../database/queries');
+const { updateServerSetting, resetCycle, getServerSettings, updateDropChannel } = require('../database/queries');
+const { triggerDrop } = require('../utils/drops');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -35,6 +36,22 @@ module.exports = {
       subcommand
         .setName('setup')
         .setDescription('Create the Soul Currency channels and category in this server')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('set-drop-channel')
+        .setDescription('Set the channel where random coin drops will occur')
+        .addChannelOption(option =>
+          option.setName('channel')
+            .setDescription('Select the text channel for Soul Drops (defaults to current channel)')
+            .addChannelTypes(ChannelType.GuildText)
+            .setRequired(false)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('force-drop')
+        .setDescription('Force a soul coin drop to happen immediately in the general channel')
     ),
 
   async execute(interaction) {
@@ -49,8 +66,8 @@ module.exports = {
     const subcommand = interaction.options.getSubcommand();
     const serverId = interaction.guildId;
 
-    // Restrict all subcommands EXCEPT setup to the #admin-logs channel
-    if (subcommand !== 'setup') {
+    // Restrict name, icon, and reset-cycle to #admin-logs; allow setup, set-drop-channel, and force-drop anywhere
+    if (!['setup', 'set-drop-channel', 'force-drop'].includes(subcommand)) {
       if (!interaction.channel || interaction.channel.name.toLowerCase() !== 'admin-logs') {
         return await interaction.reply({
           content: '❌ This administrative command can only be used in the **#admin-logs** channel.',
@@ -199,6 +216,58 @@ module.exports = {
           .setTimestamp();
 
         return await interaction.editReply({ embeds: [embed] });
+      }
+
+      if (subcommand === 'set-drop-channel' || subcommand === 'set-general-channel') {
+        const channelOption = interaction.options.getChannel('channel');
+        const targetChannelId = channelOption?.id || interaction.channelId;
+        await updateDropChannel(serverId, targetChannelId);
+
+        const embed = new EmbedBuilder()
+          .setColor('#00ffaa')
+          .setTitle('⚙️ Drop Channel Configured')
+          .setDescription(`Random Soul Coin drops will now occur in the channel: <#${targetChannelId}>.`)
+          .setTimestamp();
+
+        return await interaction.editReply({ embeds: [embed] });
+      }
+
+      if (subcommand === 'force-drop') {
+        const settings = await getServerSettings(serverId);
+        let dropChannel = null;
+
+        if (settings.drop_channel_id) {
+          dropChannel = interaction.guild.channels.cache.get(settings.drop_channel_id) || 
+                        await interaction.guild.channels.fetch(settings.drop_channel_id).catch(() => null);
+        } else {
+          // Fallback to channel named general
+          const currentChannels = await interaction.guild.channels.fetch().catch(() => interaction.guild.channels.cache);
+          dropChannel = currentChannels.find(
+            c => c.name.toLowerCase() === 'general' && c.type === ChannelType.GuildText
+          );
+        }
+
+        if (!dropChannel) {
+          return await interaction.editReply({
+            content: '❌ **Error**: Drop channel not configured or not found. Please set it using `/admin set-drop-channel` or name a channel `#general`.'
+          });
+        }
+
+        const dropResult = await triggerDrop(interaction.client, serverId, dropChannel);
+        if (dropResult) {
+          return await interaction.editReply({
+            content: `✅ Successfully triggered a random coin drop in ${dropChannel}!`
+          });
+        } else {
+          return await interaction.editReply({
+            content: '❌ **Error**: Failed to send drop message. Please check permissions.'
+          });
+        }
+      } else {
+        // Fallback for unhandled subcommands
+        return await interaction.editReply({
+          content: `❌ Unknown subcommand: ${subcommand}`
+        });
       }
     } catch (error) {
       console.error(`Error executing admin subcommand ${subcommand} on server ${serverId}:`, error);

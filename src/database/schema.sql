@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS server_settings (
     server_id VARCHAR(64) PRIMARY KEY,
     currency_name VARCHAR(64) DEFAULT 'Souls',
     currency_icon_url VARCHAR(256) DEFAULT '<:Soul_Head:1523605643158618214>',
+    drop_channel_id VARCHAR(64),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -27,7 +28,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     user_id VARCHAR(64) NOT NULL,
     server_id VARCHAR(64) NOT NULL,
     amount INT NOT NULL,
-    source VARCHAR(32) NOT NULL, -- e.g. 'checkin', 'message', 'reset'
+    source VARCHAR(32) NOT NULL, -- e.g. 'checkin', 'message', 'reset', 'drop_catch'
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id, server_id) REFERENCES users (discord_id, server_id) ON DELETE CASCADE
 );
@@ -67,3 +68,6 @@ CREATE TABLE IF NOT EXISTS cycle_results (
 
 -- Migration: Add message_count to users table if not exists (for existing database environments)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS message_count INT NOT NULL DEFAULT 0;
+
+-- Migration: Add drop_channel_id to server_settings table if not exists
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS drop_channel_id VARCHAR(64);
