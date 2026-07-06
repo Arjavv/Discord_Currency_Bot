@@ -340,14 +340,22 @@ async function runTests() {
     let settings = await getServerSettings(TEST_SERVER);
     console.log(`Default settings: Name="${settings.currency_name}", Icon="${settings.currency_icon_url}"`);
 
-    await setGlobalSetting('currency_name', 'ApexGold');
-    await setGlobalSetting('currency_icon_url', '🪙');
+    // Save originals so we can restore after test
+    const originalName = settings.currency_name;
+    const originalIcon = settings.currency_icon_url;
+
+    await setGlobalSetting('currency_name', 'TestCoin');
+    await setGlobalSetting('currency_icon_url', '🧪');
     settings = await getServerSettings(TEST_SERVER);
     console.log(`Updated settings: Name="${settings.currency_name}", Icon="${settings.currency_icon_url}"`);
-    if (settings.currency_name !== 'ApexGold' || settings.currency_icon_url !== '🪙') {
+    if (settings.currency_name !== 'TestCoin' || settings.currency_icon_url !== '🧪') {
       throw new Error('Server settings update failed');
     }
-    console.log('✔ Server settings test passed.');
+
+    // Restore original values immediately after asserting
+    await setGlobalSetting('currency_name', originalName);
+    await setGlobalSetting('currency_icon_url', originalIcon);
+    console.log(`✔ Server settings test passed. (Restored to: Name="${originalName}", Icon="${originalIcon}")`);
 
     // Cleanup any existing test data to ensure clean state
     if (!useMock) {
