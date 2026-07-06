@@ -417,18 +417,14 @@ module.exports = {
             const displayChoice = choice === 'heads' ? '<:Soul_Head:1523605643158618214>' : '<:Soul_Tail:1523605605787373610>';
             const displayResult = flipResult === 'heads' ? '<:Soul_Head:1523605643158618214>' : '<:Soul_Tail:1523605605787373610>';
 
-            const gifName = flipResult === 'heads' ? 'heads.gif' : 'tails.gif';
-            const gifPath = path.join(__dirname, '..', 'assets', gifName);
-            const attachment = new AttachmentBuilder(gifPath, { name: gifName });
-
-            let outputText = `**${message.author.username}** spent ${currencyIcon} **${bet}** and chose **${choice}**\n`;
+            let outputText = `**${message.author.username}** spent <:Soul_Head:1523605643158618214> **${bet}** and chose **${choice}**\n`;
             if (isWin) {
-              outputText += `The coin spins... ${displayResult} and you won ${currencyIcon} **${bet * 2}**!!`;
+              outputText += `The coin spins... ${displayResult} and you won <:Soul_Head:1523605643158618214> **${bet * 2}**!!`;
             } else {
               outputText += `The coin spins... ${displayResult} and you lost it all...`;
             }
 
-            return await message.reply({ content: outputText, files: [attachment] }).catch(() => {});
+            return await message.reply({ content: outputText }).catch(() => {});
           }
         }
       } catch (err) {
