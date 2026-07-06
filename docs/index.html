@@ -305,20 +305,24 @@
             </div>
           </div>
 
-          <!-- Command 9: /stats -->
+          <!-- Command 9: stats & profile -->
           <div class="command-item" data-category="user" id="cmd-stats">
             <div class="command-trigger">
               <div class="command-name-wrapper">
-                <span class="command-name">/stats</span>
+                <span class="command-name">/stats &amp; s stats</span>
                 <span class="command-tag user-tag">User</span>
               </div>
               <span class="command-short-desc">Privately check your Strength, Defense, Speed, and Magic stats.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Fetches your Strength ⚔️, Defense 🛡️, Speed ⚡, and Magic 🔮 stats. Runs as an ephemeral slash command reply (transparent background visible only to you). Upgrades reset every Sunday midnight.</p>
+              <p>Fetches your Strength ⚔️, Defense 🛡️, Speed ⚡, and Magic 🔮 stats. Upgrades reset every Sunday midnight. To maintain complete privacy:</p>
+              <ul>
+                <li><code>/stats</code>: Ephemeral slash command reply (transparent background visible ONLY to you).</li>
+                <li><code>s stats</code>: Silently deletes your message in the group and delivers your profile card via Direct Message (DM) with no group notifications.</li>
+              </ul>
               <div class="detail-row">
-                <strong>Syntax:</strong> <code>/stats</code>
+                <strong>Syntax:</strong> <code>/stats</code> or <code>s stats</code> / <code>s profile</code>
               </div>
               <div class="detail-row">
                 <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
