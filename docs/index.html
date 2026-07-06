@@ -134,41 +134,41 @@
         <!-- Commands List -->
         <div class="commands-list" id="commands-list">
           
-          <!-- Command 1: /checkin -->
+          <!-- Command 1: s daily -->
           <div class="command-item" data-category="user" id="cmd-checkin">
             <div class="command-trigger">
               <div class="command-name-wrapper">
-                <span class="command-name">/checkin</span>
+                <span class="command-name">s daily</span>
                 <span class="command-tag user-tag">User</span>
               </div>
               <span class="command-short-desc">Claim your daily allowance reward.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Triggers the 24-hour daily allowance checkin. Awards <strong>20 Souls</strong> atomically. If run while on cooldown, displays a relative unlock timer embed.</p>
+              <p>Triggers the 24-hour daily allowance checkin. Awards <strong>20 Souls</strong> atomically. (Aliases: <code>s daily</code>, <code>s checkin</code>, <code>s claim</code>). If run while on cooldown, displays a relative unlock timer embed.</p>
               <div class="detail-row">
-                <strong>Syntax:</strong> <code>/checkin</code>
+                <strong>Syntax:</strong> <code>s daily</code>
               </div>
               <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code> (ephemeral block in other channels).
+                <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
               </div>
             </div>
           </div>
 
-          <!-- Command 2: /balance -->
+          <!-- Command 2: s cash -->
           <div class="command-item" data-category="user" id="cmd-balance">
             <div class="command-trigger">
               <div class="command-name-wrapper">
-                <span class="command-name">/balance <span class="optional-param">[user]</span></span>
+                <span class="command-name">s cash <span class="optional-param">[@username]</span></span>
                 <span class="command-tag user-tag">User</span>
               </div>
               <span class="command-short-desc">Check your wallet balance or search for another user's balance.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Fetches the balance of Souls. You can optionally check another user's wallet balance by tagging them in the parameter.</p>
+              <p>Fetches the balance of Souls. You can optionally check another user's wallet balance by tagging/mentioning them. (Aliases: <code>s cash</code>, <code>s balance</code>, <code>s bal</code>, <code>s money</code>).</p>
               <div class="detail-row">
-                <strong>Syntax:</strong> <code>/balance [user: @username]</code>
+                <strong>Syntax:</strong> <code>s cash [@username]</code>
               </div>
               <div class="detail-row">
                 <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
@@ -176,20 +176,20 @@
             </div>
           </div>
 
-          <!-- Command 3: /leaderboard -->
+          <!-- Command 3: s lb -->
           <div class="command-item" data-category="user" id="cmd-leaderboard">
             <div class="command-trigger">
               <div class="command-name-wrapper">
-                <span class="command-name">/leaderboard</span>
+                <span class="command-name">s lb</span>
                 <span class="command-tag user-tag">User</span>
               </div>
               <span class="command-short-desc">View the top 10 richest users in the current cycle.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Displays an embed listing the top 10 richest users ranked in descending order of their current active Soul balances.</p>
+              <p>Displays an embed listing the top 10 richest users ranked in descending order of their current active Soul balances. (Aliases: <code>s lb</code>, <code>s leaderboard</code>, <code>s rich</code>).</p>
               <div class="detail-row">
-                <strong>Syntax:</strong> <code>/leaderboard</code>
+                <strong>Syntax:</strong> <code>s lb</code>
               </div>
               <div class="detail-row">
                 <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
@@ -197,20 +197,20 @@
             </div>
           </div>
 
-          <!-- Command 4: /casino flip -->
+          <!-- Command 4: s flip -->
           <div class="command-item" data-category="casino" id="cmd-casino">
             <div class="command-trigger">
               <div class="command-name-wrapper">
-                <span class="command-name">/casino flip <span class="required-param">&lt;choice&gt;</span> <span class="required-param">&lt;bet&gt;</span></span>
+                <span class="command-name">s flip <span class="required-param">&lt;heads/tails&gt;</span> <span class="required-param">&lt;bet&gt;</span></span>
                 <span class="command-tag casino-tag">Casino</span>
               </div>
               <span class="command-short-desc">Flip a coin for double or nothing.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Bets a specific positive amount of Souls on a coin toss outcome. Correct guesses award twice the bet amount (wins net your bet amount). Wrong guesses deduct the bet amount. Checks for balance sufficiency before running.</p>
+              <p>Bets a specific positive amount of Souls on a coin toss outcome. Correct guesses award twice the bet amount (wins net your bet amount). Wrong guesses deduct the bet amount. Checks for balance sufficiency before running. (Aliases: <code>s flip</code>, <code>s casino</code>, <code>s bet</code>).</p>
               <div class="detail-row">
-                <strong>Syntax:</strong> <code>/casino flip choice:[Heads/Tails] bet:[positive integer]</code>
+                <strong>Syntax:</strong> <code>s flip heads 100</code> or <code>s flip 100 tails</code>
               </div>
               <div class="detail-row">
                 <strong>Channel restriction:</strong> Runs ONLY in <code>#soul-bot</code>.
@@ -218,23 +218,23 @@
             </div>
           </div>
 
-          <!-- Command 5: /admin -->
+          <!-- Command 5: s admin -->
           <div class="command-item" data-category="admin" id="cmd-admin">
             <div class="command-trigger">
               <div class="command-name-wrapper">
-                <span class="command-name">/admin <span class="required-param">&lt;subcommand&gt;</span></span>
+                <span class="command-name">s <span class="required-param">&lt;command&gt;</span></span>
                 <span class="command-tag admin-tag">Admin</span>
               </div>
               <span class="command-short-desc">Administrative controls for settings, setup, and cycle resets.</span>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
             <div class="command-details">
-              <p>Set server-wide currency options, initialize channels, or reset cycles. Restricted to Server Administrators only. The bot validates administrator permissions both inside Discord interface rules and secondary runtime checks on execution.</p>
+              <p>Set server-wide currency options, initialize channels, or reset cycles. Restricted to Server Administrators only.</p>
               <ul class="admin-subcommands">
-                <li><code>setup</code>: Automatically creates the category "Soul" and the <code>#soul-bot</code> and <code>#admin-logs</code> channels if they do not exist.</li>
-                <li><code>set-currency-name &lt;name&gt;</code>: Customizes the display name of the currency server-wide (default is <em>Souls</em>).</li>
-                <li><code>set-currency-icon &lt;icon&gt;</code>: Sets a new custom emoji tag as the balance symbol.</li>
-                <li><code>reset-cycle</code>: Closes current monthly cycle, archives the rankings, and resets all balances & message counters to 0 server-wide.</li>
+                <li><code>s setup</code>: Automatically creates the category "Soul" and the <code>#soul-bot</code> and <code>#admin-logs</code> channels if they do not exist.</li>
+                <li><code>s set-name &lt;new_name&gt;</code>: Customizes the display name of the currency server-wide (default is <em>Souls</em>).</li>
+                <li><code>s set-icon &lt;emoji&gt;</code>: Sets a new custom emoji tag as the balance symbol.</li>
+                <li><code>s reset-cycle</code>: Closes current monthly cycle, archives the rankings, and resets all balances & message counters to 0 server-wide.</li>
               </ul>
               <div class="detail-row">
                 <strong>Permission:</strong> Server Administrators only.
