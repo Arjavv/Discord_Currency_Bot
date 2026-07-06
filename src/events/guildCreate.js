@@ -21,7 +21,7 @@ module.exports = {
         private: false 
       },
       { 
-        name: 'admin-logs', 
+        name: 'soul-logs', 
         topic: 'Administrative logs and configuration settings for the Soul Currency system.',
         private: true 
       }

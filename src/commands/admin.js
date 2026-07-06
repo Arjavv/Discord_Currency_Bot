@@ -80,11 +80,11 @@ module.exports = {
     const subcommand = interaction.options.getSubcommand();
     const serverId = interaction.guildId;
 
-    // Restrict name, icon, and reset-cycle to #admin-logs; allow setup, set-drop-channel, auto-drops, and force-drop anywhere
+    // Restrict name, icon, and reset-cycle to #soul-logs; allow setup, set-drop-channel, auto-drops, and force-drop anywhere
     if (!['setup', 'set-drop-channel', 'force-drop', 'auto-drops'].includes(subcommand)) {
-      if (!interaction.channel || interaction.channel.name.toLowerCase() !== 'admin-logs') {
+      if (!interaction.channel || !interaction.channel.name.toLowerCase().includes('soul-logs')) {
         return await interaction.reply({
-          content: '❌ This administrative command can only be used in the **#admin-logs** channel.',
+          content: '❌ This administrative command can only be used in the **#soul-logs** channel.',
           ephemeral: true
         });
       }
@@ -166,7 +166,7 @@ module.exports = {
             private: false 
           },
           { 
-            name: 'admin-logs', 
+            name: 'soul-logs', 
             topic: 'Administrative logs and configuration settings for the Soul Currency system.',
             private: true 
           }

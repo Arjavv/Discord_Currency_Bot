@@ -70,11 +70,11 @@ async function triggerDrop(client, guildId, channel) {
       timeoutId
     });
 
-    // Send log to #admin-logs
+    // Send log to #soul-logs
     try {
       const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
       if (guild) {
-        const adminLogs = guild.channels.cache.find(c => c.name.toLowerCase() === 'admin-logs' && c.isTextBased());
+        const adminLogs = guild.channels.cache.find(c => c.name.toLowerCase() .includes('soul-logs') && c.isTextBased());
         if (adminLogs) {
           const logEmbed = new EmbedBuilder()
             .setColor('#ffa500')

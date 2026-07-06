@@ -100,10 +100,10 @@ module.exports = {
             return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => {});
           }
 
-          // setup, set-drop-channel, and force-drop can be run anywhere; other admin commands are restricted to #admin-logs
+          // setup, set-drop-channel, and force-drop can be run anywhere; other admin commands are restricted to #soul-logs
           if (!['setup', 'set-drop-channel', 'force-drop'].includes(commandName)) {
-            if (message.channel.name.toLowerCase() !== 'admin-logs') {
-              return sendTempMessage(message.channel, '❌ This administrative command can only be used in the **#admin-logs** channel.');
+            if (!message.channel.name.toLowerCase().includes('soul-logs')) {
+              return sendTempMessage(message.channel, '❌ This administrative command can only be used in the **#soul-logs** channel.');
             }
           }
 
@@ -122,7 +122,7 @@ module.exports = {
                 private: false 
               },
               { 
-                name: 'admin-logs', 
+                name: 'soul-logs', 
                 topic: 'Administrative logs and configuration settings for the Soul Currency system.',
                 private: true 
               }
@@ -304,7 +304,7 @@ module.exports = {
         // --- 2. USER COMMANDS ---
         if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet'].includes(commandName)) {
           // Lock user commands to #soul-bot
-          if (message.channel.name.toLowerCase() !== 'soul-bot') {
+          if (!message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
           }
 
@@ -453,7 +453,7 @@ module.exports = {
 
         // Find the log channel named 'soul-bot'
         const logChannel = message.guild.channels.cache.find(
-          c => c.name.toLowerCase() === 'soul-bot' && c.isTextBased()
+          c => c.name.toLowerCase() .includes('soul-bot') && c.isTextBased()
         );
 
         if (logChannel) {

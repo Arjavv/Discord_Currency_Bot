@@ -46,11 +46,11 @@ module.exports = {
 
       console.log('Successfully reloaded application (/) commands.');
 
-      // Send startup notifications to all servers inside #admin-logs channel
+      // Send startup notifications to all servers inside #soul-logs channel
       client.guilds.cache.forEach(async (guild) => {
         try {
           const adminLogsChannel = guild.channels.cache.find(
-            c => c.name.toLowerCase() === 'admin-logs' && c.isTextBased()
+            c => c.name.toLowerCase() .includes('soul-logs') && c.isTextBased()
           );
           if (adminLogsChannel) {
             const startupEmbed = new EmbedBuilder()

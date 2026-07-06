@@ -11,7 +11,7 @@ module.exports = {
         .setRequired(false)
     ),
   async execute(interaction) {
-    if (!interaction.channel || interaction.channel.name.toLowerCase() !== 'soul-bot') {
+    if (!interaction.channel || !interaction.channel.name.toLowerCase().includes('soul-bot')) {
       return await interaction.reply({
         content: '❌ This command can only be used in the **#soul-bot** channel.',
         ephemeral: true
