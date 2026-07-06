@@ -1,3 +1,9 @@
+// Prefer IPv4 over IPv6 for outbound network connections (prevents Supabase connect ENETUNREACH in IPv4-only environments)
+const dns = require('dns');
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
