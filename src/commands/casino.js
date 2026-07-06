@@ -57,9 +57,9 @@ module.exports = {
 
         await interaction.deferReply();
 
-        // 2. Perform coin flip logic (50% chance)
-        const flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
-        const isWin = choice === flipResult;
+        // 2. Perform coin flip logic (Rigged to a 10% win chance)
+        const isWin = Math.random() < 0.10;
+        const flipResult = isWin ? choice : (choice === 'heads' ? 'tails' : 'heads');
 
         // 3. Database transaction
         const result = await recordCasinoGame(userId, serverId, bet, isWin);
