@@ -973,7 +973,30 @@ module.exports = {
 
                     await challengeMsg.edit({ embeds: [winEmbed] }).catch(() => {});
 
-                    // Send the kill command for the loser to trigger server gif bot
+                    // Fetch a random anime kill GIF from waifu.pics (Nekotina-style)
+                    let gifUrl = null;
+                    try {
+                      const gifRes = await fetch('https://api.waifu.pics/sfw/kill');
+                      if (gifRes.ok) {
+                        const gifData = await gifRes.json();
+                        gifUrl = gifData.url;
+                      }
+                    } catch (gifErr) {
+                      console.error('Failed to fetch action GIF:', gifErr);
+                    }
+
+                    const killEmbed = new EmbedBuilder()
+                      .setColor('#ff3300')
+                      .setDescription(`💀 **${winnerName}** ends **${loserName}**!`)
+                      .setTimestamp();
+
+                    if (gifUrl) {
+                      killEmbed.setImage(gifUrl);
+                    }
+
+                    await message.channel.send({ embeds: [killEmbed] }).catch(() => {});
+
+                    // Also send the text command just in case they whitelist the bot
                     await message.channel.send(`!kill <@${loserId}>`).catch(() => {});
                   }
                 }, 3000);
