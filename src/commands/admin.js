@@ -46,9 +46,20 @@ module.exports = {
       });
     }
 
-    await interaction.deferReply();
     const subcommand = interaction.options.getSubcommand();
     const serverId = interaction.guildId;
+
+    // Restrict all subcommands EXCEPT setup to the #soul-admin channel
+    if (subcommand !== 'setup') {
+      if (!interaction.channel || interaction.channel.name.toLowerCase() !== 'soul-admin') {
+        return await interaction.reply({
+          content: '❌ This administrative command can only be used in the **#soul-admin** channel.',
+          ephemeral: true
+        });
+      }
+    }
+
+    await interaction.deferReply();
 
     try {
       if (subcommand === 'set-currency-name') {
@@ -118,7 +129,16 @@ module.exports = {
         }
 
         const channelsToCreate = [
-          { name: 'soul-bot', topic: 'Command usage (/checkin, /balance, /leaderboard, /casino), admin logs, and active chat milestone rewards.' }
+          { 
+            name: 'soul-bot', 
+            topic: 'Command usage (/checkin, /balance, /leaderboard, /casino) and active chat milestone rewards.',
+            private: false 
+          },
+          { 
+            name: 'soul-admin', 
+            topic: 'Administrative logs and configuration settings for the Soul Currency system.',
+            private: true 
+          }
         ];
 
         const currentChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
@@ -144,12 +164,24 @@ module.exports = {
             c => c.name.toLowerCase() === ch.name.toLowerCase() && c.type === ChannelType.GuildText
           );
           if (!exists) {
-            await guild.channels.create({
+            const options = {
               name: ch.name,
               type: ChannelType.GuildText,
               topic: ch.topic,
               parent: category.id
-            });
+            };
+
+            // If the channel is private, deny ViewChannel for everyone
+            if (ch.private) {
+              options.permissionOverwrites = [
+                {
+                  id: guild.roles.everyone.id,
+                  deny: [PermissionFlagsBits.ViewChannel]
+                }
+              ];
+            }
+
+            await guild.channels.create(options);
             created.push(`#${ch.name}`);
           } else {
             skipped.push(`#${ch.name}`);

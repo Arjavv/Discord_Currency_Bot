@@ -15,7 +15,16 @@ module.exports = {
     }
 
     const channelsToCreate = [
-      { name: 'soul-bot', topic: 'Command usage (/checkin, /balance, /leaderboard, /casino), admin logs, and active chat milestone rewards.' }
+      { 
+        name: 'soul-bot', 
+        topic: 'Command usage (/checkin, /balance, /leaderboard, /casino) and active chat milestone rewards.',
+        private: false 
+      },
+      { 
+        name: 'soul-admin', 
+        topic: 'Administrative logs and configuration settings for the Soul Currency system.',
+        private: true 
+      }
     ];
 
     try {
@@ -51,12 +60,25 @@ module.exports = {
 
         if (!exists) {
           console.log(`[Onboarding] Creating #${ch.name} inside "Soul Currency" in server: ${guild.name}`);
-          await guild.channels.create({
+          
+          const options = {
             name: ch.name,
             type: ChannelType.GuildText,
             topic: ch.topic,
             parent: category.id
-          });
+          };
+
+          // If the channel is private, deny ViewChannel for everyone
+          if (ch.private) {
+            options.permissionOverwrites = [
+              {
+                id: guild.roles.everyone.id,
+                deny: [PermissionFlagsBits.ViewChannel]
+              }
+            ];
+          }
+
+          await guild.channels.create(options);
         } else {
           console.log(`[Onboarding] Channel #${ch.name} already exists in server: ${guild.name}. Skipping.`);
         }
