@@ -182,7 +182,7 @@ async function recordMessageActivity(discordId, serverId, coinAmount = 10, coold
     let balance = incRes.rows[0].coin_balance;
 
     // 5. Check if we hit the 100-message milestone
-    if (messageCount > 0 && messageCount % 2 === 0) {
+    if (messageCount > 0 && messageCount % 100 === 0) {
       // Check daily cap from message rewards in last 24 hours
       const dailyQuery = `
         SELECT COALESCE(SUM(amount), 0) AS daily_sum 
