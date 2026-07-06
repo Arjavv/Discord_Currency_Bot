@@ -995,9 +995,6 @@ module.exports = {
                     }
 
                     await message.channel.send({ embeds: [killEmbed] }).catch(() => {});
-
-                    // Also send the text command just in case they whitelist the bot
-                    await message.channel.send(`!kill <@${loserId}>`).catch(() => {});
                   }
                 }, 3000);
               }
