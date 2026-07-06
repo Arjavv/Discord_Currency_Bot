@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS user_stats (
     boost_magic INT NOT NULL DEFAULT 0,
     
     last_weekly_reset TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_duel_loss_at TIMESTAMP,
     PRIMARY KEY (discord_id, server_id),
     FOREIGN KEY (discord_id, server_id) REFERENCES users (discord_id, server_id) ON DELETE CASCADE
 );
@@ -124,4 +125,7 @@ CREATE TABLE IF NOT EXISTS shop_prices (
     price INT NOT NULL,
     PRIMARY KEY (server_id, item_id)
 );
+
+-- Migration: Add last_duel_loss_at to user_stats if not exists
+ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS last_duel_loss_at TIMESTAMP;
 

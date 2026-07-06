@@ -898,7 +898,7 @@ async function getUserStats(discordId, serverId) {
     const statsRes = await client.query(`
       SELECT base_strength, base_defense, base_speed, base_magic,
              boost_strength, boost_defense, boost_speed, boost_magic,
-             last_weekly_reset
+             last_weekly_reset, last_duel_loss_at
       FROM user_stats
       WHERE discord_id = $1 AND server_id = $2
     `, [discordId, serverId]);
@@ -906,7 +906,8 @@ async function getUserStats(discordId, serverId) {
     const stats = statsRes.rows[0] || {
       base_strength: 50, base_defense: 50, base_speed: 50, base_magic: 50,
       boost_strength: 0, boost_defense: 0, boost_speed: 0, boost_magic: 0,
-      last_weekly_reset: new Date()
+      last_weekly_reset: new Date(),
+      last_duel_loss_at: null
     };
 
     // Prune expired boosts
@@ -961,7 +962,8 @@ async function getUserStats(discordId, serverId) {
       activeBuffs,
       total,
       detailedBoosts: detailedBoostsRes.rows,
-      lastWeeklyReset: stats.last_weekly_reset
+      lastWeeklyReset: stats.last_weekly_reset,
+      lastDuelLossAt: stats.last_duel_loss_at
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -1136,6 +1138,19 @@ async function purchaseShopItem(discordId, serverId, itemId) {
   }
 }
 
+/**
+ * Sets the last_duel_loss_at timestamp to now, initiating a 1-hour cooldown.
+ */
+async function recordDuelLoss(discordId, serverId) {
+  await ensureUserStats(null, discordId, serverId);
+  const query = `
+    UPDATE user_stats
+    SET last_duel_loss_at = NOW()
+    WHERE discord_id = $1 AND server_id = $2
+  `;
+  await pool.query(query, [discordId, serverId]);
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
@@ -1156,6 +1171,7 @@ module.exports = {
   getShopPrices,
   setShopPrice,
   getUserInventory,
-  purchaseShopItem
+  purchaseShopItem,
+  recordDuelLoss
 };
 

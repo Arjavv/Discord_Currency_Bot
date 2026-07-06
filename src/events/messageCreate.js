@@ -18,7 +18,8 @@ const {
   getShopPrices,
   setShopPrice,
   getUserInventory,
-  purchaseShopItem
+  purchaseShopItem,
+  recordDuelLoss
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 
@@ -812,6 +813,10 @@ module.exports = {
               return message.reply('❌ **Usage**: `s fight @user <bet_amount>`').catch(() => { });
             }
 
+            if (bet > 10000) {
+              return sendTempMessage(message.channel, '❌ The maximum bet for a duel is **10,000** coins!');
+            }
+
             if (targetUser.id === userId) {
               return sendTempMessage(message.channel, '❌ You cannot fight yourself!');
             }
@@ -829,187 +834,156 @@ module.exports = {
             // Verify defender balance
             const targetBal = await getUserBalance(targetUser.id, serverId);
             if (targetBal.balance < bet) {
-              return sendTempMessage(message.channel, `❌ Opponent doesn't have enough coins! ${targetUser.username} needs at least **${bet}** ${currencyIcon} to accept.`);
+              return sendTempMessage(message.channel, `❌ Opponent doesn't have enough coins! ${targetUser.username} needs at least **${bet}** ${currencyIcon} to fight.`);
             }
 
-            const buttonIdAccept = `fight_accept_${userId}_${targetUser.id}_${Date.now()}`;
-            const buttonIdDecline = `fight_decline_${userId}_${targetUser.id}_${Date.now()}`;
+            // Check challenger cooldown
+            const challengerStats = await getUserStats(userId, serverId);
+            if (challengerStats.lastDuelLossAt) {
+              const elapsed = Date.now() - new Date(challengerStats.lastDuelLossAt).getTime();
+              const cooldownMs = 60 * 60 * 1000; // 1 hour
+              if (elapsed < cooldownMs) {
+                const remainingMin = Math.ceil((cooldownMs - elapsed) / (60 * 1000));
+                return sendTempMessage(message.channel, `❌ You are on a duel cooldown! You must wait **${remainingMin} minutes** before initiating another fight.`);
+              }
+            }
 
-            const row = new ActionRowBuilder().addComponents(
-              new ButtonBuilder().setCustomId(buttonIdAccept).setLabel('Accept Challenge').setStyle(ButtonStyle.Success).setEmoji('⚔️'),
-              new ButtonBuilder().setCustomId(buttonIdDecline).setLabel('Decline').setStyle(ButtonStyle.Danger)
-            );
+            // Check defender cooldown
+            const defenderStats = await getUserStats(targetUser.id, serverId);
+            if (defenderStats.lastDuelLossAt) {
+              const elapsed = Date.now() - new Date(defenderStats.lastDuelLossAt).getTime();
+              const cooldownMs = 60 * 60 * 1000; // 1 hour
+              if (elapsed < cooldownMs) {
+                const remainingMin = Math.ceil((cooldownMs - elapsed) / (60 * 1000));
+                return sendTempMessage(message.channel, `❌ **${targetUser.username}** is on a duel cooldown and cannot be challenged for another **${remainingMin} minutes**.`);
+              }
+            }
 
-            const challengeEmbed = new EmbedBuilder()
-              .setColor('#ffaa00')
-              .setTitle('⚔️ Duel Challenge!')
-              .setDescription(`${message.author} has challenged ${targetUser} to a stat showdown for **${bet}** ${currencyIcon} ${currencyName}!\n\nBoth players' stats in a random category will be compared. Loser gets eliminated!`)
-              .setFooter({ text: 'The challenged player has 30 seconds to accept.' })
+            // Re-verify balances to be absolutely safe
+            const finalChallengerBal = await getUserBalance(userId, serverId);
+            const finalDefenderBal = await getUserBalance(targetUser.id, serverId);
+            if (finalChallengerBal.balance < bet || finalDefenderBal.balance < bet) {
+              return sendTempMessage(message.channel, '❌ Duel cancelled: One of the players no longer has enough coins.');
+            }
+
+            // Deduct bets upfront
+            await recordCasinoGame(userId, serverId, bet, false);
+            await recordCasinoGame(targetUser.id, serverId, bet, false);
+
+            // Pick random category
+            const categories = [
+              { name: 'Strength', icon: '⚔️', key: 'strength' },
+              { name: 'Defense', icon: '🛡️', key: 'defense' },
+              { name: 'Speed', icon: '⚡', key: 'speed' },
+              { name: 'Magic', icon: '🔮', key: 'magic' }
+            ];
+            const category = categories[Math.floor(Math.random() * categories.length)];
+
+            const cVal = challengerStats.total[category.key];
+            const dVal = defenderStats.total[category.key];
+
+            // Send Duel Started loading message directly
+            const showdownEmbed = new EmbedBuilder()
+              .setColor('#ff3300')
+              .setTitle('⚔️ DUEL STARTED ⚔️')
+              .setDescription(
+                `📊 **Chosen Clash Category:** **${category.icon} ${category.name}**\n\n` +
+                `🔴 **${message.author.username}**: \`??? ${category.name}\`\n` +
+                `🔵 **${targetUser.username}**: \`??? ${category.name}\`\n\n` +
+                `*Calculating showdown results...*`
+              )
               .setTimestamp();
 
-            const challengeMsg = await message.reply({ embeds: [challengeEmbed], components: [row] });
+            const duelMsg = await message.reply({ embeds: [showdownEmbed] });
 
-            // Button collector
-            const collector = challengeMsg.createMessageComponentCollector({
-              componentType: ComponentType.Button,
-              time: 30000,
-              filter: (i) => i.user.id === targetUser.id
-            });
+            // Suspend and calculate results
+            setTimeout(async () => {
+              let winnerId, loserId, winnerName, loserName, tie = false;
+              let winVal, loseVal;
 
-            let duelActive = false;
-
-            collector.on('collect', async (buttonInteraction) => {
-              if (buttonInteraction.customId === buttonIdDecline) {
-                collector.stop('declined');
-                return;
+              if (cVal > dVal) {
+                winnerId = userId;
+                winnerName = message.author.username;
+                loserId = targetUser.id;
+                loserName = targetUser.username;
+                winVal = cVal;
+                loseVal = dVal;
+              } else if (dVal > cVal) {
+                winnerId = targetUser.id;
+                winnerName = targetUser.username;
+                loserId = userId;
+                loserName = message.author.username;
+                winVal = dVal;
+                loseVal = cVal;
+              } else {
+                tie = true;
               }
 
-              if (buttonInteraction.customId === buttonIdAccept) {
-                duelActive = true;
-                collector.stop('accepted');
-                await buttonInteraction.deferUpdate();
+              if (tie) {
+                // Refund bets
+                await recordCasinoGame(userId, serverId, bet, true);
+                await recordCasinoGame(targetUser.id, serverId, bet, true);
 
-                // Re-verify balances
-                const challengerBal = await getUserBalance(userId, serverId);
-                const defenderBal = await getUserBalance(targetUser.id, serverId);
-
-                if (challengerBal.balance < bet || defenderBal.balance < bet) {
-                  return await challengeMsg.edit({
-                    content: '❌ Duel cancelled: One of the players no longer has enough coins.',
-                    embeds: [],
-                    components: []
-                  }).catch(() => {});
-                }
-
-                // Deduct bets upfront
-                await recordCasinoGame(userId, serverId, bet, false);
-                await recordCasinoGame(targetUser.id, serverId, bet, false);
-
-                // Pick random category
-                const categories = [
-                  { name: 'Strength', icon: '⚔️', key: 'strength' },
-                  { name: 'Defense', icon: '🛡️', key: 'defense' },
-                  { name: 'Speed', icon: '⚡', key: 'speed' },
-                  { name: 'Magic', icon: '🔮', key: 'magic' }
-                ];
-                const category = categories[Math.floor(Math.random() * categories.length)];
-
-                // Fetch stats
-                const challengerStats = await getUserStats(userId, serverId);
-                const defenderStats = await getUserStats(targetUser.id, serverId);
-
-                const cVal = challengerStats.total[category.key];
-                const dVal = defenderStats.total[category.key];
-
-                // Showdown animated loading embeds
-                const showdownEmbed = new EmbedBuilder()
-                  .setColor('#ff3300')
-                  .setTitle('⚔️ DUEL STARTED ⚔️')
+                const tieEmbed = new EmbedBuilder()
+                  .setColor('#ffd700')
+                  .setTitle('🤝 DUEL RESULT: TIE!')
                   .setDescription(
-                    `📊 **Chosen Clash Category:** **${category.icon} ${category.name}**\n\n` +
-                    `🔴 **${message.author.username}**: \`??? ${category.name}\`\n` +
-                    `🔵 **${targetUser.username}**: \`??? ${category.name}\`\n\n` +
-                    `*Calculating showdown results...*`
+                    `📊 **Clash Category:** **${category.icon} ${category.name}**\n\n` +
+                    `🔴 **${message.author.username}**: \`${cVal} ${category.name}\`\n` +
+                    `🔵 **${targetUser.username}**: \`${dVal} ${category.name}\`\n\n` +
+                    `It was a perfect match! All bets have been refunded.`
                   )
                   .setTimestamp();
 
-                await challengeMsg.edit({ embeds: [showdownEmbed], components: [] }).catch(() => {});
+                await duelMsg.edit({ embeds: [tieEmbed] }).catch(() => {});
+              } else {
+                // Winnings pot
+                const pot = bet * 2;
+                await recordCasinoGame(winnerId, serverId, pot, true);
 
-                // Delay for suspense
-                setTimeout(async () => {
-                  let winnerId, loserId, winnerName, loserName, tie = false;
-                  let winVal, loseVal;
+                // Set 1-hour cooldown for the loser
+                await recordDuelLoss(loserId, serverId).catch(err => {
+                  console.error(`Failed to record duel loss for user ${loserId}:`, err);
+                });
 
-                  if (cVal > dVal) {
-                    winnerId = userId;
-                    winnerName = message.author.username;
-                    loserId = targetUser.id;
-                    loserName = targetUser.username;
-                    winVal = cVal;
-                    loseVal = dVal;
-                  } else if (dVal > cVal) {
-                    winnerId = targetUser.id;
-                    winnerName = targetUser.username;
-                    loserId = userId;
-                    loserName = message.author.username;
-                    winVal = dVal;
-                    loseVal = cVal;
-                  } else {
-                    tie = true;
-                  }
-
-                  if (tie) {
-                    // Refund bets
-                    await recordCasinoGame(userId, serverId, bet, true);
-                    await recordCasinoGame(targetUser.id, serverId, bet, true);
-
-                    const tieEmbed = new EmbedBuilder()
-                      .setColor('#ffd700')
-                      .setTitle('🤝 DUEL RESULT: TIE!')
-                      .setDescription(
-                        `📊 **Clash Category:** **${category.icon} ${category.name}**\n\n` +
-                        `🔴 **${message.author.username}**: \`${cVal} ${category.name}\`\n` +
-                        `🔵 **${targetUser.username}**: \`${dVal} ${category.name}\`\n\n` +
-                        `It was a perfect match! All bets have been refunded.`
-                      )
-                      .setTimestamp();
-
-                    await challengeMsg.edit({ embeds: [tieEmbed] }).catch(() => {});
-                  } else {
-                    // Winnings pot
-                    const pot = bet * 2;
-                    await recordCasinoGame(winnerId, serverId, pot, true);
-
-                    const winEmbed = new EmbedBuilder()
-                      .setColor('#00ffaa')
-                      .setTitle('🏆 DUEL RESULT: VICTORY!')
-                      .setDescription(
-                        `📊 **Clash Category:** **${category.icon} ${category.name}**\n\n` +
-                        `👑 **Winner**: <@${winnerId}> (\`${winVal} ${category.name}\`)\n` +
-                        `💀 **Loser**: <@${loserId}> (\`${loseVal} ${category.name}\`)\n\n` +
-                        `<@${winnerId}> claimed the pot of **${pot}** ${currencyIcon} ${currencyName}!`
-                      )
-                      .setTimestamp();
-
-                    await challengeMsg.edit({ embeds: [winEmbed] }).catch(() => {});
-
-                    // Fetch a random anime kill GIF from waifu.pics (Nekotina-style)
-                    let gifUrl = null;
-                    try {
-                      const gifRes = await fetch('https://api.waifu.pics/sfw/kill');
-                      if (gifRes.ok) {
-                        const gifData = await gifRes.json();
-                        gifUrl = gifData.url;
-                      }
-                    } catch (gifErr) {
-                      console.error('Failed to fetch action GIF:', gifErr);
-                    }
-
-                    const killEmbed = new EmbedBuilder()
-                      .setColor('#ff3300')
-                      .setDescription(`💀 **${winnerName}** ends **${loserName}**!`)
-                      .setTimestamp();
-
-                    if (gifUrl) {
-                      killEmbed.setImage(gifUrl);
-                    }
-
-                    await message.channel.send({ embeds: [killEmbed] }).catch(() => {});
-                  }
-                }, 3000);
-              }
-            });
-
-            collector.on('end', async (collected, reason) => {
-              if (!duelActive) {
-                const expiredEmbed = new EmbedBuilder()
-                  .setColor('#555555')
-                  .setTitle('⚔️ Challenge Expired')
-                  .setDescription(reason === 'declined' ? `The challenge was declined by ${targetUser}.` : `The challenge from ${message.author} was not accepted in time.`)
+                const winEmbed = new EmbedBuilder()
+                  .setColor('#00ffaa')
+                  .setTitle('🏆 DUEL RESULT: VICTORY!')
+                  .setDescription(
+                    `📊 **Clash Category:** **${category.icon} ${category.name}**\n\n` +
+                    `👑 **Winner**: <@${winnerId}> (\`${winVal} ${category.name}\`)\n` +
+                    `💀 **Loser**: <@${loserId}> (\`${loseVal} ${category.name}\`)\n\n` +
+                    `<@${winnerId}> claimed the pot of **${pot}** ${currencyIcon} ${currencyName}!\n` +
+                    `*💀 <@${loserId}> has been placed on a 1-hour duel cooldown!*`
+                  )
                   .setTimestamp();
-                await challengeMsg.edit({ embeds: [expiredEmbed], components: [] }).catch(() => {});
+
+                await duelMsg.edit({ embeds: [winEmbed] }).catch(() => {});
+
+                // Fetch random anime kill GIF (Nekotina-style)
+                let gifUrl = null;
+                try {
+                  const gifRes = await fetch('https://api.waifu.pics/sfw/kill');
+                  if (gifRes.ok) {
+                    const gifData = await gifRes.json();
+                    gifUrl = gifData.url;
+                  }
+                } catch (gifErr) {
+                  console.error('Failed to fetch action GIF:', gifErr);
+                }
+
+                const killEmbed = new EmbedBuilder()
+                  .setColor('#ff3300')
+                  .setDescription(`💀 **${winnerName}** ends **${loserName}**!`)
+                  .setTimestamp();
+
+                if (gifUrl) {
+                  killEmbed.setImage(gifUrl);
+                }
+
+                await message.channel.send({ embeds: [killEmbed] }).catch(() => {});
               }
-            });
+            }, 3000);
           }
 
           if (commandName === 'crash') {
