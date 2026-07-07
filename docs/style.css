@@ -274,11 +274,15 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
 
 .hero-container {
   display: grid;
-  grid-template-columns: 1.25fr 0.75fr;
+  grid-template-columns: 1.1fr 0.9fr;
   align-items: center;
   gap: 60px;
   position: relative;
   z-index: 2;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  width: 100%;
 }
 
 .badge {
@@ -319,8 +323,9 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
 
 .hero-visual {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
+  width: 100%;
 }
 
 .logo-coin-container {
