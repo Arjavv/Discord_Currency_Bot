@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Soul Currency System | Official Reference & Guidelines</title>
+  <title>Soul Currency | Official Server Economy & Portal</title>
   
   <!-- SEO Meta Tags -->
-  <meta name="description" content="Official rules, guidelines, commands, and calculators for the Discord Soul Currency system. Earn, gamble, and claim Souls daily.">
-  <meta name="keywords" content="Discord, Currency Bot, Souls, Casino, Leaderboard, Games">
+  <meta name="description" content="Official home of the Soul Currency System. Claim Souls daily, compete on server leaderboards, play interactive casino games, and buy/redeem Souls for server customizations and premium perks.">
+  <meta name="keywords" content="Discord, Currency Bot, Souls, Casino, Leaderboard, Games, Marketplace, Buy Souls">
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700;850;900&display=swap" rel="stylesheet">
   
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -27,7 +27,7 @@
     <div class="nav-container">
       <div class="brand">
         <img src="assets/logo.png" alt="Soul Logo" class="brand-logo">
-        <span class="brand-name">SOUL CURRENCY</span>
+        <span class="brand-name">SOUL SYSTEM</span>
       </div>
       
       <button class="nav-toggle" id="nav-toggle" aria-label="Toggle Navigation">
@@ -36,10 +36,10 @@
       
       <div class="nav-menu" id="nav-menu">
         <a href="#hero" class="nav-link active">Home</a>
-        <a href="#rules" class="nav-link">Rules</a>
+        <a href="/shop" class="nav-link">Shop</a>
+        <a href="#setup-guide" class="nav-link">Setup Guide</a>
         <a href="#leaderboard" class="nav-link">Standings</a>
         <a href="#commands" class="nav-link">Commands</a>
-        <a href="#calculator" class="nav-link">Simulator</a>
         <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands" target="_blank" class="nav-btn"><i class="fa-solid fa-robot"></i> Add to Server</a>
       </div>
     </div>
@@ -50,12 +50,12 @@
     <div class="hero-glow"></div>
     <div class="hero-container">
       <div class="hero-content">
-        <div class="badge"><i class="fa-solid fa-circle-nodes"></i> SERVER ENGAGEMENT SYSTEM</div>
+        <div class="badge"><i class="fa-solid fa-circle-nodes"></i> SERVER UTILITY & ECONOMY</div>
         <h1 class="hero-title">Wield the Power of <span class="gold-text">Souls</span></h1>
-        <p class="hero-subtitle">Chat, claim, and compete in the ultimate server economy. Earn Souls for active engagement, challenge your luck in the casino, and dominate the monthly leaderboard.</p>
+        <p class="hero-subtitle">Chat, claim, and compete in the ultimate server economy. Earn Souls for active engagement, challenge your luck in the casino, and trade Souls for real customizations.</p>
         <div class="hero-actions">
-          <a href="#rules" class="btn btn-primary">Get Started <i class="fa-solid fa-arrow-down"></i></a>
-          <a href="#calculator" class="btn btn-secondary">Simulate Earnings <i class="fa-solid fa-calculator"></i></a>
+          <a href="/shop" class="btn btn-primary">Visit Shop <i class="fa-solid fa-store"></i></a>
+          <a href="#setup-guide" class="btn btn-secondary">Setup Guide <i class="fa-solid fa-book"></i></a>
         </div>
       </div>
       <div class="hero-visual">
@@ -67,44 +67,43 @@
     </div>
   </header>
 
-  <!-- Rules & Guidelines Section -->
-  <section class="rules-section" id="rules">
+  <!-- Beginner Documentation & Setup Section -->
+  <section class="docs-section" id="setup-guide">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title">Core <span class="gold-text">Guidelines</span> & Economy</h2>
-        <p class="section-subtitle">Earn currency automatically and safely. Read our guidelines to maximize your Souls.</p>
+        <h2 class="section-title">Beginner & Setup <span class="gold-text">Guide</span></h2>
+        <p class="section-subtitle">A simple step-by-step documentation to configure the bot and start claiming your souls.</p>
       </div>
-      
-      <div class="rules-grid">
-        <!-- Rule 1: Daily Checkin -->
-        <div class="rule-card">
-          <div class="rule-icon"><i class="fa-solid fa-calendar-check"></i></div>
-          <h3 class="rule-title">Daily Allowance</h3>
-          <p class="rule-desc">Claim your daily reward of <span class="white-text">20 Souls</span> once every 24 hours. Keep your streak alive to inflate your balance!</p>
-          <div class="rule-channel-lock"><i class="fa-solid fa-lock"></i> Locked to: <code>#soul-bot</code></div>
+
+      <div class="docs-grid">
+        <div class="step-card">
+          <div class="step-number">01</div>
+          <div class="step-icon"><i class="fa-solid fa-wrench"></i></div>
+          <h3 class="step-title">Invite & Setup</h3>
+          <p class="step-desc">Add the bot using the link in the nav bar. As an Admin, execute <code>s setup</code> (prefix) or <code>/admin setup</code> (slash). This automatically configures the category containing <code>#soul-bot</code> (for gameplay/commands) and <code>#soul-logs</code> (private logs).</p>
         </div>
 
-        <!-- Rule 2: Active Chatting -->
-        <div class="rule-card highlighted">
-          <div class="card-glow"></div>
-          <div class="rule-icon"><i class="fa-solid fa-comments"></i></div>
-          <h3 class="rule-title">Chat Milestones</h3>
-          <p class="rule-desc">Get rewarded for engaging in chats. For every 100 qualifying messages sent, you earn <span class="gold-text">+10 Souls</span>!</p>
-          <ul class="rule-list">
-            <li><i class="fa-solid fa-shield-halved"></i> <strong>Anti-Spam:</strong> 15-second message rate-limit.</li>
-            <li><i class="fa-solid fa-font"></i> <strong>Quality Check:</strong> Minimum 5 words per message.</li>
-            <li><i class="fa-solid fa-gauge-high"></i> <strong>Daily Cap:</strong> Max 20 Souls earned per day.</li>
-          </ul>
-          <div class="rule-channel-lock"><i class="fa-solid fa-bullhorn"></i> Announced in: <code>#soul-bot</code></div>
+        <div class="step-card">
+          <div class="step-number">02</div>
+          <div class="step-icon"><i class="fa-solid fa-bell"></i></div>
+          <h3 class="step-title">Milestones & Drops</h3>
+          <p class="step-desc">Chatting actively in your channels builds progress milestones (10 messages = 100 Souls). Every 10 minutes, a random Soul Coin drops in the server drop channel. Players must type <code>soul</code> quickly in chat to claim the coin before it fades away!</p>
         </div>
 
-        <!-- Rule 3: Casino Games -->
-        <div class="rule-card">
-          <div class="rule-icon"><i class="fa-solid fa-dice"></i></div>
-          <h3 class="rule-title">Casino Flips</h3>
-          <p class="rule-desc">Risk your Souls in double-or-nothing coin flips! Predict heads or tails correctly to double your bet amount.</p>
-          <div class="rule-channel-lock"><i class="fa-solid fa-lock"></i> Locked to: <code>#soul-bot</code></div>
+        <div class="step-card">
+          <div class="step-number">03</div>
+          <div class="step-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
+          <h3 class="step-title">Taxes & Upkeeps</h3>
+          <p class="step-desc">A portion of all casino bets, flips, and user-to-user transfers are taxed and collected into the <strong>Server Bank</strong>. This bank fund is used to maintain your server’s premium bot services. Keep your server bank funded to avoid service decay.</p>
         </div>
+      </div>
+
+      <div class="docs-footer">
+        <div class="docs-footer-text">
+          <h4>Looking for the full manual?</h4>
+          <p>Read all parameters, rates, cooldown caps, and administration controls in detail below.</p>
+        </div>
+        <a href="#commands" class="btn btn-secondary">Commands list <i class="fa-solid fa-chevron-right"></i></a>
       </div>
     </div>
   </section>
@@ -134,7 +133,7 @@
   <section class="commands-section" id="commands">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title">Slash <span class="gold-text">Commands</span></h2>
+        <h2 class="section-title">Slash & Prefix <span class="gold-text">Commands</span></h2>
         <p class="section-subtitle">A comprehensive list of bot commands to interact with the Soul Currency system.</p>
       </div>
 
@@ -415,8 +414,6 @@
             </div>
           </div>
 
-
-
           <!-- Admin Prefix Commands -->
           <div class="command-item" data-category="admin" id="cmd-admin-prefix">
             <div class="command-trigger">
@@ -492,70 +489,6 @@
     </div>
   </section>
 
-  <!-- Interactive Earnings Simulator Section -->
-  <section class="calculator-section" id="calculator">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title">Souls Earnings <span class="gold-text">Simulator</span></h2>
-        <p class="section-subtitle">Estimate how many Souls you can accumulate based on your weekly chat and check-in activity.</p>
-      </div>
-
-      <div class="calc-wrapper">
-        <div class="calc-inputs">
-          <h3 class="calc-panel-title"><i class="fa-solid fa-sliders"></i> Adjust Activity</h3>
-          
-          <!-- Input 1: Daily Checkins -->
-          <div class="input-group">
-            <label for="checkins-input">Daily Check-ins per week: <span class="value-display" id="checkins-val">5</span></label>
-            <input type="range" id="checkins-input" min="0" max="7" value="5" class="slider">
-            <span class="slider-hint">Prefix <code>s daily</code>: 500–1,000 Souls (random) &bull; Slash <code>/checkin</code>: 20 Souls (fixed)</span>
-          </div>
-
-          <!-- Input 2: Average Messages per day -->
-          <div class="input-group">
-            <label for="messages-input">Average Messages sent per day: <span class="value-display" id="messages-val">80</span></label>
-            <input type="range" id="messages-input" min="0" max="500" step="10" value="80" class="slider">
-            <span class="slider-hint">Earns 100 Souls per 10 qualifying messages (5,000 Souls daily cap, min 5 words, 15s cooldown)</span>
-          </div>
-
-          <!-- Input 3: Casino gambling estimation -->
-          <div class="input-group">
-            <label for="casino-bet">Estimated Casino Win/Loss (per week): <span class="value-display" id="casino-val">+0</span></label>
-            <input type="range" id="casino-bet" min="-5000" max="10000" step="100" value="0" class="slider">
-            <span class="slider-hint">Net luck projections (flip, crash, mines)</span>
-          </div>
-        </div>
-
-        <div class="calc-results">
-          <h3 class="calc-panel-title"><i class="fa-solid fa-chart-line"></i> Projections</h3>
-          
-          <div class="results-grid">
-            <div class="result-box">
-              <span class="result-label">Weekly Projections</span>
-              <div class="result-value"><span id="weekly-souls">150</span> <span class="coin-icon">💵</span></div>
-            </div>
-            <div class="result-box highlighted">
-              <span class="result-label">Monthly Projections</span>
-              <div class="result-value"><span id="monthly-souls">600</span> <span class="coin-icon">💵</span></div>
-            </div>
-          </div>
-
-          <div class="chart-progress-wrapper">
-            <div class="progress-bar-label">
-              <span>Leaderboard Goal Target (50,000 Souls)</span>
-              <span id="target-progress-text">60%</span>
-            </div>
-            <div class="progress-track">
-              <div class="progress-bar" id="calc-progress-bar"></div>
-            </div>
-          </div>
-          
-          <p class="calc-disclaimer"><i class="fa-solid fa-circle-info"></i> Calculations assume standard chat anti-spam conditions and consistent daily activity caps. Actual values may vary based on casino outcomes.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- Cycle Reset Information Banner -->
   <section class="banner-section">
     <div class="container">
@@ -577,9 +510,10 @@
         </div>
         <div class="footer-links">
           <a href="#hero">Home</a>
-          <a href="#rules">Rules</a>
+          <a href="/shop">Shop</a>
+          <a href="#setup-guide">Setup Guide</a>
+          <a href="#leaderboard">Standings</a>
           <a href="#commands">Commands</a>
-          <a href="#calculator">Simulator</a>
         </div>
       </div>
       <hr class="footer-divider">

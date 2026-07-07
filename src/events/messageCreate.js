@@ -113,7 +113,7 @@ module.exports = {
         const dropMsg = await message.channel.messages.fetch(drop.messageId).catch(() => null);
         if (dropMsg) {
           const caughtContent = `🎉 **CLAIMED** ── **${message.author.username}** captured **${character.name}**!`;
-          await dropMsg.edit({ content: caughtContent, embeds: [], attachments: [] }).catch(() => { });
+          await dropMsg.edit({ content: caughtContent, embeds: [], attachments: [], files: [] }).catch(() => { });
         }
 
         // Send congratulatory reply

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soul Marketplace | Buy & Redeem Souls</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Exchange your earned Souls for custom server bot avatars, nicknames, partnership advertisements, and server XP multipliers, or buy Soul bundles directly.">
+  <meta name="keywords" content="Discord, Currency Bot, Souls, Casino, Marketplace, Buy Souls, Redeem Perks">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700;850;900&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <img src="assets/logo.png" alt="Soul Logo" class="brand-logo">
+        <span class="brand-name">SOUL SYSTEM</span>
+      </div>
+      
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle Navigation">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      
+      <div class="nav-menu" id="nav-menu">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/shop" class="nav-link active">Shop</a>
+        <a href="/#setup-guide" class="nav-link">Setup Guide</a>
+        <a href="/#leaderboard" class="nav-link">Standings</a>
+        <a href="/#commands" class="nav-link">Commands</a>
+        <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands" target="_blank" class="nav-btn"><i class="fa-solid fa-robot"></i> Add to Server</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Marketplace Header -->
+  <header class="hero" id="hero" style="min-height: 40vh; padding: 140px 0 60px 0;">
+    <div class="hero-glow"></div>
+    <div class="container" style="position: relative; z-index: 2; text-align: center;">
+      <div class="badge"><i class="fa-solid fa-store"></i> SOUL EXCHANGE</div>
+      <h1 class="hero-title" style="font-size: 48px; margin-bottom: 12px;">The <span class="gold-text">Soul Marketplace</span></h1>
+      <p class="hero-subtitle" style="margin: 0 auto; max-width: 600px;">Buy packs to power your server bank or trade your hard-earned Souls for premium Discord customization and features.</p>
+    </div>
+  </header>
+
+  <!-- Soul Marketplace Section -->
+  <section class="marketplace-section" style="padding-top: 20px;">
+    <div class="container">
+      
+      <!-- Part A: Buy Souls -->
+      <h3 class="market-group-title"><i class="fa-solid fa-credit-card"></i> Buy Soul Packs</h3>
+      <div class="market-grid">
+        <div class="market-card">
+          <div class="market-header">
+            <h4 class="market-title">Fledgling Pack</h4>
+            <p class="market-desc">Start your journey and get a basic boost to your server balance.</p>
+            <div class="market-price">$1.99 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">/ One-time</span></div>
+          </div>
+          <ul class="market-features">
+            <li><i class="fa-solid fa-check"></i> +1,000 Souls</li>
+            <li><i class="fa-solid fa-check"></i> Discord Store badge</li>
+            <li><i class="fa-solid fa-check"></i> Instant delivery</li>
+          </ul>
+          <a href="#" class="btn btn-secondary market-action-btn">Purchase <i class="fa-solid fa-cart-shopping"></i></a>
+        </div>
+
+        <div class="market-card premium">
+          <span class="card-badge">Best Value</span>
+          <div class="market-header">
+            <h4 class="market-title">Warlock Pack</h4>
+            <p class="market-desc">Our most popular bundle for active players and casino high-rollers.</p>
+            <div class="market-price">$7.99 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">/ One-time</span></div>
+          </div>
+          <ul class="market-features">
+            <li><i class="fa-solid fa-check"></i> +5,000 Souls</li>
+            <li><i class="fa-solid fa-check"></i> Golden web name glow</li>
+            <li><i class="fa-solid fa-check"></i> Priority support</li>
+            <li><i class="fa-solid fa-check"></i> Instant delivery</li>
+          </ul>
+          <a href="#" class="btn btn-primary market-action-btn">Purchase <i class="fa-solid fa-cart-shopping"></i></a>
+        </div>
+
+        <div class="market-card">
+          <div class="market-header">
+            <h4 class="market-title">God-Server Pack</h4>
+            <p class="market-desc">Keep your server powered for months with our largest bulk pack.</p>
+            <div class="market-price">$24.99 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">/ One-time</span></div>
+          </div>
+          <ul class="market-features">
+            <li><i class="fa-solid fa-check"></i> +20,000 Souls</li>
+            <li><i class="fa-solid fa-check"></i> Custom profile card border</li>
+            <li><i class="fa-solid fa-check"></i> 1 Featured server credit</li>
+            <li><i class="fa-solid fa-check"></i> VIP Discord access</li>
+          </ul>
+          <a href="#" class="btn btn-secondary market-action-btn">Purchase <i class="fa-solid fa-cart-shopping"></i></a>
+        </div>
+      </div>
+
+      <!-- Part B: Spend Souls -->
+      <h3 class="market-group-title"><i class="fa-solid fa-gift"></i> Spend Souls (Redeem Value)</h3>
+      <div class="market-grid">
+        <div class="market-card">
+          <div class="market-header">
+            <h4 class="market-title">Server Identity Customization</h4>
+            <p class="market-desc">Personalize the bot avatar and name specifically for your server.</p>
+            <div class="market-price">10,000 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">Souls</span></div>
+          </div>
+          <ul class="market-features">
+            <li><i class="fa-solid fa-circle"></i> Custom server bot nickname</li>
+            <li><i class="fa-solid fa-circle"></i> Custom bot avatar (1 Server)</li>
+            <li><i class="fa-solid fa-circle"></i> Validity: 30 Days</li>
+          </ul>
+          <a href="#" class="btn btn-secondary market-action-btn">Redeem <i class="fa-solid fa-ticket"></i></a>
+        </div>
+
+        <div class="market-card">
+          <div class="market-header">
+            <h4 class="market-title">Partnership Advertisement</h4>
+            <p class="market-desc">Advertise your server invite banner to all users via our bot.</p>
+            <div class="market-price">15,000 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">Souls</span></div>
+          </div>
+          <ul class="market-features">
+            <li><i class="fa-solid fa-circle"></i> Listed in <code>/partners</code></li>
+            <li><i class="fa-solid fa-circle"></i> Featured on website homepage</li>
+            <li><i class="fa-solid fa-circle"></i> Validity: 7 Days</li>
+          </ul>
+          <a href="#" class="btn btn-secondary market-action-btn">Redeem <i class="fa-solid fa-ticket"></i></a>
+        </div>
+
+        <div class="market-card">
+          <div class="market-header">
+            <h4 class="market-title">XP & Drop Server Booster</h4>
+            <p class="market-desc">Activate a server-wide booster to engage your chat members.</p>
+            <div class="market-price">20,000 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">Souls</span></div>
+          </div>
+          <ul class="market-features">
+            <li><i class="fa-solid fa-circle"></i> Double daily rewards</li>
+            <li><i class="fa-solid fa-circle"></i> +25% milestone multiplier</li>
+            <li><i class="fa-solid fa-circle"></i> Validity: 24 Hours</li>
+          </ul>
+          <a href="#" class="btn btn-secondary market-action-btn">Redeem <i class="fa-solid fa-ticket"></i></a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <img src="assets/logo.png" alt="Soul Brand" class="footer-logo">
+          <span class="footer-brand-name">SOUL CURRENCY</span>
+        </div>
+        <div class="footer-links">
+          <a href="/">Home</a>
+          <a href="/shop">Shop</a>
+          <a href="/#setup-guide">Setup Guide</a>
+          <a href="/#leaderboard">Standings</a>
+          <a href="/#commands">Commands</a>
+        </div>
+      </div>
+      <hr class="footer-divider">
+      <div class="footer-bottom">
+        <p class="copyright">&copy; 2026 Soul Currency System. All rights reserved. Game assets powered by Supabase.</p>
+        <div class="social-links">
+          <a href="https://discord.gg" target="_blank" aria-label="Discord Guild"><i class="fa-brands fa-discord"></i></a>
+          <a href="https://github.com" target="_blank" aria-label="Github Repo"><i class="fa-brands fa-github"></i></a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>

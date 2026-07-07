@@ -202,9 +202,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     navLinks.forEach(link => {
-      link.classList.remove('active');
-      if (link.getAttribute('href') === `#${current}`) {
-        link.classList.add('active');
+      const href = link.getAttribute('href');
+      // Only highlight local anchors that match the current section ID
+      if (href && href.startsWith('#')) {
+        link.classList.remove('active');
+        if (href === `#${current}`) {
+          link.classList.add('active');
+        }
       }
     });
   });

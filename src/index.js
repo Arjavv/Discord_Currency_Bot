@@ -75,8 +75,16 @@ app.use(session({
   cookie: { maxAge: 60 * 60 * 1000 } // 1 hour session
 }));
 
-// Serve static files from docs folder
-app.use(express.static(path.join(__dirname, '..', 'docs')));
+// Serve static files from docs folder with caching disabled for HTML files
+app.use(express.static(path.join(__dirname, '..', 'docs'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // Middleware to protect admin routes
 function requireLogin(req, res, next) {
@@ -385,9 +393,19 @@ app.get('/api/user/:discordId', requireLogin, async (req, res) => {
   }
 });
 
+// Shop frontend HTML route
+app.get('/shop', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'docs', 'shop.html'));
+});
+
 // Admin panel frontend HTML route
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'docs', 'admin.html'));
+});
+
+// Public marketplace route
+app.get('/shop', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'docs', 'shop.html'));
 });
 
 app.listen(port, () => {
@@ -416,4 +434,3 @@ async function startBot() {
 }
 
 startBot();
-
