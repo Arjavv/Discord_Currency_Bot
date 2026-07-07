@@ -84,6 +84,8 @@ const adminPassword = process.env.ADMIN_PASSWORD || 'ChangeMe';
 const botStartedAt = Date.now();
 let lastDiscordReadyAt = null;
 let lastDiscordDisconnectAt = null;
+let discordLoginError = null; // tracks Discord login failure reason
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -117,6 +119,26 @@ function requireLogin(req, res, next) {
   }
   res.status(401).json({ error: 'Unauthorized. Please login.' });
 }
+
+// Public health check — no auth required (for Render uptime monitoring)
+app.get('/health', (req, res) => {
+  const discordConnected = client.isReady() &&
+    lastDiscordReadyAt !== null &&
+    (lastDiscordDisconnectAt === null || lastDiscordReadyAt > lastDiscordDisconnectAt);
+  res.json({
+    status: 'ok',
+    discordReady: discordConnected,
+    discordLoginError: discordLoginError,
+    uptimeMs: Date.now() - botStartedAt,
+    guildCount: client.guilds.cache.size,
+    envVarsPresent: {
+      DISCORD_TOKEN: !!process.env.DISCORD_TOKEN,
+      CLIENT_ID: !!process.env.CLIENT_ID,
+      DATABASE_URL: !!process.env.DATABASE_URL,
+      ADMIN_PASSWORD: !!process.env.ADMIN_PASSWORD
+    }
+  });
+});
 
 // Auth endpoints
 app.post('/api/login', (req, res) => {
@@ -168,6 +190,7 @@ app.get('/api/bot-status', requireLogin, async (req, res) => {
 
     res.json({
       discordReady: discordConnected,
+      discordLoginError: discordLoginError,
       uptimeMs: Date.now() - botStartedAt,
       guildCount: client.guilds.cache.size,
       totalMembers: client.guilds.cache.reduce((sum, g) => sum + (g.memberCount || 0), 0),
@@ -489,9 +512,15 @@ client.on('error', (err) => {
 });
 
 // Track real WebSocket connectivity for accurate admin panel status
+// clientReady = initial login, shardReady = after reconnect
 client.on('clientReady', () => {
   lastDiscordReadyAt = Date.now();
-  console.log('Discord WebSocket: connected/reconnected.');
+  console.log('Discord WebSocket: connected.');
+});
+
+client.on('shardReady', (shardId) => {
+  lastDiscordReadyAt = Date.now();
+  console.log(`Discord WebSocket: shard ${shardId} ready.`);
 });
 
 client.on('shardDisconnect', (event, shardId) => {
@@ -508,10 +537,17 @@ async function startBot() {
   try {
     // 1. Initialize and run database migrations
     await initDatabase();
-    
-    // 2. Log in to Discord
+  } catch (error) {
+    // DB failure is fatal - nothing will work without the database
+    console.error('FATAL: Database init failed:', error);
+    process.exit(1);
+  }
+
+  // 2. Log in to Discord (non-fatal - Express/admin panel stays alive even if Discord fails)
+  try {
     console.log('Logging in to Discord...');
     await client.login(token);
+    discordLoginError = null; // clear any previous error
 
     // 3. Start periodic cleanup of old transactions & message_activity (every 6 hours)
     const { cleanupOldRecords } = require('./database/queries');
@@ -519,8 +555,27 @@ async function startBot() {
     setInterval(cleanupOldRecords, 6 * 60 * 60 * 1000);
     console.log('Scheduled database cleanup every 6 hours.');
   } catch (error) {
-    console.error('Failed to start the bot:', error);
-    process.exit(1);
+    // Log the Discord login error but keep Express running so admin panel stays up
+    discordLoginError = error.message;
+    console.error('ERROR: Discord login failed — admin panel is still accessible:', error.message);
+    // Retry Discord login every 30 seconds
+    const retryLogin = () => {
+      console.log('Retrying Discord login...');
+      client.login(token)
+        .then(() => {
+          discordLoginError = null;
+          console.log('Discord login retry succeeded!');
+          const { cleanupOldRecords } = require('./database/queries');
+          cleanupOldRecords();
+          setInterval(cleanupOldRecords, 6 * 60 * 60 * 1000);
+        })
+        .catch(err => {
+          discordLoginError = err.message;
+          console.error('Discord retry failed:', err.message);
+          setTimeout(retryLogin, 30000); // keep retrying
+        });
+    };
+    setTimeout(retryLogin, 30000);
   }
 }
 
