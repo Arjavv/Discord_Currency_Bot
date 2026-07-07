@@ -17,27 +17,27 @@ module.exports = {
       getFeatureForSlashCommand
     } = require('../utils/botControl');
 
-    const control = await getBotControlState(interaction.guildId);
-    const isAdminCommand = interaction.commandName === 'admin';
+    try {
+      const control = await getBotControlState(interaction.guildId);
+      const isAdminCommand = interaction.commandName === 'admin';
 
-    if (control.maintenanceMode && !isAdminCommand) {
-      return interaction.reply({
-        content: control.maintenanceMessage,
-        ephemeral: true
-      });
-    }
-
-    if (!isAdminCommand) {
-      const feature = getFeatureForSlashCommand(interaction.commandName);
-      if (feature && !control.features[feature]) {
+      if (control.maintenanceMode && !isAdminCommand) {
         return interaction.reply({
-          content: `❌ **${interaction.commandName}** is temporarily disabled globally by the bot owner.`,
+          content: control.maintenanceMessage,
           ephemeral: true
         });
       }
-    }
 
-    try {
+      if (!isAdminCommand) {
+        const feature = getFeatureForSlashCommand(interaction.commandName);
+        if (feature && !control.features[feature]) {
+          return interaction.reply({
+            content: `❌ **${interaction.commandName}** is temporarily disabled globally by the bot owner.`,
+            ephemeral: true
+          });
+        }
+      }
+
       await command.execute(interaction);
     } catch (error) {
       console.error(`Error executing command ${interaction.commandName}:`, error);

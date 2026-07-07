@@ -82,6 +82,8 @@ const app = express();
 const port = process.env.PORT || 8000;
 const adminPassword = process.env.ADMIN_PASSWORD || 'ChangeMe';
 const botStartedAt = Date.now();
+let lastDiscordReadyAt = null;
+let lastDiscordDisconnectAt = null;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -159,8 +161,13 @@ app.get('/api/bot-status', requireLogin, async (req, res) => {
       getDatabaseSize()
     ]);
 
+    // True only when the WS is ready AND hasn't disconnected since
+    const discordConnected = client.isReady() &&
+      lastDiscordReadyAt !== null &&
+      (lastDiscordDisconnectAt === null || lastDiscordReadyAt > lastDiscordDisconnectAt);
+
     res.json({
-      discordReady: client.isReady(),
+      discordReady: discordConnected,
       uptimeMs: Date.now() - botStartedAt,
       guildCount: client.guilds.cache.size,
       totalMembers: client.guilds.cache.reduce((sum, g) => sum + (g.memberCount || 0), 0),
@@ -479,6 +486,21 @@ process.on('unhandledRejection', (reason, promise) => {
 client.on('error', (err) => {
   console.error('Discord Client Error:', err);
   logCrash(err, 'ClientError');
+});
+
+// Track real WebSocket connectivity for accurate admin panel status
+client.on('ready', () => {
+  lastDiscordReadyAt = Date.now();
+  console.log('Discord WebSocket: connected/reconnected.');
+});
+
+client.on('shardDisconnect', (event, shardId) => {
+  lastDiscordDisconnectAt = Date.now();
+  console.warn(`Discord WebSocket: shard ${shardId} disconnected (code ${event.code}).`);
+});
+
+client.on('shardReconnecting', (shardId) => {
+  console.log(`Discord WebSocket: shard ${shardId} reconnecting...`);
 });
 
 // Main Boot Sequence
