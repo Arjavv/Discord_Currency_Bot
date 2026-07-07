@@ -326,9 +326,10 @@ module.exports = {
 
         // --- 2. USER COMMANDS ---
         if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell'].includes(commandName)) {
-          // Lock user commands to #soul-bot — EXCEPT 's help admin' which admins can run anywhere
+          // Lock user commands to #soul-bot — EXCEPT 's help admin' and inventory/gifting commands which can be run anywhere
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
-          if (!isAdminHelpRequest && !message.channel.name.toLowerCase().includes('soul-bot')) {
+          const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer'].includes(commandName);
+          if (!isAdminHelpRequest && !isInventoryCommand && !message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
           }
 
