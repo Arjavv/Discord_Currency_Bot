@@ -15,8 +15,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'common_soul.png',
     color: '#ec4899', // Pink
     embedTitle: '✦ A COMMON SOUL HAS DESCENDED ✦',
-    embedDescription: 'Blossom Soul has appeared! 👑 Tier: COMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 COMMON SOUL CLAIMED!',
+    embedDescription: 'Blossom Soul has appeared! Tier: COMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'COMMON SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Blossom Soul 💚\n\n✦ The common soul has chosen its master.`
   },
   {
@@ -29,8 +29,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'common_girl2.png',
     color: '#fda4af', // Rose pink
     embedTitle: '✦ A COMMON SOUL HAS DESCENDED ✦',
-    embedDescription: 'Sakura Soul has appeared! 👑 Tier: COMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 COMMON SOUL CLAIMED!',
+    embedDescription: 'Sakura Soul has appeared! Tier: COMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'COMMON SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Sakura Soul 🌸\n\n✦ The common soul has chosen its master.`
   },
 
@@ -45,8 +45,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'uncommon_soul.png',
     color: '#3b82f6', // Blue
     embedTitle: '✦ AN UNCOMMON SOUL HAS DESCENDED ✦',
-    embedDescription: 'Azure Soul has appeared! 👑 Tier: UNCOMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 UNCOMMON SOUL CLAIMED!',
+    embedDescription: 'Azure Soul has appeared! Tier: UNCOMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'UNCOMMON SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Azure Soul 💙\n\n✦ The uncommon soul has chosen its master.`
   },
   {
@@ -59,8 +59,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'uncommon_girl2.png',
     color: '#06b6d4', // Cyan
     embedTitle: '✦ AN UNCOMMON SOUL HAS DESCENDED ✦',
-    embedDescription: 'Ocean Soul has appeared! 👑 Tier: UNCOMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 UNCOMMON SOUL CLAIMED!',
+    embedDescription: 'Ocean Soul has appeared! Tier: UNCOMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'UNCOMMON SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Ocean Soul 🌊\n\n✦ The uncommon soul has chosen its master.`
   },
 
@@ -75,8 +75,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'rare_soul.png',
     color: '#f97316', // Orange
     embedTitle: '✦ A RARE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Ember Soul has appeared! 👑 Tier: RARE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 RARE SOUL CLAIMED!',
+    embedDescription: 'Ember Soul has appeared! Tier: RARE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'RARE SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Ember Soul ❤️\n\n✦ The rare soul has chosen its master.`
   },
   {
@@ -89,8 +89,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'rare_girl2.png',
     color: '#f43f5e', // Rose red
     embedTitle: '✦ A RARE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Spark Soul has appeared! 👑 Tier: RARE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 RARE SOUL CLAIMED!',
+    embedDescription: 'Spark Soul has appeared! Tier: RARE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'RARE SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Spark Soul 🔥\n\n✦ The rare soul has chosen its master.`
   },
 
@@ -105,8 +105,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'mythic_soul.png',
     color: '#fbbf24', // Gold
     embedTitle: '✦ A MYTHIC SOUL HAS DESCENDED ✦',
-    embedDescription: 'Goddess Soul has appeared! 👑 Tier: MYTHIC\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 MYTHIC SOUL CLAIMED!',
+    embedDescription: 'Goddess Soul has appeared! Tier: MYTHIC\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'MYTHIC SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Goddess Soul 💛\n\n✦ The mythic soul has chosen its master.`
   },
   {
@@ -119,8 +119,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'epic_girl2.png',
     color: '#db2777', // Deep pink
     embedTitle: '✦ AN EPIC SOUL HAS DESCENDED ✦',
-    embedDescription: 'Twilight Soul has appeared! 👑 Tier: EPIC\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 EPIC SOUL CLAIMED!',
+    embedDescription: 'Twilight Soul has appeared! Tier: EPIC\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'EPIC SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Twilight Soul 🦇\n\n✦ The epic soul has chosen its master.`
   },
 
@@ -135,8 +135,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'divine_soul_purple.png',
     color: '#a855f7', // Purple
     embedTitle: '✦ A DIVINE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Divine Soul has appeared! 👑 Tier: DIVINE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 DIVINE SOUL CLAIMED!',
+    embedDescription: 'Divine Soul has appeared! Tier: DIVINE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'DIVINE SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ The divine soul has chosen its master.`
   },
   {
@@ -149,8 +149,8 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'divine_girl2.png',
     color: '#6366f1', // Indigo
     embedTitle: '✦ A DIVINE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Celestia Soul has appeared! 👑 Tier: DIVINE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: '👑 DIVINE SOUL CLAIMED!',
+    embedDescription: 'Celestia Soul has appeared! Tier: DIVINE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'DIVINE SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Celestia Soul ✨\n\n✦ The divine soul has chosen its master.`
   }
 ];
