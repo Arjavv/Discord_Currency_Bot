@@ -1221,6 +1221,163 @@ async function getUserInventory(discordId, serverId) {
 }
 
 /**
+ * Adds a character/spawn to the user's inventory globally.
+ */
+async function addCharacterToInventory(discordId, characterId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Ensure user exists globally first
+    await ensureUserExists(client, discordId, 'GLOBAL');
+
+    // Add character to user_inventory table
+    const query = `
+      INSERT INTO user_inventory (discord_id, server_id, item_id, quantity)
+      VALUES ($1, 'GLOBAL', $2, 1)
+      ON CONFLICT (discord_id, server_id, item_id)
+      DO UPDATE SET quantity = user_inventory.quantity + 1
+      RETURNING quantity
+    `;
+    const res = await client.query(query, [discordId, characterId]);
+    await client.query('COMMIT');
+    return res.rows[0].quantity;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in addCharacterToInventory for user ${discordId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Sells a character from the user's inventory, awarding them coins.
+ */
+async function sellCharacter(discordId, characterId, value, quantityToSell = 1) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Get current quantity
+    const invRes = await client.query(`
+      SELECT quantity FROM user_inventory
+      WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+      FOR UPDATE
+    `, [discordId, characterId]);
+
+    if (invRes.rows.length === 0 || invRes.rows[0].quantity < quantityToSell) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'insufficient_quantity' };
+    }
+
+    const currentQty = invRes.rows[0].quantity;
+    const newQty = currentQty - quantityToSell;
+
+    if (newQty === 0) {
+      // Remove row
+      await client.query(`
+        DELETE FROM user_inventory
+        WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+      `, [discordId, characterId]);
+    } else {
+      // Update row
+      await client.query(`
+        UPDATE user_inventory
+        SET quantity = $3
+        WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+      `, [discordId, characterId, newQty]);
+    }
+
+    // Award coins globally
+    const totalCoins = value * quantityToSell;
+    const balRes = await client.query(`
+      UPDATE users
+      SET coin_balance = coin_balance + $1
+      WHERE discord_id = $2 AND server_id = 'GLOBAL'
+      RETURNING coin_balance
+    `, [totalCoins, discordId]);
+
+    const newBalance = balRes.rows[0].coin_balance;
+
+    // Log transaction
+    await client.query(`
+      INSERT INTO transactions (user_id, server_id, amount, source)
+      VALUES ($1, 'GLOBAL', $2, $3)
+    `, [discordId, totalCoins, `sell_${characterId}`]);
+
+    await client.query('COMMIT');
+    return { success: true, newBalance, newQty };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in sellCharacter for user ${discordId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Transfers a character from one user to another.
+ */
+async function giftCharacter(senderId, receiverId, characterId, quantityToGift = 1) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Ensure receiver exists
+    await ensureUserExists(client, receiverId, 'GLOBAL');
+
+    // Get current quantity of sender
+    const invRes = await client.query(`
+      SELECT quantity FROM user_inventory
+      WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+      FOR UPDATE
+    `, [senderId, characterId]);
+
+    if (invRes.rows.length === 0 || invRes.rows[0].quantity < quantityToGift) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'insufficient_quantity' };
+    }
+
+    const currentQty = invRes.rows[0].quantity;
+    const newQty = currentQty - quantityToGift;
+
+    if (newQty === 0) {
+      // Remove row
+      await client.query(`
+        DELETE FROM user_inventory
+        WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+      `, [senderId, characterId]);
+    } else {
+      // Update row
+      await client.query(`
+        UPDATE user_inventory
+        SET quantity = $3
+        WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+      `, [senderId, characterId, newQty]);
+    }
+
+    // Add to receiver's inventory
+    await client.query(`
+      INSERT INTO user_inventory (discord_id, server_id, item_id, quantity)
+      VALUES ($1, 'GLOBAL', $2, $3)
+      ON CONFLICT (discord_id, server_id, item_id)
+      DO UPDATE SET quantity = user_inventory.quantity + $3
+    `, [receiverId, characterId, quantityToGift]);
+
+    await client.query('COMMIT');
+    return { success: true, senderNewQty: newQty };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in giftCharacter from ${senderId} to ${receiverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Deducts currency and applies upgrades / elixirs / shields.
  */
 async function purchaseShopItem(discordId, serverId, itemId) {
@@ -1485,6 +1642,9 @@ module.exports = {
   getShopPrices,
   setShopPrice,
   getUserInventory,
+  addCharacterToInventory,
+  sellCharacter,
+  giftCharacter,
   purchaseShopItem,
   recordDuelLoss,
   getGlobalSettings,

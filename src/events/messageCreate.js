@@ -18,6 +18,9 @@ const {
   getShopPrices,
   setShopPrice,
   getUserInventory,
+  addCharacterToInventory,
+  sellCharacter,
+  giftCharacter,
   purchaseShopItem,
   recordDuelLoss,
   getGlobalSettings
@@ -31,6 +34,8 @@ const activeCrashGames = new Set();
 const activeMinesGames = new Map();
 const path = require('path');
 const { activeDrops, triggerDrop, scheduleNextDrop } = require('../utils/drops');
+const { CHARACTER_SPAWNS } = require('../utils/characters');
+const { renderInventoryImage } = require('../utils/inventoryRenderer');
 const {
   getBotControlState,
   isAdminPrefixCommand,
@@ -107,7 +112,7 @@ module.exports = {
           };
         }
 
-        const awardResult = await awardDropCoins(userId, serverId, drop.value);
+        const newQty = await addCharacterToInventory(userId, character.id);
 
         // Edit original drop message to show caught state and remove attachments (waifu image)
         const dropMsg = await message.channel.messages.fetch(drop.messageId).catch(() => null);
@@ -121,7 +126,7 @@ module.exports = {
         const congratulateText = 
           `👑 **${character.tier} SOUL CLAIMED!**\n` +
           `> ${claimText.replace(/\n/g, '\n> ')}\n\n` +
-          `💰 **Value:** \`+${drop.value}\` ${currencyIcon} ${currencyName}  |  🏦 **New Balance:** \`${awardResult.newBalance}\` ${currencyIcon} ${currencyName}`;
+          `🎒 **Saved to Inventory!** Type \`s inv\` to see your collection. (Quantity: \`${newQty}\` | Sell Value: \`${drop.value}\` ${currencyIcon} ${currencyName})`;
 
         await message.reply({ content: congratulateText, embeds: [] }).catch(() => { });
       } catch (err) {
@@ -320,7 +325,7 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell'].includes(commandName)) {
           // Lock user commands to #soul-bot — EXCEPT 's help admin' which admins can run anywhere
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
           if (!isAdminHelpRequest && !message.channel.name.toLowerCase().includes('soul-bot')) {
@@ -421,7 +426,9 @@ module.exports = {
                 { name: '🛒 `s shop`', value: 'Browse stat training boosters, 24-hour elixirs, and shields.' },
                 { name: '🛍️ `s buy <item>`', value: 'Purchase upgrades or items from the shop.' },
                 { name: '⚔️ `s fight @user <bet>`', value: 'Challenge a player to a mystery stat clash! Winner takes the pot.' },
-                { name: '🎁 `s gift @user <amount>`', value: 'Send Souls to another user from your wallet.' },
+                { name: '🎁 `s gift @user <amount/name/index> [qty]`', value: 'Send Souls from your wallet, or transfer a caught soul from your inventory.' },
+                { name: '🎒 `s inv`', value: 'Open your spawn inventory to view all the souls you have caught.' },
+                { name: '🪙 `s sell <index/name> [qty]`', value: 'Sell caught souls from your inventory to cash them in for Souls/coins.' },
                 { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
                 { name: '🚀 `s crash <amount>`', value: 'Watch the multiplier rise and cash out before it crashes! Higher risk, higher reward.' },
                 { name: '💣 `s mines <amount> [mines]`', value: 'Reveal tiles on a grid and avoid hidden mines! More mines = higher multiplier. Default: 3 mines.' },
@@ -471,19 +478,8 @@ module.exports = {
 
           if (['gift', 'give', 'send', 'transfer'].includes(commandName)) {
             const targetUser = message.mentions.users.first();
-            let amount = 0;
-
-            // Try to find amount in arguments
-            for (const arg of args) {
-              const parsed = parseInt(arg);
-              if (!isNaN(parsed) && parsed > 0) {
-                amount = parsed;
-                break;
-              }
-            }
-
-            if (!targetUser || amount <= 0) {
-              return sendTempMessage(message.channel, '❌ Invalid syntax. Use `s gift @user <amount>`.');
+            if (!targetUser) {
+              return message.reply(`❌ **Usage:**\n- Gifting coins: \`s gift @user <amount>\`\n- Gifting characters: \`s gift @user <index/name> [quantity]\``).catch(() => {});
             }
             if (targetUser.id === message.author.id) {
               return sendTempMessage(message.channel, '❌ You cannot gift yourself.');
@@ -492,20 +488,118 @@ module.exports = {
               return sendTempMessage(message.channel, '❌ You cannot gift bots.');
             }
 
-            const result = await transferCoins(message.author.id, targetUser.id, serverId, amount);
+            // Extract remaining arguments by filtering out mentions
+            const giftArgs = args.filter(arg => !arg.startsWith('<@') && !arg.endsWith('>'));
+            if (giftArgs.length === 0) {
+              return message.reply(`❌ **Usage:**\n- Gifting coins: \`s gift @user <amount>\`\n- Gifting characters: \`s gift @user <index/name> [quantity]\``).catch(() => {});
+            }
 
-            if (result.success) {
-              const embed = new EmbedBuilder()
-                .setColor('#00ffaa')
-                .setTitle('🎁 Gift Sent!')
-                .setDescription(`Successfully sent **${amount}** ${currencyIcon} ${currencyName} to ${targetUser}!`)
-                .addFields({ name: 'Your New Balance', value: `**${result.newSenderBalance}** ${currencyIcon} ${currencyName}` })
-                .setTimestamp();
-              return await message.reply({ embeds: [embed] }).catch(() => { });
-            } else if (result.reason === 'insufficient_funds') {
-              return sendTempMessage(message.channel, `❌ You don't have enough funds to gift that amount. Your current balance is **${result.currentBalance}** ${currencyIcon} ${currencyName}.`);
+            // Fetch sender's character inventory to check for index/name matching
+            const userInv = await getUserInventory(userId, serverId);
+            const characterItems = [];
+            for (const [itemId, qty] of Object.entries(userInv)) {
+              const charDef = CHARACTER_SPAWNS.find(c => c.id === itemId);
+              if (charDef) {
+                characterItems.push({
+                  id: charDef.id,
+                  name: charDef.name,
+                  tier: charDef.tier,
+                  value: charDef.value,
+                  quantity: qty
+                });
+              }
+            }
+
+            // Sort identically to s inv
+            const tierOrder = { 'DIVINE': 0, 'MYTHIC': 1, 'EPIC': 2, 'RARE': 3, 'UNCOMMON': 4, 'COMMON': 5 };
+            characterItems.sort((a, b) => {
+              const orderA = tierOrder[a.tier] !== undefined ? tierOrder[a.tier] : 99;
+              const orderB = tierOrder[b.tier] !== undefined ? tierOrder[b.tier] : 99;
+              if (orderA !== orderB) return orderA - orderB;
+              return a.name.localeCompare(b.name);
+            });
+
+            let isCharacterGift = false;
+            let targetItem = null;
+            let giftQty = 1;
+            let coinAmount = 0;
+
+            const firstArgNum = parseInt(giftArgs[0]);
+            if (!isNaN(firstArgNum)) {
+              // It's a number. Check if it's a valid index in the character inventory.
+              if (firstArgNum >= 1 && firstArgNum <= characterItems.length) {
+                isCharacterGift = true;
+                targetItem = characterItems[firstArgNum - 1];
+                if (giftArgs[1]) {
+                  const qtyVal = parseInt(giftArgs[1]);
+                  if (!isNaN(qtyVal) && qtyVal > 0) {
+                    giftQty = qtyVal;
+                  }
+                }
+              } else {
+                // It's not a valid index, so it must be a coin gift amount
+                coinAmount = firstArgNum;
+              }
             } else {
-              return sendTempMessage(message.channel, '❌ An error occurred while transferring funds.');
+              // It's a string name, so it's a character gift
+              isCharacterGift = true;
+              let nameArgs = [...giftArgs];
+              const lastArg = nameArgs[nameArgs.length - 1];
+              const qtyVal = parseInt(lastArg);
+              if (!isNaN(qtyVal) && qtyVal > 0 && nameArgs.length > 1) {
+                giftQty = qtyVal;
+                nameArgs.pop();
+              }
+
+              const searchName = nameArgs.join(' ').toLowerCase();
+              targetItem = characterItems.find(c => c.name.toLowerCase() === searchName) ||
+                           characterItems.find(c => c.name.toLowerCase().includes(searchName)) ||
+                           characterItems.find(c => c.id.toLowerCase() === searchName);
+            }
+
+            if (isCharacterGift) {
+              if (!targetItem) {
+                return message.reply('❌ Character not found in your inventory. Type `s inv` to view what you have caught.').catch(() => {});
+              }
+              if (giftQty > targetItem.quantity) {
+                return message.reply(`❌ You only have **${targetItem.quantity}** of **${targetItem.name}** in your inventory.`).catch(() => {});
+              }
+
+              // Execute character gift
+              const giftResult = await giftCharacter(userId, targetUser.id, targetItem.id, giftQty);
+              if (giftResult.success) {
+                const embed = new EmbedBuilder()
+                  .setColor('#00ffaa')
+                  .setTitle('🎁 Character Gifted Successfully!')
+                  .setDescription(`Successfully gifted **${giftQty}x ${targetItem.name}** to ${targetUser}!`)
+                  .addFields(
+                    { name: 'Your Remaining Quantity', value: `🎒 **${giftResult.senderNewQty}**`, inline: true }
+                  )
+                  .setTimestamp();
+                return await message.reply({ embeds: [embed] }).catch(() => {});
+              } else {
+                return message.reply('❌ Failed to gift the character.').catch(() => {});
+              }
+            } else {
+              // Perform coin gift
+              if (coinAmount <= 0) {
+                return sendTempMessage(message.channel, '❌ Invalid coin amount.');
+              }
+
+              const result = await transferCoins(message.author.id, targetUser.id, serverId, coinAmount);
+              if (result.success) {
+                const embed = new EmbedBuilder()
+                  .setColor('#00ffaa')
+                  .setTitle('🎁 Gift Sent!')
+                  .setDescription(`Successfully sent **${coinAmount}** ${currencyIcon} ${currencyName} to ${targetUser}!`)
+                  .addFields({ name: 'Your New Balance', value: `**${result.newSenderBalance}** ${currencyIcon} ${currencyName}` })
+                  .setTimestamp();
+                return await message.reply({ embeds: [embed] }).catch(() => {});
+              } else if (result.reason === 'insufficient_funds') {
+                return sendTempMessage(message.channel, `❌ You don't have enough funds to gift that amount. Your current balance is **${result.currentBalance}** ${currencyIcon} ${currencyName}.`);
+              } else {
+                return sendTempMessage(message.channel, '❌ An error occurred while transferring funds.');
+              }
             }
           }
 
@@ -1578,6 +1672,146 @@ module.exports = {
             });
 
             return;
+          }
+
+          if (['inv', 'inventory'].includes(commandName)) {
+            // 1. Fetch user inventory
+            const userInv = await getUserInventory(userId, serverId);
+            
+            // 2. Map and filter characters
+            const characterItems = [];
+            let totalCaught = 0;
+            
+            for (const [itemId, qty] of Object.entries(userInv)) {
+              const charDef = CHARACTER_SPAWNS.find(c => c.id === itemId);
+              if (charDef) {
+                characterItems.push({
+                  id: charDef.id,
+                  name: charDef.name,
+                  tier: charDef.tier,
+                  value: charDef.value,
+                  quantity: qty,
+                  color: charDef.color,
+                  imagePath: charDef.imagePath
+                });
+                totalCaught += qty;
+              }
+            }
+            
+            // Sort characterItems: Divine -> Mythic -> Epic -> Rare -> Uncommon -> Common, then by name
+            const tierOrder = { 'DIVINE': 0, 'MYTHIC': 1, 'EPIC': 2, 'RARE': 3, 'UNCOMMON': 4, 'COMMON': 5 };
+            characterItems.sort((a, b) => {
+              const orderA = tierOrder[a.tier] !== undefined ? tierOrder[a.tier] : 99;
+              const orderB = tierOrder[b.tier] !== undefined ? tierOrder[b.tier] : 99;
+              if (orderA !== orderB) return orderA - orderB;
+              return a.name.localeCompare(b.name);
+            });
+            
+            // 3. Render the image
+            const avatarUrl = message.author.displayAvatarURL({ extension: 'png', size: 128 });
+            await message.channel.sendTyping();
+            
+            try {
+              const imageBuffer = await renderInventoryImage(message.author.username, avatarUrl, characterItems, totalCaught);
+              
+              // 4. Send the image
+              const attachment = new AttachmentBuilder(imageBuffer, { name: 'inventory.png' });
+              return await message.reply({
+                content: `🎒 **${message.author.username}'s Spawn Inventory**`,
+                files: [attachment]
+              }).catch(() => {});
+            } catch (renderErr) {
+              console.error('Failed to render inventory image:', renderErr);
+              return message.reply('❌ Failed to render inventory image. Please try again.').catch(() => {});
+            }
+          }
+
+          if (['sell'].includes(commandName)) {
+            if (args.length === 0) {
+              return message.reply('❌ **Usage:** \`s sell <index/name> [quantity]\`\nExample: \`s sell 1\` or \`s sell Blossom Soul 2\`').catch(() => {});
+            }
+            
+            // Get sender inventory to resolve indices/names
+            const userInv = await getUserInventory(userId, serverId);
+            const characterItems = [];
+            for (const [itemId, qty] of Object.entries(userInv)) {
+              const charDef = CHARACTER_SPAWNS.find(c => c.id === itemId);
+              if (charDef) {
+                characterItems.push({
+                  id: charDef.id,
+                  name: charDef.name,
+                  tier: charDef.tier,
+                  value: charDef.value,
+                  quantity: qty
+                });
+              }
+            }
+            
+            // Sort identically to s inv
+            const tierOrder = { 'DIVINE': 0, 'MYTHIC': 1, 'EPIC': 2, 'RARE': 3, 'UNCOMMON': 4, 'COMMON': 5 };
+            characterItems.sort((a, b) => {
+              const orderA = tierOrder[a.tier] !== undefined ? tierOrder[a.tier] : 99;
+              const orderB = tierOrder[b.tier] !== undefined ? tierOrder[b.tier] : 99;
+              if (orderA !== orderB) return orderA - orderB;
+              return a.name.localeCompare(b.name);
+            });
+            
+            // Resolve target item and quantity
+            let targetItem = null;
+            let sellQty = 1;
+            
+            // Try checking if first arg is an index
+            const indexVal = parseInt(args[0]);
+            if (!isNaN(indexVal) && indexVal >= 1 && indexVal <= characterItems.length) {
+              targetItem = characterItems[indexVal - 1];
+              if (args[1]) {
+                const qtyVal = parseInt(args[1]);
+                if (!isNaN(qtyVal) && qtyVal > 0) {
+                  sellQty = qtyVal;
+                }
+              }
+            } else {
+              // It is a name. Check if the last arg is a number representing quantity
+              let nameArgs = [...args];
+              const lastArg = nameArgs[nameArgs.length - 1];
+              const qtyVal = parseInt(lastArg);
+              if (!isNaN(qtyVal) && qtyVal > 0 && nameArgs.length > 1) {
+                sellQty = qtyVal;
+                nameArgs.pop(); // remove quantity from name
+              }
+              
+              const searchName = nameArgs.join(' ').toLowerCase();
+              // Try to find exact or prefix match
+              targetItem = characterItems.find(c => c.name.toLowerCase() === searchName) ||
+                           characterItems.find(c => c.name.toLowerCase().includes(searchName)) ||
+                           characterItems.find(c => c.id.toLowerCase() === searchName);
+            }
+            
+            if (!targetItem) {
+              return message.reply('❌ Character not found in your inventory. Type \`s inv\` to view what you have caught.').catch(() => {});
+            }
+            
+            if (sellQty > targetItem.quantity) {
+              return message.reply(`❌ You only have **${targetItem.quantity}** of **${targetItem.name}** in your inventory.`).catch(() => {});
+            }
+            
+            // Execute sell
+            const sellResult = await sellCharacter(userId, targetItem.id, targetItem.value, sellQty);
+            if (sellResult.success) {
+              const totalEarned = targetItem.value * sellQty;
+              const embed = new EmbedBuilder()
+                .setColor('#00ffaa')
+                .setTitle('💰 Spawn Sold Successfully!')
+                .setDescription(`You sold **${sellQty}x ${targetItem.name}** for **${totalEarned}** ${currencyIcon} ${currencyName}!`)
+                .addFields(
+                  { name: 'Remaining Quantity', value: `🎒 **${sellResult.newQty}**`, inline: true },
+                  { name: 'New Wallet Balance', value: `🏦 **${sellResult.newBalance}** ${currencyIcon} ${currencyName}`, inline: true }
+                )
+                .setTimestamp();
+              return await message.reply({ embeds: [embed] }).catch(() => {});
+            } else {
+              return message.reply('❌ Failed to sell the character.').catch(() => {});
+            }
           }
         }
       } catch (err) {
