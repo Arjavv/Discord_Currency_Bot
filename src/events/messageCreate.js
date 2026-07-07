@@ -112,26 +112,18 @@ module.exports = {
         // Edit original drop message to show caught state and remove attachments (waifu image)
         const dropMsg = await message.channel.messages.fetch(drop.messageId).catch(() => null);
         if (dropMsg) {
-          const caughtEmbed = new EmbedBuilder()
-            .setColor('#00ffaa')
-            .setTitle('🎉 Character Claimed! 🎉')
-            .setDescription(`**${message.author.username}** successfully claimed **${character.name}**!`)
-            .setTimestamp();
-
-          await dropMsg.edit({ content: '', embeds: [caughtEmbed], attachments: [] }).catch(() => { });
+          const caughtContent = `🎉 **CLAIMED** ── **${message.author.username}** captured **${character.name}**!`;
+          await dropMsg.edit({ content: caughtContent, embeds: [], attachments: [] }).catch(() => { });
         }
 
         // Send congratulatory reply
-        const congratulateEmbed = new EmbedBuilder()
-          .setColor(character.color)
-          .setTitle(character.claimTitle)
-          .setDescription(
-            `${character.claimDescription(message.author)}\n\n` +
-            `💰 **Value:** \`+${drop.value}\` ${currencyIcon} ${currencyName}  |  🏦 **New Balance:** \`${awardResult.newBalance}\` ${currencyIcon} ${currencyName}`
-          )
-          .setTimestamp();
+        const claimText = character.claimDescription(message.author);
+        const congratulateText = 
+          `👑 **${character.tier} SOUL CLAIMED!**\n` +
+          `> ${claimText.replace(/\n/g, '\n> ')}\n\n` +
+          `💰 **Value:** \`+${drop.value}\` ${currencyIcon} ${currencyName}  |  🏦 **New Balance:** \`${awardResult.newBalance}\` ${currencyIcon} ${currencyName}`;
 
-        await message.reply({ embeds: [congratulateEmbed] }).catch(() => { });
+        await message.reply({ content: congratulateText, embeds: [] }).catch(() => { });
       } catch (err) {
         console.error(`Error claiming drop for user ${userId}:`, err);
       }
