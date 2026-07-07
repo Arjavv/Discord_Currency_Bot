@@ -103,11 +103,13 @@ function scheduleNextDrop(client, guildId, channelId) {
     try {
       const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
       if (!guild) return;
-      const channel = guild.channels.cache.get(channelId) || await guild.channels.fetch(channelId).catch(() => null);
-      if (!channel || !channel.isTextBased()) return;
       
       const settings = await getServerSettings(guildId);
       if (!settings.auto_drops_enabled) return;
+
+      const targetChannelId = settings.drop_channel_id || channelId;
+      const channel = guild.channels.cache.get(targetChannelId) || await guild.channels.fetch(targetChannelId).catch(() => null);
+      if (!channel || !channel.isTextBased()) return;
 
       const control = await getBotControlState();
       if (control.maintenanceMode || !control.features.drops) return;
