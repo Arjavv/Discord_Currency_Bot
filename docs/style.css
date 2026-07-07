@@ -1700,7 +1700,7 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     flex-direction: column;
     padding: 24px;
-    gap: 20px;
+    gap: 12px;
     max-height: 0;
     opacity: 0;
     overflow: hidden;
@@ -1712,8 +1712,22 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
     opacity: 1;
     pointer-events: auto;
   }
+  .nav-menu .nav-link {
+    width: 100%;
+    text-align: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  }
+  .nav-menu .nav-link:last-of-type {
+    border-bottom: none;
+  }
+  .nav-menu .nav-btn {
+    width: 100%;
+    justify-content: center;
+    margin-top: 10px;
+  }
   .navbar {
-    padding: 10px 0;
+    padding: 12px 0;
   }
   .commands-filter-bar {
     flex-direction: column;
@@ -1721,14 +1735,33 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
   }
   .tab-filters {
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .filter-tab {
+    flex: 1 1 calc(50% - 4px);
+    text-align: center;
+    padding: 10px;
   }
   .command-trigger {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
+    padding: 18px 20px;
+  }
+  .command-name-wrapper {
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .command-short-desc {
     margin-left: 0;
+    font-size: 13px;
+  }
+  .command-details {
+    padding: 0 20px;
+  }
+  .command-item.active .command-details {
+    padding: 18px 20px;
   }
   .footer-top, .footer-bottom {
     flex-direction: column;
@@ -1741,36 +1774,41 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
     gap: 14px 20px;
   }
   .hero {
-    padding: 130px 0 80px;
+    padding: 140px 0 80px;
     min-height: auto;
   }
   .hero-title {
-    font-size: 36px;
+    font-size: 38px;
+    line-height: 1.2;
   }
   .hero-actions,
   .checkout-card {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
   .hero-actions .btn,
   .checkout-card .btn {
     justify-content: center;
+    width: 100%;
   }
   .market-grid,
   .shop-pack-grid,
   .redeem-grid {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
   .shop-hero {
-    padding: 130px 0 70px;
+    padding: 140px 0 70px;
   }
   .shop-terminal {
-    min-height: 330px;
+    min-height: auto;
+    padding: 20px;
   }
   .exchange-board,
   .checkout-card,
   .calc-wrapper {
-    padding: 26px;
+    padding: 24px 20px;
   }
   .exchange-table div,
   .terminal-line {
@@ -1784,16 +1822,38 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
   .results-grid {
     grid-template-columns: 1fr;
   }
-  .tab-filters {
-    flex-wrap: wrap;
-  }
-  .filter-tab {
-    flex: 1 1 calc(50% - 8px);
-  }
-  .command-name-wrapper {
-    flex-wrap: wrap;
-  }
   .section-title {
-    font-size: 32px;
+    font-size: 30px;
+  }
+  .logo-coin-container {
+    width: 240px;
+    height: 240px;
+  }
+  .leaderboard-wrap {
+    padding: 16px;
+  }
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+  .lb-server-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+  .lb-server-name {
+    font-size: 13px;
+  }
+  .lb-souls {
+    font-size: 14px;
+  }
+  .step-card {
+    padding: 28px 20px;
+  }
+  .docs-footer {
+    padding: 24px 20px;
   }
 }
+
+
