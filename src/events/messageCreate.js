@@ -1634,7 +1634,7 @@ module.exports = {
             .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
             .setTimestamp();
 
-          await logChannel.send({ embeds: [milestoneEmbed] }).catch(err => {
+          await logChannel.send({ content: `${message.author}`, embeds: [milestoneEmbed] }).catch(err => {
             console.error(`Failed to send milestone message to #soul-bot:`, err);
           });
         }
