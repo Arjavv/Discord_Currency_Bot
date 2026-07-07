@@ -251,6 +251,7 @@
       <div class="nav-item" data-panel="servers"><i class="fa-solid fa-server"></i> Server Analytics</div>
       <div class="nav-item" data-panel="analytics"><i class="fa-solid fa-chart-area"></i> Global Analytics</div>
       <div class="nav-item" data-panel="inspector"><i class="fa-solid fa-magnifying-glass-dollar"></i> User Inspector</div>
+      <div class="nav-item" data-panel="collectibles"><i class="fa-solid fa-gem"></i> Collectibles</div>
     </nav>
     <div class="sidebar-footer">
       <button class="btn-logout" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
@@ -436,6 +437,36 @@
       </div>
       <div id="user-not-found" style="display:none"><div class="empty-state"><i class="fa-solid fa-user-slash"></i>User not found in the database</div></div>
     </div>
+
+    <!-- PANEL 5: COLLECTIBLES -->
+    <div class="panel" id="panel-collectibles">
+      <div class="panel-header">
+        <h2><i class="fa-solid fa-gem" style="color:var(--violet);font-size:1.1rem;margin-right:8px"></i>Collectibles Management</h2>
+        <p>Enable/disable characters as active collectibles and set their daily sell prices</p>
+      </div>
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-gem"></i> Active Collectibles</div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">These characters are active for today's collection and can be sold by users via <code>s sell</code>.</p>
+        <div style="overflow-x:auto;">
+          <table class="data-table" id="collectibles-table">
+            <thead>
+              <tr>
+                <th>Soul Image</th>
+                <th>Soul Name</th>
+                <th>Tier</th>
+                <th>Default Value</th>
+                <th>Collectible Status</th>
+                <th>Daily Price</th>
+              </tr>
+            </thead>
+            <tbody id="collectibles-list">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+        <button class="save-btn" id="save-collectibles-btn" style="margin-top:16px"><i class="fa-solid fa-floppy-disk"></i> Save Collectible Changes</button>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -535,6 +566,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.add('active');
     $('panel-' + el.dataset.panel).classList.add('active');
     if (el.dataset.panel === 'analytics') loadAnalytics();
+    if (el.dataset.panel === 'collectibles') loadCollectibles();
   });
 });
 
@@ -1019,6 +1051,60 @@ async function inspectUser(id) {
     }
   }
 }
+
+async function loadCollectibles() {
+  try {
+    const chars = await api('/api/characters');
+    const settings = await api('/api/settings');
+    
+    const tbody = $('collectibles-list');
+    tbody.innerHTML = '';
+    
+    chars.forEach(char => {
+      const isActive = settings[`collectible_active_${char.id}`] === 'true';
+      const price = settings[`collectible_price_${char.id}`] !== undefined 
+        ? settings[`collectible_price_${char.id}`] 
+        : char.value;
+      
+      const imgName = char.imagePath.split('/').pop();
+      const imgUrl = `/assets/spawns/${imgName}`;
+      
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><img src="${imgUrl}" style="width: 42px; height: 42px; border-radius: 6px; border: 1px solid var(--card-border);"></td>
+        <td style="font-weight: 600;">${char.name}</td>
+        <td><span class="source-chip" style="background: rgba(255,255,255,0.02); color: ${char.color || '#fff'}; border-color: ${char.color || '#fff'}">${char.tier}</span></td>
+        <td class="mono">${fmt(char.value)} Souls</td>
+        <td>
+          <label class="switch">
+            <input type="checkbox" class="collectible-toggle" data-char-id="${char.id}" ${isActive ? 'checked' : ''}>
+            <span class="slider"></span>
+          </label>
+        </td>
+        <td>
+          <div class="input-group" style="margin: 0; max-width: 120px;">
+            <input type="number" class="collectible-price" data-char-id="${char.id}" value="${price}">
+          </div>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  } catch (e) {
+    console.error(e);
+    $('collectibles-list').innerHTML = `<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i>Failed to load: ${e.message}</td></tr>`;
+  }
+}
+
+$('save-collectibles-btn').onclick = () => saveBtn($('save-collectibles-btn'), () => {
+  const updates = {};
+  document.querySelectorAll('.collectible-toggle').forEach(inp => {
+    updates[`collectible_active_${inp.dataset.charId}`] = String(inp.checked);
+  });
+  document.querySelectorAll('.collectible-price').forEach(inp => {
+    updates[`collectible_price_${inp.dataset.charId}`] = inp.value;
+  });
+  return api('/api/settings', 'POST', updates);
+});
 
 checkAuth();
 setInterval(() => {

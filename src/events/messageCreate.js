@@ -107,7 +107,7 @@ module.exports = {
             tier: 'DIVINE',
             value: drop.value || 700,
             color: '#a855f7',
-            claimTitle: '👑 DIVINE SOUL CLAIMED!',
+            claimTitle: 'DIVINE SOUL CLAIMED!',
             claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ The divine soul has chosen its master.`
           };
         }
@@ -124,7 +124,7 @@ module.exports = {
         // Send congratulatory reply
         const claimText = character.claimDescription(message.author);
         const congratulateText = 
-          `👑 **${character.tier} SOUL CLAIMED!**\n` +
+          `**${character.tier} SOUL CLAIMED!**\n` +
           `> ${claimText.replace(/\n/g, '\n> ')}\n\n` +
           `🎒 **Saved to Inventory!** Type \`s inv\` to see your collection. (Quantity: \`${newQty}\` | Sell Value: \`${drop.value}\` ${currencyIcon} ${currencyName})`;
 
@@ -325,10 +325,10 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare'].includes(commandName)) {
           // Lock user commands to #soul-bot — EXCEPT 's help admin' and inventory/gifting commands which can be run anywhere
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
-          const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer'].includes(commandName);
+          const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer', 'rare'].includes(commandName);
           if (!isAdminHelpRequest && !isInventoryCommand && !message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
           }
@@ -429,7 +429,8 @@ module.exports = {
                 { name: '⚔️ `s fight @user <bet>`', value: 'Challenge a player to a mystery stat clash! Winner takes the pot.' },
                 { name: '🎁 `s gift @user <amount/name/index> [qty]`', value: 'Send Souls from your wallet, or transfer a caught soul from your inventory.' },
                 { name: '🎒 `s inv`', value: 'Open your spawn inventory to view all the souls you have caught.' },
-                { name: '🪙 `s sell <index/name> [qty]`', value: 'Sell caught souls from your inventory to cash them in for Souls/coins.' },
+                { name: '💎 `s rare`', value: 'Check today\'s active collectibles and their daily prices.' },
+                { name: '🪙 `s sell <index/name> [qty]`', value: 'Sell caught souls from your inventory if they are collectible today.' },
                 { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
                 { name: '🚀 `s crash <amount>`', value: 'Watch the multiplier rise and cash out before it crashes! Higher risk, higher reward.' },
                 { name: '💣 `s mines <amount> [mines]`', value: 'Reveal tiles on a grid and avoid hidden mines! More mines = higher multiplier. Default: 3 mines.' },
@@ -1791,15 +1792,26 @@ module.exports = {
             if (!targetItem) {
               return message.reply('❌ Character not found in your inventory. Type \`s inv\` to view what you have caught.').catch(() => {});
             }
+
+            // Check if the character is collectible today (from global_settings)
+            const settings = await getGlobalSettings();
+            const isActive = settings[`collectible_active_${targetItem.id}`] === 'true';
+            if (!isActive) {
+              return message.reply(`❌ **${targetItem.name}** is not collectible today! Use \`s rare\` to check today's active collectibles and daily prices.`).catch(() => {});
+            }
+
+            const dailyPrice = settings[`collectible_price_${targetItem.id}`] !== undefined 
+              ? parseInt(settings[`collectible_price_${targetItem.id}`], 10) 
+              : targetItem.value;
             
             if (sellQty > targetItem.quantity) {
               return message.reply(`❌ You only have **${targetItem.quantity}** of **${targetItem.name}** in your inventory.`).catch(() => {});
             }
             
             // Execute sell
-            const sellResult = await sellCharacter(userId, targetItem.id, targetItem.value, sellQty);
+            const sellResult = await sellCharacter(userId, targetItem.id, dailyPrice, sellQty);
             if (sellResult.success) {
-              const totalEarned = targetItem.value * sellQty;
+              const totalEarned = dailyPrice * sellQty;
               const embed = new EmbedBuilder()
                 .setColor('#00ffaa')
                 .setTitle('💰 Spawn Sold Successfully!')
@@ -1813,6 +1825,50 @@ module.exports = {
             } else {
               return message.reply('❌ Failed to sell the character.').catch(() => {});
             }
+          }
+
+          if (['rare', 'collectibles'].includes(commandName)) {
+            const settings = await getGlobalSettings();
+            const activeCollectibles = [];
+            
+            CHARACTER_SPAWNS.forEach(char => {
+              const isActive = settings[`collectible_active_${char.id}`] === 'true';
+              if (isActive) {
+                const price = settings[`collectible_price_${char.id}`] !== undefined 
+                  ? parseInt(settings[`collectible_price_${char.id}`], 10) 
+                  : char.value;
+                activeCollectibles.push({
+                  name: char.name,
+                  tier: char.tier,
+                  value: price
+                });
+              }
+            });
+            
+            const embed = new EmbedBuilder()
+              .setColor('#ffd700')
+              .setTitle('💎 Today\'s Active Collectibles')
+              .setTimestamp();
+              
+            if (activeCollectibles.length === 0) {
+              embed.setDescription('There are no active collectibles today. Check back tomorrow!');
+            } else {
+              // Sort the active collectibles by rarity tier
+              const tierOrder = { 'DIVINE': 0, 'MYTHIC': 1, 'EPIC': 2, 'RARE': 3, 'UNCOMMON': 4, 'COMMON': 5 };
+              activeCollectibles.sort((a, b) => {
+                const orderA = tierOrder[a.tier] !== undefined ? tierOrder[a.tier] : 99;
+                const orderB = tierOrder[b.tier] !== undefined ? tierOrder[b.tier] : 99;
+                if (orderA !== orderB) return orderA - orderB;
+                return a.name.localeCompare(b.name);
+              });
+
+              const listStr = activeCollectibles.map((c) => {
+                return `• **${c.name}** (Tier: *${c.tier}*) — **${c.value}** ${currencyIcon} ${currencyName}`;
+              }).join('\n');
+              embed.setDescription('Collect these souls from random drops and sell them today using `s sell <inventory_index/name>`!\n\n' + listStr);
+            }
+            
+            return await message.reply({ embeds: [embed] }).catch(() => {});
           }
         }
       } catch (err) {

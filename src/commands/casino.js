@@ -40,10 +40,6 @@ module.exports = {
     const serverId = interaction.guildId;
 
     try {
-      const settings = await getServerSettings(serverId);
-      const currencyName = settings.currency_name;
-      const currencyIcon = settings.currency_icon_url;
-
       if (subcommand === 'flip') {
         const choice = interaction.options.getString('choice');
         const bet = interaction.options.getInteger('bet');
@@ -56,6 +52,10 @@ module.exports = {
         }
 
         await interaction.deferReply();
+
+        const settings = await getServerSettings(serverId);
+        const currencyName = settings.currency_name;
+        const currencyIcon = settings.currency_icon_url;
 
         // 2. Perform coin flip logic (Rigged to a 30% win chance)
         const isWin = Math.random() < 0.30;

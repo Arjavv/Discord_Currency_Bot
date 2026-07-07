@@ -18,6 +18,8 @@ module.exports = {
       });
     }
 
+    await interaction.deferReply({ ephemeral: true });
+
     try {
       const stats = await getUserStats(userId, serverId);
       
@@ -52,14 +54,19 @@ module.exports = {
       }
 
       // Ephemeral reply - transparent background, visible only to user
-      return await interaction.reply({ embeds: [embed], ephemeral: true });
+      return await interaction.editReply({ embeds: [embed] });
 
     } catch (error) {
       console.error(`Error fetching slash stats for user ${userId}:`, error);
+      if (interaction.deferred || interaction.replied) {
+        return await interaction.editReply({
+          content: '❌ An error occurred while fetching your stats.'
+        }).catch(() => null);
+      }
       return await interaction.reply({
         content: '❌ An error occurred while fetching your stats.',
         ephemeral: true
-      });
+      }).catch(() => null);
     }
   }
 };

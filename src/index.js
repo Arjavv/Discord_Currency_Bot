@@ -86,6 +86,9 @@ app.use(express.static(path.join(__dirname, '..', 'docs'), {
   }
 }));
 
+// Serve spawn character images statically from assets folder
+app.use('/assets/spawns', express.static(path.join(__dirname, 'assets')));
+
 // Middleware to protect admin routes
 function requireLogin(req, res, next) {
   if (req.session && req.session.isAdmin) {
@@ -149,6 +152,23 @@ app.get('/api/settings', requireLogin, async (req, res) => {
     res.json(settings);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+// GET characters list (Protected)
+app.get('/api/characters', requireLogin, (req, res) => {
+  try {
+    const { CHARACTER_SPAWNS } = require('./utils/characters');
+    res.json(CHARACTER_SPAWNS.map(c => ({
+      id: c.id,
+      name: c.name,
+      tier: c.tier,
+      value: c.value,
+      color: c.color,
+      imagePath: c.imagePath
+    })));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch characters' });
   }
 });
 
