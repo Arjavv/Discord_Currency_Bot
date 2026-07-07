@@ -56,7 +56,7 @@ if (fs.existsSync(eventsPath)) {
 // Serve the docs/ website, admin dashboard, and endpoints
 const express = require('express');
 const session = require('express-session');
-const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, getShopPrices, setShopPrice, resetCycle } = require('./database/queries');
+const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, getShopPrices, setShopPrice, resetCycle, getDatabaseSize } = require('./database/queries');
 const { getBotControlState } = require('./utils/botControl');
 
 const app = express();
@@ -109,9 +109,10 @@ app.get('/api/check-auth', (req, res) => {
 // Bot status & economy overview (Protected)
 app.get('/api/bot-status', requireLogin, async (req, res) => {
   try {
-    const [economy, control] = await Promise.all([
+    const [economy, control, dbSize] = await Promise.all([
       getGlobalEconomyStats(),
-      getBotControlState()
+      getBotControlState(),
+      getDatabaseSize()
     ]);
 
     res.json({
@@ -123,7 +124,9 @@ app.get('/api/bot-status', requireLogin, async (req, res) => {
       maintenanceMode: control.maintenanceMode,
       maintenanceMessage: control.maintenanceMessage,
       features: control.features,
-      dropsPausedUntil: control.dropsPausedUntil
+      dropsPausedUntil: control.dropsPausedUntil,
+      dbSizeUsedBytes: dbSize,
+      dbSizeLimitBytes: 500 * 1024 * 1024 // Supabase free tier is 500 MB
     });
   } catch (err) {
     console.error('Error fetching bot status:', err);

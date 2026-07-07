@@ -155,7 +155,7 @@
 
     /* CHARTS */
     .chart-wrap { position: relative; height: 200px; }
-    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
     @media (max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } }
 
     /* USER INSPECTOR */
@@ -394,6 +394,10 @@
         <div class="section" style="padding:18px">
           <div class="section-title"><i class="fa-solid fa-chart-pie" style="color:var(--amber)"></i> Souls by Source (7d)</div>
           <div class="chart-wrap"><canvas id="chart-sources"></canvas></div>
+        </div>
+        <div class="section" style="padding:18px">
+          <div class="section-title"><i class="fa-solid fa-database" style="color:var(--violet)"></i> Database Storage (Supabase 500MB)</div>
+          <div class="chart-wrap"><canvas id="chart-storage"></canvas></div>
         </div>
       </div>
       <div class="section">
@@ -880,7 +884,7 @@ async function loadServerDetail(serverId) {
 }
 
 let analyticsLoaded = false;
-let chartSouls, chartSources;
+let chartSouls, chartSources, chartStorage;
 
 async function loadAnalytics() {
   if (analyticsLoaded) return;
@@ -916,6 +920,39 @@ async function loadAnalytics() {
         datasets: [{ data: sources.map(s => s.total), backgroundColor: colors.slice(0,sources.length), borderWidth: 0 }]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:11},boxWidth:12,padding:14}} } }
+    });
+
+    const usedBytes = d.dbSizeUsedBytes || 0;
+    const limitBytes = d.dbSizeLimitBytes || (500 * 1024 * 1024);
+    const usedMB = (usedBytes / (1024 * 1024)).toFixed(2);
+    const remainingMB = Math.max(0, ((limitBytes - usedBytes) / (1024 * 1024))).toFixed(2);
+
+    if (chartStorage) chartStorage.destroy();
+    chartStorage = new Chart($('chart-storage'), {
+      type: 'pie',
+      data: {
+        labels: [`Used (${usedMB} MB)`, `Remaining (${remainingMB} MB)`],
+        datasets: [{
+          data: [usedBytes, Math.max(0, limitBytes - usedBytes)],
+          backgroundColor: ['#ef4444', '#22c55e'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              color: '#94a3b8',
+              font: { size: 11 },
+              boxWidth: 12,
+              padding: 14
+            }
+          }
+        }
+      }
     });
 
     const topUsers = econ.topUsers || [];

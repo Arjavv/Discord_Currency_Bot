@@ -1452,6 +1452,19 @@ async function getUserInspect(discordId) {
   }
 }
 
+/**
+ * Fetches the current database size in bytes.
+ */
+async function getDatabaseSize() {
+  try {
+    const res = await pool.query("SELECT pg_database_size(current_database()) AS size");
+    return parseInt(res.rows[0].size, 10) || 0;
+  } catch (err) {
+    console.error('Error fetching database size:', err);
+    return 0;
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
@@ -1480,6 +1493,7 @@ module.exports = {
   getServerFeatureOverrides,
   setServerFeatureOverride,
   getServerDetail,
-  getUserInspect
+  getUserInspect,
+  getDatabaseSize
 };
 
