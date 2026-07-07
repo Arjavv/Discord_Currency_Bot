@@ -122,7 +122,8 @@ app.get('/api/bot-status', requireLogin, async (req, res) => {
       economy,
       maintenanceMode: control.maintenanceMode,
       maintenanceMessage: control.maintenanceMessage,
-      features: control.features
+      features: control.features,
+      dropsPausedUntil: control.dropsPausedUntil
     });
   } catch (err) {
     console.error('Error fetching bot status:', err);

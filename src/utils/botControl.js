@@ -22,13 +22,16 @@ function parseBool(value, defaultTrue = true) {
 
 async function getBotControlState(serverId = null) {
   const settings = await getGlobalSettings();
+  const dropsPausedUntil = parseInt(settings.drops_paused_until, 10) || 0;
+  const isPaused = Date.now() < dropsPausedUntil;
+
   const globalFeatures = {
     checkin: parseBool(settings.feature_checkin, true),
     casino: parseBool(settings.feature_casino, true),
     shop: parseBool(settings.feature_shop, true),
     duels: parseBool(settings.feature_duels, true),
     rob: parseBool(settings.feature_rob, true),
-    drops: parseBool(settings.feature_drops, true),
+    drops: parseBool(settings.feature_drops, true) && !isPaused,
     messageEarnings: parseBool(settings.feature_message_earnings, true),
     transfers: parseBool(settings.feature_transfers, true)
   };
@@ -50,6 +53,7 @@ async function getBotControlState(serverId = null) {
     maintenanceMessage: settings.maintenance_message
       || '🔧 The Soul Currency bot is currently under maintenance. Please try again later.',
     features,
+    dropsPausedUntil,
     checkinMin: parseInt(settings.checkin_min, 10) || 500,
     checkinMax: parseInt(settings.checkin_max, 10) || 1000,
     slashCheckinAmount: parseInt(settings.slash_checkin_amount, 10) || 20,

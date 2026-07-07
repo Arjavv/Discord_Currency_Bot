@@ -58,8 +58,21 @@ module.exports = {
     const serverId = message.guild.id;
 
     // --- DROP CATCH INTERCEPT ---
-    if (activeDrops.has(message.channel.id) && content.toLowerCase() === 'soul') {
-      const dropControl = await getBotControlState();
+    let normalized = content.replace(/[*_~`|]/g, '');
+    normalized = normalized.replace(/<a?:\w+:\d+>/g, '');
+    const catchWords = normalized.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .trim()
+      .split(/\s+/);
+
+    const firstWord = catchWords[0];
+    const secondWord = catchWords[1];
+    const isSoulCatch = 
+      (firstWord === 'soul' && !secondWord) || 
+      (firstWord === 's' && secondWord === 'soul' && catchWords.length === 2);
+
+    if (activeDrops.has(message.channel.id) && isSoulCatch) {
+      const dropControl = await getBotControlState(serverId);
       if (dropControl.maintenanceMode || !dropControl.features.drops) {
         return;
       }
@@ -96,7 +109,7 @@ module.exports = {
 
         const awardResult = await awardDropCoins(userId, serverId, drop.value);
 
-        // Edit original drop message to show caught state
+        // Edit original drop message to show caught state and remove attachments (waifu image)
         const dropMsg = await message.channel.messages.fetch(drop.messageId).catch(() => null);
         if (dropMsg) {
           const caughtEmbed = new EmbedBuilder()
@@ -105,7 +118,7 @@ module.exports = {
             .setDescription(`**${message.author.username}** successfully claimed **${character.name}**!`)
             .setTimestamp();
 
-          await dropMsg.edit({ embeds: [caughtEmbed], files: [] }).catch(() => { });
+          await dropMsg.edit({ content: '', embeds: [caughtEmbed], attachments: [] }).catch(() => { });
         }
 
         // Send congratulatory reply

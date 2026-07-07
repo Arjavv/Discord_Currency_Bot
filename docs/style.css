@@ -1060,3 +1060,164 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name {
     text-align: center;
   }
 }
+
+/* ==========================================
+   TOP SERVERS LEADERBOARD SECTION
+   ========================================== */
+.leaderboard-section {
+  padding: 100px 0;
+  background: var(--bg-dark);
+  position: relative;
+}
+
+.leaderboard-wrap {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 30px;
+  max-width: 800px;
+  margin: 0 auto;
+  box-shadow: var(--shadow-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.leaderboard-wrap::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.leaderboard-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-muted);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.leaderboard-table td {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  vertical-align: middle;
+}
+
+.leaderboard-table tr:last-child td {
+  border-bottom: none;
+}
+
+.leaderboard-row {
+  transition: background 0.2s ease;
+}
+
+.leaderboard-row:hover td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.lb-rank {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--color-muted);
+  width: 50px;
+}
+
+.lb-rank.rank-1 {
+  color: #f1c40f;
+  text-shadow: 0 0 10px rgba(241, 196, 15, 0.4);
+}
+
+.lb-rank.rank-2 {
+  color: #bdc3c7;
+  text-shadow: 0 0 10px rgba(189, 195, 199, 0.4);
+}
+
+.lb-rank.rank-3 {
+  color: #e67e22;
+  text-shadow: 0 0 10px rgba(230, 126, 34, 0.4);
+}
+
+.lb-server-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.lb-server-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--bg-darkest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--color-gold);
+  border: 1px solid var(--border-color);
+  object-fit: cover;
+}
+
+.lb-server-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.lb-souls {
+  text-align: right;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--color-gold);
+}
+
+.lb-souls span {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-muted);
+  margin-left: 4px;
+}
+
+.leaderboard-footer-info {
+  margin-top: 25px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.leaderboard-footer-info i {
+  color: var(--color-gold);
+}
+
+.loading-state {
+  text-align: center;
+  padding: 60px 0;
+  color: var(--color-muted);
+  font-size: 15px;
+}
+
+.loading-state i {
+  margin-bottom: 10px;
+  font-size: 24px;
+  color: var(--color-gold);
+  display: block;
+}
+

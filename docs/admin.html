@@ -284,6 +284,32 @@
         <button class="save-btn" id="save-maint-btn"><i class="fa-solid fa-floppy-disk"></i> Save Maintenance Settings</button>
       </div>
       <div class="section">
+        <div class="section-title"><i class="fa-solid fa-circle-pause"></i> Pause Auto Drops</div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Temporarily stop scheduled Soul drops. The drop cycle will resume automatically after the time expires.</p>
+        <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+          <div class="input-group" style="flex:1; min-width:200px;">
+            <label>Pause Duration</label>
+            <select id="pause-drops-select" style="width:100%; padding:9px 12px; background:rgba(255,255,255,0.04); border:1px solid var(--card-border); border-radius:7px; color:var(--text); font-size:0.88rem; outline:none; transition:border 0.2s;">
+              <option value="0">Active (Not Paused)</option>
+              <option value="30">Pause for 30 minutes</option>
+              <option value="60">Pause for 1 hour</option>
+              <option value="120">Pause for 2 hours</option>
+              <option value="360">Pause for 6 hours</option>
+              <option value="720">Pause for 12 hours</option>
+              <option value="1440">Pause for 24 hours</option>
+              <option value="indefinite">Pause indefinitely</option>
+            </select>
+          </div>
+          <div style="flex:2; min-width:250px; background:rgba(255,255,255,0.02); border:1px solid var(--card-border); border-radius:9px; padding:12px 16px;">
+            <div style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; font-weight:600; letter-spacing:0.5px; margin-bottom:4px;">Pause Status</div>
+            <div id="pause-status-text" style="font-size:0.9rem; font-weight:600; color:var(--green); display:flex; align-items:center; gap:8px;">
+              <span class="dot green"></span> Active (Drops enabled)
+            </div>
+          </div>
+        </div>
+        <button class="save-btn" id="save-pause-btn" style="margin-top:16px;"><i class="fa-solid fa-floppy-disk"></i> Apply Pause Settings</button>
+      </div>
+      <div class="section">
         <div class="section-title"><i class="fa-solid fa-toggle-on"></i> Global Feature Toggles</div>
         <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Disabling globally overrides all per-server settings.</p>
         <div class="toggle-grid" id="global-feature-toggles">
@@ -531,6 +557,26 @@ async function loadStatus() {
     $('maint-toggle-wrap').classList.toggle('active', !!d.maintenanceMode);
     $('maint-message').value = d.maintenanceMessage || '';
 
+    const pausedUntil = d.dropsPausedUntil || 0;
+    const now = Date.now();
+    const statusTextEl = $('pause-status-text');
+    const selectEl = $('pause-drops-select');
+    if (pausedUntil > now) {
+      if (pausedUntil > 99999999999999) {
+        statusTextEl.innerHTML = '<span class="dot red"></span> Paused Indefinitely';
+        selectEl.value = 'indefinite';
+      } else {
+        const minsLeft = Math.ceil((pausedUntil - now) / (60 * 1000));
+        statusTextEl.innerHTML = `<span class="dot red"></span> Paused (${minsLeft}m remaining)`;
+        if (!['30', '60', '120', '360', '720', '1440'].includes(selectEl.value)) {
+          selectEl.value = '60';
+        }
+      }
+    } else {
+      statusTextEl.innerHTML = '<span class="dot green"></span> Active (Drops enabled)';
+      selectEl.value = '0';
+    }
+
     const feats = d.features || {};
     const featureMap = {
       feature_checkin: feats.checkin,
@@ -584,6 +630,23 @@ $('save-maint-btn').onclick = () => saveBtn($('save-maint-btn'), () =>
     maintenance_message: $('maint-message').value.trim() || '🔧 Bot is under maintenance.'
   })
 );
+
+$('save-pause-btn').onclick = () => saveBtn($('save-pause-btn'), async () => {
+  const val = $('pause-drops-select').value;
+  let pauseTimestamp = 0;
+  if (val === 'indefinite') {
+    pauseTimestamp = 999999999999999;
+  } else {
+    const mins = parseInt(val, 10);
+    if (mins > 0) {
+      pauseTimestamp = Date.now() + mins * 60 * 1000;
+    }
+  }
+  await api('/api/settings', 'POST', {
+    drops_paused_until: String(pauseTimestamp)
+  });
+  await loadStatus();
+});
 
 $('save-features-btn').onclick = () => saveBtn($('save-features-btn'), () => {
   const updates = {};

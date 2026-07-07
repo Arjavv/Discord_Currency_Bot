@@ -1014,7 +1014,8 @@ async function getGlobalSettings() {
       message_reward: '100',
       message_daily_cap: '5000',
       message_cooldown_seconds: '15',
-      message_milestone: '10'
+      message_milestone: '10',
+      drops_paused_until: '0'
     };
     
     for (const [key, val] of Object.entries(defaults)) {
@@ -1055,6 +1056,7 @@ async function getGlobalSettings() {
       feature_drops: 'true',
       feature_message_earnings: 'true',
       feature_transfers: 'true',
+      drops_paused_until: '0',
       checkin_min: '500',
       checkin_max: '1000',
       slash_checkin_amount: '20',

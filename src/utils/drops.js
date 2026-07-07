@@ -25,20 +25,15 @@ async function triggerDrop(client, guildId, channel) {
     const character = getRandomCharacter();
     const dropValue = character.value;
 
-    const embed = new EmbedBuilder()
-      .setColor(character.color)
-      .setTitle(character.embedTitle)
-      .setDescription(character.embedDescription)
-      .setTimestamp();
-
     const files = [];
     if (character.imagePath && fs.existsSync(character.imagePath)) {
       const file = new AttachmentBuilder(character.imagePath);
       files.push(file);
-      embed.setImage(`attachment://${character.attachmentName}`);
     }
 
-    const dropMsg = await channel.send({ embeds: [embed], files }).catch(err => {
+    const contentText = `✦ **A ${character.tier} SOUL HAS DESCENDED** ✦\n**${character.name}** has appeared! (Value: **${dropValue}** Souls)\nType \`soul\` to claim her!`;
+
+    const dropMsg = await channel.send({ content: contentText, files }).catch(err => {
       console.error(`Failed to send drop message to channel ${channel.id}:`, err);
       return null;
     });
@@ -112,7 +107,10 @@ function scheduleNextDrop(client, guildId, channelId) {
       if (!channel || !channel.isTextBased()) return;
 
       const control = await getBotControlState();
-      if (control.maintenanceMode || !control.features.drops) return;
+      if (control.maintenanceMode || !control.features.drops) {
+        scheduleNextDrop(client, guildId, channelId);
+        return;
+      }
 
       await triggerDrop(client, guildId, channel);
     } catch (err) {
