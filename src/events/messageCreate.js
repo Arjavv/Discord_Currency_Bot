@@ -103,8 +103,7 @@ module.exports = {
           .setTitle(character.claimTitle)
           .setDescription(
             `${character.claimDescription(message.author)}\n\n` +
-            `💰 **Value:** \`+${drop.value}\` ${currencyIcon} ${currencyName}\n` +
-            `🏦 **New Wallet Balance:** \`${awardResult.newBalance}\` ${currencyIcon} ${currencyName}`
+            `💰 **Value:** \`+${drop.value}\` ${currencyIcon} ${currencyName}  |  🏦 **New Balance:** \`${awardResult.newBalance}\` ${currencyIcon} ${currencyName}`
           )
           .setTimestamp();
 

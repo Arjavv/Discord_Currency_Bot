@@ -14,9 +14,9 @@ const CHARACTER_SPAWNS = [
     attachmentName: 'divine_soul_purple.png',
     color: '#a855f7', // Deep purple
     embedTitle: '✦ A DIVINE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Divine Soul has appeared!\n\n👑 **Tier:** DIVINE\n\n*A rare presence has entered this realm...*\n\nType **soul** to claim her!',
+    embedDescription: 'Divine Soul has appeared! 👑 Tier: DIVINE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
     claimTitle: '👑 DIVINE SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ *The divine soul has chosen its master.*`
+    claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ The divine soul has chosen its master.`
   }
 ];
 
