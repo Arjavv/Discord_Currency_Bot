@@ -59,6 +59,25 @@ const session = require('express-session');
 const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, getShopPrices, setShopPrice, resetCycle, getDatabaseSize } = require('./database/queries');
 const { getBotControlState } = require('./utils/botControl');
 
+const crashLogPath = path.join(__dirname, '..', 'crash_logs.json');
+
+function logCrash(err, type) {
+  let logs = [];
+  try {
+    if (fs.existsSync(crashLogPath)) {
+      logs = JSON.parse(fs.readFileSync(crashLogPath, 'utf8'));
+    }
+  } catch(e) {}
+  logs.unshift({
+    timestamp: new Date().toISOString(),
+    type: type,
+    message: err.message || String(err),
+    stack: err.stack || ''
+  });
+  if (logs.length > 50) logs = logs.slice(0, 50);
+  fs.writeFileSync(crashLogPath, JSON.stringify(logs, null, 2));
+}
+
 const app = express();
 const port = process.env.PORT || 8000;
 const adminPassword = process.env.ADMIN_PASSWORD || 'ChangeMe';
@@ -115,6 +134,20 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/check-auth', (req, res) => {
   res.json({ authenticated: !!(req.session && req.session.isAdmin) });
+});
+
+// Crash logs endpoint (Protected)
+app.get('/api/crash-logs', requireLogin, (req, res) => {
+  try {
+    if (fs.existsSync(crashLogPath)) {
+      const logs = JSON.parse(fs.readFileSync(crashLogPath, 'utf8'));
+      res.json(logs);
+    } else {
+      res.json([]);
+    }
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to read crash logs' });
+  }
 });
 
 // Bot status & economy overview (Protected)
@@ -430,6 +463,22 @@ app.get('/shop', (req, res) => {
 
 app.listen(port, () => {
   console.log(`Express web server listening on port ${port}`);
+});
+
+// Global Error Handlers for Crash Logging
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  logCrash(err, 'UncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logCrash(reason instanceof Error ? reason : new Error(String(reason)), 'UnhandledRejection');
+});
+
+client.on('error', (err) => {
+  console.error('Discord Client Error:', err);
+  logCrash(err, 'ClientError');
 });
 
 // Main Boot Sequence

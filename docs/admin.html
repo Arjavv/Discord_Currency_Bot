@@ -356,6 +356,16 @@
         </div>
         <button class="save-btn" id="save-global-prices-btn"><i class="fa-solid fa-floppy-disk"></i> Save Global Shop Prices</button>
       </div>
+
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-bug" style="color:var(--red)"></i> System Logs & Crashes</div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Recent crashes and unhandled exceptions. Restart bot to clear if deleted from disk.</p>
+        <div id="crash-logs-container" style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text);">
+          <div class="empty-state loading-dots">Loading logs</div>
+        </div>
+        <button class="save-btn" id="refresh-logs-btn" style="margin-top:16px; background:rgba(255,255,255,0.05)"><i class="fa-solid fa-rotate-right"></i> Refresh Logs</button>
+      </div>
+
       <div class="danger-zone">
         <div class="section-title"><i class="fa-solid fa-skull-crossbones"></i> Danger Zone</div>
         <div class="danger-action">
@@ -571,8 +581,33 @@ document.querySelectorAll('.nav-item').forEach(el => {
 });
 
 async function loadAll() {
-  await Promise.all([loadStatus(), loadSettings(), loadServers()]);
+  await Promise.all([loadStatus(), loadSettings(), loadServers(), loadCrashLogs()]);
 }
+
+async function loadCrashLogs() {
+  try {
+    const logs = await api('/api/crash-logs');
+    const container = $('crash-logs-container');
+    if (!logs || logs.length === 0) {
+      container.innerHTML = '<div style="color:var(--green); text-align:center; padding:20px;">No crashes recorded. System is stable.</div>';
+      return;
+    }
+    container.innerHTML = logs.map(l => 
+      `<div style="margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.05);">
+        <div style="color:var(--red); font-weight:bold; margin-bottom:4px;">[${fmtDate(l.timestamp)} ${new Date(l.timestamp).toLocaleTimeString()}] ${l.type}</div>
+        <div style="color:var(--text);">${l.message}</div>
+        ${l.stack ? `<div style="color:var(--muted); font-size:0.65rem; margin-top:4px; white-space:pre-wrap;">${l.stack}</div>` : ''}
+       </div>`
+    ).join('');
+  } catch(e) {
+    $('crash-logs-container').innerHTML = '<div style="color:var(--red);">Failed to load crash logs.</div>';
+  }
+}
+
+$('refresh-logs-btn').onclick = () => {
+  $('crash-logs-container').innerHTML = '<div class="empty-state loading-dots">Refreshing logs</div>';
+  loadCrashLogs();
+};
 
 async function loadStatus() {
   try {
