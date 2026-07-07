@@ -489,7 +489,7 @@ client.on('error', (err) => {
 });
 
 // Track real WebSocket connectivity for accurate admin panel status
-client.on('ready', () => {
+client.on('clientReady', () => {
   lastDiscordReadyAt = Date.now();
   console.log('Discord WebSocket: connected/reconnected.');
 });
