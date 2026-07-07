@@ -989,8 +989,8 @@ module.exports = {
 
               if (tie) {
                 // Refund bets
-                await recordCasinoGame(userId, serverId, bet, true);
-                await recordCasinoGame(targetUser.id, serverId, bet, true);
+                await recordCasinoGame(userId, serverId, bet, true, true);
+                await recordCasinoGame(targetUser.id, serverId, bet, true, true);
 
                 const tieEmbed = new EmbedBuilder()
                   .setColor('#ffd700')
@@ -1007,7 +1007,7 @@ module.exports = {
               } else {
                 // Winnings pot
                 const pot = bet * 2;
-                await recordCasinoGame(winnerId, serverId, pot, true);
+                await recordCasinoGame(winnerId, serverId, pot, true, true);
 
                 // Set 1-hour cooldown for the loser
                 await recordDuelLoss(loserId, serverId).catch(err => {
@@ -1240,7 +1240,7 @@ module.exports = {
               activeCrashGames.delete(gameKey);
 
               const winnings = Math.floor(bet * currentMultiplier);
-              await recordCasinoGame(userId, serverId, winnings, true);
+              await recordCasinoGame(userId, serverId, winnings, true, true);
 
               const disabledButton = new ButtonBuilder()
                 .setCustomId(buttonId)
@@ -1487,7 +1487,7 @@ module.exports = {
                 collector.stop('cashed_out');
 
                 const winnings = Math.floor(bet * currentMultiplier);
-                await recordCasinoGame(userId, serverId, winnings, true);
+                await recordCasinoGame(userId, serverId, winnings, true, true);
 
                 const winEmbed = buildMinesEmbed('cashed_out', winnings);
                 const endComponents = buildGridComponents(true, false);
@@ -1527,7 +1527,7 @@ module.exports = {
                   collector.stop('all_cleared');
 
                   const winnings = Math.floor(bet * currentMultiplier);
-                  await recordCasinoGame(userId, serverId, winnings, true);
+                  await recordCasinoGame(userId, serverId, winnings, true, true);
 
                   const winEmbed = buildMinesEmbed('auto_cashout', winnings);
                   const endComponents = buildGridComponents(true, false);

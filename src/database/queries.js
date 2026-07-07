@@ -349,7 +349,7 @@ async function resetCycle(serverId) {
 
     // 1. Check if there is an active cycle
     const activeCycleRes = await client.query(
-      `SELECT id FROM cycles WHERE is_active = TRUE LIMIT 1`
+      `SELECT id FROM cycles WHERE server_id = 'GLOBAL' AND is_active = TRUE LIMIT 1`
     );
 
     let oldCycleId = null;
@@ -391,7 +391,7 @@ async function resetCycle(serverId) {
       `);
 
       // 5. Start a new cycle
-      await client.query(`INSERT INTO cycles (started_at, is_active) VALUES (NOW(), TRUE)`);
+      await client.query(`INSERT INTO cycles (server_id, started_at, is_active) VALUES ('GLOBAL', NOW(), TRUE)`);
 
       await client.query('COMMIT');
       return { success: true, archivedCount, oldCycleId };
@@ -402,7 +402,7 @@ async function resetCycle(serverId) {
         SET coin_balance = 0, last_checkin_at = NULL
         WHERE server_id = 'GLOBAL'
       `);
-      await client.query(`INSERT INTO cycles (started_at, is_active) VALUES (NOW(), TRUE)`);
+      await client.query(`INSERT INTO cycles (server_id, started_at, is_active) VALUES ('GLOBAL', NOW(), TRUE)`);
       await client.query('COMMIT');
       return { success: true, archivedCount: 0, oldCycleId: null };
     }
@@ -420,7 +420,7 @@ async function resetCycle(serverId) {
  * Deducts bet amount on loss, awards net bet amount on win.
  * Logs transaction with source 'casino_win' or 'casino_loss'.
  */
-async function recordCasinoGame(discordId, serverId, betAmount, isWin) {
+async function recordCasinoGame(discordId, serverId, betAmount, isWin, isPayout = false) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -438,7 +438,7 @@ async function recordCasinoGame(discordId, serverId, betAmount, isWin) {
     const balanceRes = await client.query(balanceQuery, [discordId]);
     const currentBalance = balanceRes.rows[0].coin_balance;
 
-    if (currentBalance < betAmount) {
+    if (!isPayout && currentBalance < betAmount) {
       await client.query('ROLLBACK');
       return { success: false, reason: 'insufficient_funds', currentBalance };
     }

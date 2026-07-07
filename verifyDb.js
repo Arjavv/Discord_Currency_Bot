@@ -523,21 +523,21 @@ async function runTests() {
     }
     console.log('✔ Drop channel settings and drop catch tests passed.');
 
-    // 6. Reset Cycle Test (Should be blocked in global economy)
-    console.log('\nTesting Cycle Reset (should fail in global economy)...');
+    // 6. Reset Cycle Test (Now succeeds under dashboard/owner controls)
+    console.log('\nTesting Cycle Reset (should succeed and clear balances)...');
     const reset = await resetCycle(TEST_SERVER);
     console.log('Cycle reset result:', reset);
-    if (reset.success || reset.reason !== 'global_economy') {
-      throw new Error('Cycle reset should have failed under Global Economy mode');
+    if (!reset.success) {
+      throw new Error('Cycle reset failed under the new dashboard-only implementation');
     }
 
-    // Check balances remain unchanged (User 1 retains 55 coins)
+    // Check balances are reset to 0 (User 1 should have 0 coins)
     const finalBalance1 = await getUserBalance(TEST_USER_1, TEST_SERVER);
-    console.log('User 1 Balance after reset attempt:', finalBalance1.balance);
-    if (finalBalance1.balance !== 55) {
-      throw new Error('Balances should not be reset to zero in global economy mode');
+    console.log('User 1 Balance after reset:', finalBalance1.balance);
+    if (finalBalance1.balance !== 0) {
+      throw new Error('User balance should be reset to 0 after a cycle reset');
     }
-    console.log('✔ Cycle reset block test passed.');
+    console.log('✔ Cycle reset test passed.');
 
     console.log('\n=========================================');
     console.log('ALL DATABASE INTEGRATION TESTS PASSED SUCCESSFULLY! 🎉');
