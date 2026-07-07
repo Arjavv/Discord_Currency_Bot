@@ -81,7 +81,18 @@ module.exports = {
         const settings = await getServerSettings(serverId);
         const currencyName = settings.currency_name;
         const currencyIcon = settings.currency_icon_url;
-        const character = drop.character;
+        let character = drop.character;
+        if (!character) {
+          character = {
+            id: 'divine_soul',
+            name: 'Divine Soul',
+            tier: 'DIVINE',
+            value: drop.value || 700,
+            color: '#a855f7',
+            claimTitle: '👑 DIVINE SOUL CLAIMED!',
+            claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ The divine soul has chosen its master.`
+          };
+        }
 
         const awardResult = await awardDropCoins(userId, serverId, drop.value);
 
