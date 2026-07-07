@@ -81,25 +81,34 @@ module.exports = {
         const settings = await getServerSettings(serverId);
         const currencyName = settings.currency_name;
         const currencyIcon = settings.currency_icon_url;
+        const character = drop.character;
 
         const awardResult = await awardDropCoins(userId, serverId, drop.value);
 
-        // Edit original drop message
+        // Edit original drop message to show caught state
         const dropMsg = await message.channel.messages.fetch(drop.messageId).catch(() => null);
         if (dropMsg) {
           const caughtEmbed = new EmbedBuilder()
             .setColor('#00ffaa')
-            .setTitle('🎉 Soul Coin Caught! 🎉')
-            .setDescription(`**${message.author.username}** claimed the Soul Coin!\n\nReward: **${drop.value}** <:Soul_Head:1523605643158618214>`)
+            .setTitle('🎉 Character Claimed! 🎉')
+            .setDescription(`**${message.author.username}** successfully claimed **${character.name}**!`)
             .setTimestamp();
 
-          await dropMsg.edit({ embeds: [caughtEmbed] }).catch(() => { });
+          await dropMsg.edit({ embeds: [caughtEmbed], files: [] }).catch(() => { });
         }
 
         // Send congratulatory reply
-        const congratulateText = `Congratulations ${message.author}! You caught the Soul Coin and added **${drop.value}** <:Soul_Head:1523605643158618214> to your wallet!\n**New Balance**: **${awardResult.newBalance}** <:Soul_Head:1523605643158618214>`;
+        const congratulateEmbed = new EmbedBuilder()
+          .setColor(character.color)
+          .setTitle(character.claimTitle)
+          .setDescription(
+            `${character.claimDescription(message.author)}\n\n` +
+            `💰 **Value:** \`+${drop.value}\` ${currencyIcon} ${currencyName}\n` +
+            `🏦 **New Wallet Balance:** \`${awardResult.newBalance}\` ${currencyIcon} ${currencyName}`
+          )
+          .setTimestamp();
 
-        await message.reply({ content: congratulateText }).catch(() => { });
+        await message.reply({ embeds: [congratulateEmbed] }).catch(() => { });
       } catch (err) {
         console.error(`Error claiming drop for user ${userId}:`, err);
       }

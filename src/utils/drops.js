@@ -1,9 +1,11 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { getServerSettings } = require('../database/queries');
 const { getBotControlState } = require('./botControl');
+const { getRandomCharacter } = require('./characters');
+const fs = require('fs');
 
 // In-memory drop states shared across the bot process
-const activeDrops = new Map(); // key: channelId -> { value, messageId, timestamp, timeoutId }
+const activeDrops = new Map(); // key: channelId -> { value, character, messageId, timestamp, timeoutId }
 const nextDropTimers = new Map(); // key: serverId -> timeoutId
 
 /**
@@ -20,24 +22,23 @@ async function triggerDrop(client, guildId, channel) {
       return null;
     }
 
-    const settings = await getServerSettings(guildId);
-    const currencyName = settings.currency_name;
-    const currencyIcon = settings.currency_icon_url;
-
-    // Weighted random coin value between 1 and 50 (50 is least probable)
-    const dropValue = Math.floor(Math.pow(Math.random(), 2) * 50) + 1;
+    const character = getRandomCharacter();
+    const dropValue = character.value;
 
     const embed = new EmbedBuilder()
-      .setColor('#ffd700')
-      .setTitle('☠️ A Soul Coin has appeared! ☠️')
-      .setDescription(`A stray **Soul Coin** is floating in the air!\n\nQuick! Anyone can catch it by typing **soul** in this channel!`)
-      .addFields(
-        { name: 'Value', value: `💰 **1 - 50** ${currencyIcon} ${currencyName}`, inline: true }
-      )
-      .setTimestamp()
-      // Footer removed – drop does not expire
+      .setColor(character.color)
+      .setTitle(character.embedTitle)
+      .setDescription(character.embedDescription)
+      .setTimestamp();
 
-    const dropMsg = await channel.send({ embeds: [embed] }).catch(err => {
+    const files = [];
+    if (character.imagePath && fs.existsSync(character.imagePath)) {
+      const file = new AttachmentBuilder(character.imagePath);
+      files.push(file);
+      embed.setImage(`attachment://${character.attachmentName}`);
+    }
+
+    const dropMsg = await channel.send({ embeds: [embed], files }).catch(err => {
       console.error(`Failed to send drop message to channel ${channel.id}:`, err);
       return null;
     });
@@ -47,13 +48,16 @@ async function triggerDrop(client, guildId, channel) {
     // If there was an existing active drop in this channel, clear its timeout to prevent leaks
     if (activeDrops.has(channel.id)) {
       const oldDrop = activeDrops.get(channel.id);
-      clearTimeout(oldDrop.timeoutId);
+      if (oldDrop.timeoutId) {
+        clearTimeout(oldDrop.timeoutId);
+      }
     }
 
     // Drop stays active indefinitely until caught
     const timeoutId = null;
 
     activeDrops.set(channel.id, {
+      character,
       value: dropValue,
       messageId: dropMsg.id,
       timestamp: Date.now(),
@@ -69,7 +73,7 @@ async function triggerDrop(client, guildId, channel) {
           const logEmbed = new EmbedBuilder()
             .setColor('#ffa500')
             .setTitle('📦 Drop Spawned')
-            .setDescription(`A random Soul Coin drop has just spawned in <#${channel.id}>!`)
+            .setDescription(`A **${character.name}** (Tier: **${character.tier}**, Value: **${character.value}** Souls) has just spawned in <#${channel.id}>!`)
             .addFields(
               { name: 'Next Scheduled Drop', value: '10 minutes after this drop is caught.' }
             )
