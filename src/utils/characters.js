@@ -50,8 +50,8 @@ const CHARACTER_SPAWNS = [
     id: 'divine_soul',
     name: 'Divine Soul',
     tier: 'DIVINE',
-    value: 700,
-    weight: 8, // 8% spawn chance
+    value: 1000,
+    weight: 2, // 2% spawn chance (most rare, highest value!)
     imagePath: './src/assets/divine_soul_purple.png',
     attachmentName: 'divine_soul_purple.png',
     color: '#a855f7', // Purple
@@ -64,8 +64,8 @@ const CHARACTER_SPAWNS = [
     id: 'mythic_soul',
     name: 'Goddess Soul',
     tier: 'MYTHIC',
-    value: 1000,
-    weight: 2, // 2% spawn chance (most rare, most beautiful)
+    value: 700,
+    weight: 8, // 8% spawn chance
     imagePath: './src/assets/mythic_soul.png',
     attachmentName: 'mythic_soul.png',
     color: '#fbbf24', // Gold
