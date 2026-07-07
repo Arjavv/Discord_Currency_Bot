@@ -231,11 +231,22 @@ function mockQueryExecutor(sql, params) {
   }
 
   // 12. SELECT leaderboard
-  if (normalizedSql.includes('ORDER BY coin_balance DESC LIMIT')) {
-    const limit = params[0];
-    const serverId = normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : params[1];
+  if (normalizedSql.includes('ORDER BY g.coin_balance DESC') || normalizedSql.includes('ORDER BY coin_balance DESC LIMIT')) {
+    const isJoin = normalizedSql.includes('JOIN');
+    const serverId = isJoin ? params[0] : (normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : params[1]);
+    const limit = isJoin ? params[1] : params[0];
+    
+    // In mock mode, if it is a JOIN, we select users active in serverId, but fetch their balance from 'GLOBAL'
     const rankings = Array.from(mockState.users.values())
-      .filter(u => u.server_id === serverId && u.coin_balance > 0)
+      .filter(u => u.server_id === serverId)
+      .map(u => {
+        const globalUser = mockState.users.get(`${u.discord_id}_GLOBAL`);
+        return {
+          discord_id: u.discord_id,
+          coin_balance: globalUser ? globalUser.coin_balance : 0
+        };
+      })
+      .filter(u => u.coin_balance > 0)
       .sort((a, b) => b.coin_balance - a.coin_balance)
       .slice(0, limit);
     return { rows: rankings };

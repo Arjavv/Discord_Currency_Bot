@@ -317,13 +317,14 @@ async function getLeaderboard(serverId, limit = 10) {
   try {
     const settings = await getServerSettings(serverId);
     const query = `
-      SELECT discord_id, coin_balance 
-      FROM users 
-      WHERE server_id = 'GLOBAL' AND coin_balance > 0
-      ORDER BY coin_balance DESC 
-      LIMIT $1
+      SELECT u.discord_id, g.coin_balance 
+      FROM users u
+      JOIN users g ON g.discord_id = u.discord_id AND g.server_id = 'GLOBAL'
+      WHERE u.server_id = $1 AND g.coin_balance > 0
+      ORDER BY g.coin_balance DESC 
+      LIMIT $2
     `;
-    const res = await pool.query(query, [limit]);
+    const res = await pool.query(query, [serverId, limit]);
     return {
       rankings: res.rows,
       currencyName: settings.currency_name,
