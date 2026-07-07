@@ -82,7 +82,8 @@ function mockQueryExecutor(sql, params) {
 
   // 3. INSERT INTO users (ensure user exists)
   if (normalizedSql.includes('INSERT INTO users') && normalizedSql.includes('ON CONFLICT')) {
-    const [discordId, serverId] = params;
+    const discordId = params[0];
+    const serverId = params[1] || (normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : undefined);
     const key = `${discordId}_${serverId}`;
     if (!mockState.users.has(key)) {
       mockState.users.set(key, {
@@ -98,7 +99,8 @@ function mockQueryExecutor(sql, params) {
 
   // 4. SELECT users (last_checkin_at, coin_balance)
   if (normalizedSql.includes('SELECT last_checkin_at, coin_balance FROM users') || normalizedSql.includes('SELECT coin_balance FROM users')) {
-    const [discordId, serverId] = params;
+    const discordId = params[0];
+    const serverId = params[1] || (normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : undefined);
     const key = `${discordId}_${serverId}`;
     const user = mockState.users.get(key) || {
       discord_id: discordId,
@@ -112,7 +114,8 @@ function mockQueryExecutor(sql, params) {
 
   // 5. UPDATE users (claim checkin)
   if (normalizedSql.includes('UPDATE users SET coin_balance = coin_balance + $1, last_checkin_at = $2')) {
-    const [amount, checkinTime, discordId, serverId] = params;
+    const [amount, checkinTime, discordId, pServerId] = params;
+    const serverId = pServerId || (normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : undefined);
     const key = `${discordId}_${serverId}`;
     const user = mockState.users.get(key);
     user.coin_balance += amount;
@@ -122,7 +125,8 @@ function mockQueryExecutor(sql, params) {
 
   // 6. UPDATE users (increment message count)
   if (normalizedSql.includes('UPDATE users SET message_count = message_count + 1')) {
-    const [discordId, serverId] = params;
+    const discordId = params[0];
+    const serverId = params[1] || (normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : undefined);
     const key = `${discordId}_${serverId}`;
     const user = mockState.users.get(key);
     user.message_count += 1;
@@ -131,28 +135,58 @@ function mockQueryExecutor(sql, params) {
 
   // 6.5. UPDATE users (award milestone coins, net change in casino, etc.)
   if (normalizedSql.includes('UPDATE users SET coin_balance = coin_balance + $1 WHERE')) {
-    const [amount, discordId, serverId] = params;
+    const [amount, discordId, pServerId] = params;
+    const serverId = pServerId || (normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : 'GLOBAL');
     const key = `${discordId}_${serverId}`;
     const user = mockState.users.get(key);
     user.coin_balance += amount;
     return { rows: [{ coin_balance: user.coin_balance }] };
   }
 
+  // 6.7. UPDATE users (reset all balances to 0 during cycle reset)
+  if (normalizedSql.includes('UPDATE users SET coin_balance = 0, last_checkin_at = NULL')) {
+    mockState.users.forEach((user, key) => {
+      if (key.endsWith('_GLOBAL')) {
+        user.coin_balance = 0;
+        user.last_checkin_at = null;
+      }
+    });
+    return { rows: [] };
+  }
+
   // 7. INSERT INTO transactions
   if (normalizedSql.includes('INSERT INTO transactions') && !normalizedSql.includes('SELECT')) {
-    const [userId, serverId, amount, param3, param4] = params;
-    let source = 'unknown';
-    let createdAt = new Date();
-
-    if (typeof param3 === 'string') {
-      source = param3;
-      createdAt = param4 || new Date();
+    let userId, serverId, amount, source, createdAt;
+    
+    if (normalizedSql.includes("'GLOBAL'")) {
+      userId = params[0];
+      serverId = 'GLOBAL';
+      amount = params[1];
+      
+      if (normalizedSql.includes('created_at')) {
+        // params: [userId, amount, now]
+        // source is hardcoded in SQL, e.g. 'message', 'checkin'
+        source = normalizedSql.includes("'message'") ? 'message' :
+                 normalizedSql.includes("'checkin'") ? 'checkin' :
+                 normalizedSql.includes("'casino_win'") ? 'casino_win' :
+                 normalizedSql.includes("'casino_loss'") ? 'casino_loss' :
+                 normalizedSql.includes("'drop_catch'") ? 'drop_catch' : 'unknown';
+        createdAt = params[2];
+      } else {
+        // params: [userId, amount, source]
+        source = params[2];
+        createdAt = new Date();
+      }
     } else {
-      source = normalizedSql.includes("'checkin'") ? 'checkin' : 
-               normalizedSql.includes("'message'") ? 'message' : 
-               normalizedSql.includes("'reset'") ? 'reset' : 
-               normalizedSql.includes("'drop_catch'") ? 'drop_catch' : 'unknown';
-      createdAt = param3 || new Date();
+      userId = params[0];
+      serverId = params[1];
+      amount = params[2];
+      source = params[3];
+      if (normalizedSql.includes('created_at')) {
+        createdAt = params[4];
+      } else {
+        createdAt = new Date();
+      }
     }
 
     mockState.transactions.push({
@@ -176,7 +210,8 @@ function mockQueryExecutor(sql, params) {
 
   // 9. SELECT daily message coins sum
   if (normalizedSql.includes("source = 'message'") && normalizedSql.includes('created_at >= NOW() - INTERVAL')) {
-    const [userId, serverId] = params;
+    const userId = params[0];
+    const serverId = params[1] || (normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : undefined);
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const sum = mockState.transactions
       .filter(t => t.user_id === userId && t.server_id === serverId && t.source === 'message' && t.created_at >= cutoff)
@@ -197,7 +232,8 @@ function mockQueryExecutor(sql, params) {
 
   // 12. SELECT leaderboard
   if (normalizedSql.includes('ORDER BY coin_balance DESC LIMIT')) {
-    const [serverId, limit] = params;
+    const limit = params[0];
+    const serverId = normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : params[1];
     const rankings = Array.from(mockState.users.values())
       .filter(u => u.server_id === serverId && u.coin_balance > 0)
       .sort((a, b) => b.coin_balance - a.coin_balance)
@@ -206,29 +242,31 @@ function mockQueryExecutor(sql, params) {
   }
 
   // 13. SELECT active cycle
-  if (normalizedSql.includes('SELECT id FROM cycles WHERE server_id = $1 AND is_active = TRUE')) {
-    const [serverId] = params;
+  if (normalizedSql.includes('SELECT id FROM cycles') && normalizedSql.includes('is_active = TRUE')) {
+    const serverId = normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : params[0];
     const activeCycle = mockState.cycles.find(c => c.server_id === serverId && c.is_active);
     return { rows: activeCycle ? [activeCycle] : [] };
   }
 
   // 14. INSERT active cycle
-  if (normalizedSql.includes('INSERT INTO cycles') && normalizedSql.includes('started_at')) {
-    const [serverId, startedAt, isActive] = params;
+  if (normalizedSql.includes('INSERT INTO cycles') && (normalizedSql.includes('started_at') || normalizedSql.includes('is_active'))) {
+    const serverId = normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : params[0];
+    const startedAt = new Date();
+    const isActive = true;
     const cycle = {
       id: nextCycleId++,
       server_id: serverId,
-      started_at: startedAt || new Date(),
+      started_at: startedAt,
       ended_at: null,
-      is_active: isActive !== undefined ? isActive : true
+      is_active: isActive
     };
     mockState.cycles.push(cycle);
     return { rows: [cycle] };
   }
 
   // 15. SELECT rankings of users with balance > 0 (during reset)
-  if (normalizedSql.includes('SELECT discord_id, coin_balance FROM users WHERE server_id = $1 AND coin_balance > 0')) {
-    const [serverId] = params;
+  if (normalizedSql.includes('SELECT discord_id, coin_balance') && normalizedSql.includes('FROM users') && normalizedSql.includes('coin_balance > 0')) {
+    const serverId = normalizedSql.includes("'GLOBAL'") ? 'GLOBAL' : params[0];
     const rankings = Array.from(mockState.users.values())
       .filter(u => u.server_id === serverId && u.coin_balance > 0)
       .sort((a, b) => b.coin_balance - a.coin_balance);
@@ -311,14 +349,27 @@ async function runTests() {
   console.log('--- STARTING DATABASE INTEGRATION TESTS ---');
   
   let useMock = false;
-  try {
-    const testClient = await pool.connect();
-    testClient.release();
-    await initDatabase();
-    console.log('✔ Real database initialized.');
-  } catch (err) {
+  const isProductionDb = process.env.DATABASE_URL && (
+    process.env.DATABASE_URL.includes('.supabase.co') ||
+    process.env.DATABASE_URL.includes('supabase.com') ||
+    process.env.DATABASE_URL.includes('render.com')
+  );
+
+  if (isProductionDb) {
+    console.log('⚠️  DATABASE_URL points to a cloud/production database.');
+    console.log('🔒 Running destructive integration tests on production is blocked to prevent data loss.');
     useMock = true;
     setupMockDatabase();
+  } else {
+    try {
+      const testClient = await pool.connect();
+      testClient.release();
+      await initDatabase();
+      console.log('✔ Real database initialized.');
+    } catch (err) {
+      useMock = true;
+      setupMockDatabase();
+    }
   }
 
   const {
