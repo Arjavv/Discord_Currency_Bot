@@ -647,6 +647,17 @@ client.on('shardError', (err, shardId) => {
   logCrash(err, 'ShardError');
 });
 
+// Debug: log Discord.js internal gateway events to find connection hangs
+client.on('debug', (info) => {
+  if (!info.includes('Heartbeat') && !info.includes('latency')) {
+    console.log('[DEBUG]', info);
+  }
+});
+
+client.on('warn', (info) => {
+  console.warn('[WARN]', info);
+});
+
 // Periodic Discord heartbeat check — catches silent WebSocket deaths
 // (e.g., after EPIPE crash loops leave the process alive but Discord dead)
 setInterval(() => {
@@ -684,7 +695,11 @@ async function startBot() {
       return;
     }
     console.log('Logging in to Discord...');
-    await client.login(token);
+    const loginPromise = client.login(token);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Discord login timed out after 30 seconds — gateway may be unreachable or blocked')), 30000);
+    });
+    await Promise.race([loginPromise, timeoutPromise]);
     discordLoginError = null; // clear any previous error
 
     // 3. Start periodic cleanup of old transactions & message_activity (every 6 hours)
