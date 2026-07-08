@@ -76,18 +76,65 @@ function hexToColor(hexStr) {
  * @param {number} totalCaught - Sum of all caught character quantities
  * @returns {Promise<Buffer>}
  */
+/**
+ * Renders the inventory graphic as a PNG buffer.
+ * @param {string} username - Player's Discord username
+ * @param {string|null} avatarUrl - Player's avatar URL
+ * @param {Array} items - List of inventory items { name, tier, quantity, color, imagePath }
+ * @param {number} totalCaught - Sum of all caught character quantities
+ * @returns {Promise<Buffer>}
+ */
 async function renderInventoryImage(username, avatarUrl, items, totalCaught) {
   const width = 800;
   
-  // Calculate dynamic rows (6 columns max)
+  // Group items by tier
+  const groups = {};
+  const activeTiers = [];
+  for (const item of items) {
+    if (!groups[item.tier]) {
+      groups[item.tier] = [];
+      activeTiers.push(item.tier);
+    }
+    groups[item.tier].push(item);
+  }
+
   const columns = 6;
-  const slotSize = 90;
+  const slotWidth = 110;
+  const slotHeight = 135;
   const spacing = 15;
-  const rows = Math.max(1, Math.ceil(items.length / columns));
-  
-  const gridHeight = rows * slotSize + (rows - 1) * spacing;
-  const height = 130 + gridHeight + 30; // 130 header, grid, 30 padding bottom
-  
+  const startX = Math.round((width - (columns * slotWidth + (columns - 1) * spacing)) / 2);
+  const headerHeight = 45;
+
+  let currentY = 130; // Start after profile header
+  const tierLayouts = [];
+
+  // Assign global indices matching the input sorted order
+  let globalIdx = 1;
+  const itemToGlobalIndex = new Map();
+  for (const item of items) {
+    itemToGlobalIndex.set(item.id, globalIdx++);
+  }
+
+  for (const tier of activeTiers) {
+    const tierItems = groups[tier];
+    const rows = Math.ceil(tierItems.length / columns);
+    const gridHeight = rows * slotHeight + (rows - 1) * spacing;
+    
+    tierLayouts.push({
+      tier,
+      items: tierItems,
+      yStart: currentY,
+      gridYStart: currentY + headerHeight,
+      height: headerHeight + gridHeight,
+      rows
+    });
+    
+    currentY += headerHeight + gridHeight + 25; // gap between categories
+  }
+
+  // If empty, height is fixed
+  const height = items.length === 0 ? 300 : currentY + 15;
+
   // 1. Create canvas
   const canvas = new Jimp({ width, height, color: 0x1d120cff }); // Very dark brown
   
@@ -151,52 +198,85 @@ async function renderInventoryImage(username, avatarUrl, items, totalCaught) {
       text: "Your inventory is currently empty!\nSpawns will appear randomly in chat. Type 'soul' to catch them."
     });
   } else {
-    // Draw slots
-    const startX = Math.round((width - (columns * slotSize + (columns - 1) * spacing)) / 2);
-    const startY = 130;
-    
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const col = i % columns;
-      const row = Math.floor(i / columns);
+    for (const layout of tierLayouts) {
+      // Get tier color from the first item
+      const firstItemColor = layout.items[0]?.color || '#ffffff';
+      const headerColorHex = hexToColor(firstItemColor);
       
-      const slotX = startX + col * (slotSize + spacing);
-      const slotY = startY + row * (slotSize + spacing);
-      
-      // Determine slot border color based on character tier (e.g. green for Common, blue for Uncommon)
-      const slotBorderColor = hexToColor(item.color);
-      
-      // Draw slot box (lighter brown fill)
-      drawRect(canvas, slotX, slotY, slotSize, slotSize, 0x2c1f17ff, slotBorderColor, 2);
-      
-      // Load character image
-      if (item.imagePath) {
-        const resolvedImgPath = path.resolve(path.join(__dirname, '..', '..'), item.imagePath);
-        if (fs.existsSync(resolvedImgPath)) {
-          try {
-            const charImg = await Jimp.read(resolvedImgPath);
-            charImg.resize({ w: 76, h: 76 });
-            canvas.composite(charImg, slotX + 7, slotY + 7);
-          } catch (imgErr) {
-            console.error(`Failed to read character image at ${resolvedImgPath}:`, imgErr);
-          }
-        }
-      }
-      
-      // Draw quantity badge background
-      // Badge width: 32, height: 18 at bottom right corner
-      const badgeX = slotX + slotSize - 34;
-      const badgeY = slotY + slotSize - 22;
-      drawRect(canvas, badgeX, badgeY, 32, 18, 0x1d120cff, goldColor, 1);
-      
-      // Print quantity text (e.g. x3)
-      // Slight adjustments to center text
+      // Draw header text
       canvas.print({
         font: font16,
-        x: badgeX + 4,
-        y: badgeY - 1,
-        text: `x${item.quantity}`
+        x: startX,
+        y: layout.yStart + 10,
+        text: `== ${layout.tier} SOULS ==`
       });
+      
+      // Draw horizontal line under category header
+      const gridWidth = columns * slotWidth + (columns - 1) * spacing;
+      for (let lx = startX; lx < startX + gridWidth; lx++) {
+        canvas.setPixelColor(headerColorHex, lx, layout.yStart + 32);
+      }
+
+      // Draw slots
+      for (let i = 0; i < layout.items.length; i++) {
+        const item = layout.items[i];
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+        
+        const slotX = startX + col * (slotWidth + spacing);
+        const slotY = layout.gridYStart + row * (slotHeight + spacing);
+        
+        const slotBorderColor = hexToColor(item.color);
+        
+        // Draw slot box (lighter brown fill)
+        drawRect(canvas, slotX, slotY, slotWidth, slotHeight, 0x2c1f17ff, slotBorderColor, 2);
+        
+        // Load character image
+        if (item.imagePath) {
+          const resolvedImgPath = path.resolve(path.join(__dirname, '..', '..'), item.imagePath);
+          if (fs.existsSync(resolvedImgPath)) {
+            try {
+              const charImg = await Jimp.read(resolvedImgPath);
+              charImg.resize({ w: 76, h: 76 });
+              canvas.composite(charImg, slotX + 17, slotY + 15);
+            } catch (imgErr) {
+              console.error(`Failed to read character image at ${resolvedImgPath}:`, imgErr);
+            }
+          }
+        }
+
+        // Print Global Index Number (e.g. #1) at the top-left of the slot box
+        const indexNum = itemToGlobalIndex.get(item.id);
+        canvas.print({
+          font: font16,
+          x: slotX + 8,
+          y: slotY + 6,
+          text: `#${indexNum}`
+        });
+
+        // Print item name at the bottom of the slot box
+        canvas.print({
+          font: font16,
+          x: slotX + 4,
+          y: slotY + 95,
+          text: item.name,
+          maxWidth: slotWidth - 8,
+          alignmentX: 'center'
+        });
+        
+        // Draw quantity badge background
+        const badgeX = slotX + slotWidth - 34;
+        const badgeY = slotY + 6;
+        drawRect(canvas, badgeX, badgeY, 28, 18, 0x1d120cff, goldColor, 1);
+        
+        // Print quantity text (e.g. x3)
+        canvas.print({
+          font: font16,
+          x: badgeX + 2,
+          y: badgeY - 1,
+          text: `x${item.quantity}`
+        });
+      }
     }
   }
   
