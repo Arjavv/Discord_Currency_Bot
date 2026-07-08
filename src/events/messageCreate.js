@@ -134,6 +134,12 @@ module.exports = {
       }
 
       return; // Exit early to prevent catching from counting as milestone activity
+    } else if (isSoulCatch) {
+      // React with a troll/laugh emoji if they type 'soul' or 's soul' when no drop is active
+      const trollEmojis = ['🤡', '😂', '💀', '🤣', '🤫'];
+      const randomEmoji = trollEmojis[Math.floor(Math.random() * trollEmojis.length)];
+      await message.react(randomEmoji).catch(() => {});
+      return;
     }
 
     // Check if the message is a prefix command (starts with "s " case-insensitive)
