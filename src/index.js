@@ -4,12 +4,23 @@ const path = require('path');
 const { initDatabase, pool } = require('./database/db');
 require('dotenv').config();
 
-// Force DNS resolution to prefer IPv4 over IPv6
+// Force DNS resolution to prefer IPv4 globally (works on all Node.js versions)
 // Fixes known gateway connection hangs in cloud environments (like Render/AWS)
 const dns = require('dns');
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder('ipv4first');
-}
+const originalLookup = dns.lookup;
+dns.lookup = function (hostname, options, callback) {
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+  options = options || {};
+  if (!options.family) {
+    options.family = 4;
+  }
+  return originalLookup.call(this, hostname, options, callback);
+};
+
+console.log(`Node.js version running: ${process.version}`);
 
 const consoleLogs = [];
 const originalLog = console.log;
