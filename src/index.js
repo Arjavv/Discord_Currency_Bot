@@ -513,8 +513,19 @@ app.get('/shop', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'docs', 'shop.html'));
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Express web server listening on port ${port}`);
+
+  // Self-ping keep-alive for Render free tier — prevents the 15-minute sleep
+  // that kills the Discord WebSocket connection
+  const renderHostname = process.env.RENDER_EXTERNAL_HOSTNAME;
+  if (renderHostname) {
+    const selfPingUrl = `https://${renderHostname}/health`;
+    console.log(`Render detected. Starting self-ping keep-alive: ${selfPingUrl}`);
+    setInterval(() => {
+      fetch(selfPingUrl).catch(() => {});
+    }, 10 * 60 * 1000); // Ping every 10 minutes
+  }
 });
 
 // Global Error Handlers for Crash Logging
@@ -649,5 +660,30 @@ async function startBot() {
     setTimeout(retryLogin, 30000);
   }
 }
+
+// Graceful shutdown — properly disconnect Discord and close DB pool
+// when Render sends SIGTERM during redeploys/restarts
+function gracefulShutdown(signal) {
+  console.log(`${signal} received. Shutting down gracefully...`);
+  try {
+    if (client && client.isReady()) {
+      client.destroy();
+      console.log('Discord client disconnected.');
+    }
+  } catch (e) {}
+  try {
+    pool.end();
+    console.log('Database pool closed.');
+  } catch (e) {}
+  server.close(() => {
+    console.log('Express server closed.');
+    process.exit(0);
+  });
+  // Force exit after 5 seconds if server.close hangs
+  setTimeout(() => process.exit(0), 5000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 startBot();
