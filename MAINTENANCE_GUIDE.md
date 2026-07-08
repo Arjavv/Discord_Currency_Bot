@@ -75,3 +75,33 @@ Open a terminal (or command prompt) in the `currency_bot` folder and run these c
    *(If your main branch is called `master`, use `git push origin master` instead).*
 
 🎉 **Congratulations!** Your changes are now safely backed up on GitHub.
+
+---
+
+## 🚨 Troubleshooting Common Cloud Deployment Issues
+
+When deploying to Render, you might run into specific networking issues that don't happen locally. Here is how to fix them:
+
+### 1. Discord Bot Stays Offline & Hangs at "Preparing to connect..."
+* **Symptoms:** The bot runs fine locally, but on Render it stays offline. Logs show `Preparing to connect to the gateway...` followed by `Discord login timed out after 30 seconds`.
+* **Root Cause:** Node.js tries to connect to Discord using IPv6 first. If Render's network routing is incomplete or if Discord's firewall blocks Render's shared IP address range, the connection hangs.
+* **Resolution:**
+  1. We resolved this in code by monkeypatching `dns.lookup` in `src/index.js` to force IPv4 for Discord endpoints.
+  2. If the problem persists, it means Discord has blocked the entire Render IP range in that region. Go to **Render** and recreate the Web Service in a different region (e.g. **Frankfurt, Germany** or **Singapore**). This routes the bot through a fresh, unblocked IP range.
+
+### 2. Database Connection Fails with `ENETUNREACH`
+* **Symptoms:** The bot crashes on startup with the error `FATAL: Database init failed: Error: connect ENETUNREACH <IPv6 address>:5432`.
+* **Root Cause:** Supabase databases use **IPv6-only** direct connection strings. If your Render region (like Singapore) is **IPv4-only**, the server cannot route IPv6 traffic, throwing "Network Unreachable".
+* **Resolution:**
+  1. **Do not use the Direct Connection link.**
+  2. Go to your **Supabase Settings** -> **Database**.
+  3. Under **Connection Pooler**, select **Mode: Session** and copy the pooling connection string.
+  4. Replace `[YOUR-PASSWORD]` with your actual password (ensure `@` is encoded as `%40` as `Currency_bot%4011062005`).
+  5. Use this new pooler string as the `DATABASE_URL` in Render. It runs over IPv4 and will connect instantly.
+
+### 3. Bot Responds Twice to Commands (Double Responses)
+* **Symptoms:** Whenever you type a command in Discord, the bot replies twice.
+* **Root Cause:** You have two instances of the bot running at the same time: one locally on your PC, and one in the cloud on Render.
+* **Resolution:**
+  * Open your local [.env](file:///e:/Discord_bots/currency_bot/.env) file and ensure `RUN_DISCORD_CLIENT=false` is set. This allows you to run the local admin panel/dashboard without the local process logging into Discord.
+
