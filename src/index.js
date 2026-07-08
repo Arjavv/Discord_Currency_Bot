@@ -12,11 +12,12 @@ dns.lookup = function (hostname, options, callback) {
   if (typeof options === 'function') {
     callback = options;
     options = {};
+  } else if (typeof options === 'number') {
+    options = { family: options };
+  } else if (!options) {
+    options = {};
   }
-  options = options || {};
-  if (!options.family) {
-    options.family = 4;
-  }
+  options.family = 4; // Force IPv4
   return originalLookup.call(this, hostname, options, callback);
 };
 
