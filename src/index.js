@@ -522,8 +522,8 @@ client.on('error', (err) => {
 });
 
 // Track real WebSocket connectivity for accurate admin panel status
-// clientReady = initial login, shardReady = after reconnect
-client.on('clientReady', () => {
+// ready = initial login, shardReady = after reconnect
+client.on('ready', () => {
   lastDiscordReadyAt = Date.now();
   console.log('Discord WebSocket: connected.');
 });
