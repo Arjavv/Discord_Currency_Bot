@@ -522,8 +522,14 @@ const server = app.listen(port, () => {
   if (renderHostname) {
     const selfPingUrl = `https://${renderHostname}/health`;
     console.log(`Render detected. Starting self-ping keep-alive: ${selfPingUrl}`);
+    const http = require('http');
+    const https = require('https');
     setInterval(() => {
-      fetch(selfPingUrl).catch(() => {});
+      try {
+        https.get(selfPingUrl, (res) => {
+          res.resume(); // consume response to free memory
+        }).on('error', () => {});
+      } catch (e) {}
     }, 10 * 60 * 1000); // Ping every 10 minutes
   }
 });
