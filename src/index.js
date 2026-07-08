@@ -4,6 +4,13 @@ const path = require('path');
 const { initDatabase, pool } = require('./database/db');
 require('dotenv').config();
 
+// Force DNS resolution to prefer IPv4 over IPv6
+// Fixes known gateway connection hangs in cloud environments (like Render/AWS)
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const consoleLogs = [];
 const originalLog = console.log;
 const originalError = console.error;
