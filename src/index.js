@@ -716,6 +716,7 @@ async function startBot() {
   } catch (error) {
     // DB failure is fatal - nothing will work without the database
     console.error('FATAL: Database init failed:', error);
+    logCrash(error, 'FatalDatabaseInit');
     process.exit(1);
   }
 
@@ -764,6 +765,7 @@ async function startBot() {
     // Log the Discord login error but keep Express running so admin panel stays up
     discordLoginError = error.message;
     console.error('ERROR: Discord login failed — admin panel is still accessible:', error.message);
+    logCrash(error, 'DiscordLoginFailed');
     // Retry Discord login every 30 seconds
     const retryLogin = () => {
       console.log('Retrying Discord login...');
@@ -778,6 +780,7 @@ async function startBot() {
         .catch(err => {
           discordLoginError = err.message;
           console.error('Discord retry failed:', err.message);
+          logCrash(err, 'DiscordLoginRetryFailed');
           setTimeout(retryLogin, 30000); // keep retrying
         });
     };
