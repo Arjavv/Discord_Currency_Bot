@@ -4,6 +4,38 @@ const path = require('path');
 const { initDatabase, pool } = require('./database/db');
 require('dotenv').config();
 
+const consoleLogs = [];
+const originalLog = console.log;
+const originalError = console.error;
+const originalWarn = console.warn;
+
+function captureLog(type, args) {
+  const msg = `[${new Date().toISOString()}] [${type}] ${args.map(arg => {
+    try {
+      return typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
+    } catch (e) {
+      return String(arg);
+    }
+  }).join(' ')}`;
+  consoleLogs.push(msg);
+  if (consoleLogs.length > 200) consoleLogs.shift();
+}
+
+console.log = (...args) => {
+  captureLog('LOG', args);
+  originalLog.apply(console, args);
+};
+
+console.error = (...args) => {
+  captureLog('ERROR', args);
+  originalError.apply(console, args);
+};
+
+console.warn = (...args) => {
+  captureLog('WARN', args);
+  originalWarn.apply(console, args);
+};
+
 const token = process.env.DISCORD_TOKEN;
 
 if (!token || token === 'your_bot_token_here') {
@@ -163,6 +195,11 @@ app.get('/health', async (req, res) => {
       ADMIN_PASSWORD: !!process.env.ADMIN_PASSWORD
     }
   });
+});
+
+app.get('/debug-logs', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.send(consoleLogs.join('\n'));
 });
 
 // Auth endpoints
