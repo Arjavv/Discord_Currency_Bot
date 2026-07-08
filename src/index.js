@@ -56,7 +56,15 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent // Useful for message activity verification
-  ]
+  ],
+  ws: {
+    compress: false // Disable compression to avoid potential handshake hangs
+  }
+});
+
+// Listen to REST rate limits to output them in debug logs
+client.on('rateLimit', (rateLimitData) => {
+  console.warn('[RATE LIMIT]', rateLimitData);
 });
 
 // Initialize collection to store commands
