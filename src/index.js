@@ -121,14 +121,34 @@ function requireLogin(req, res, next) {
 }
 
 // Public health check — no auth required (for Render uptime monitoring)
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
   const discordConnected = client.isReady() &&
     lastDiscordReadyAt !== null &&
     (lastDiscordDisconnectAt === null || lastDiscordReadyAt > lastDiscordDisconnectAt);
+    
+  let tokenStatus = 'unchecked';
+  let tokenUser = null;
+  if (process.env.DISCORD_TOKEN) {
+    try {
+      const dRes = await fetch('https://discord.com/api/v10/users/@me', {
+        headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+      });
+      tokenStatus = dRes.status;
+      if (dRes.ok) {
+        const uData = await dRes.json();
+        tokenUser = `${uData.username}#${uData.discriminator || '0000'}`;
+      }
+    } catch (e) {
+      tokenStatus = 'error: ' + e.message;
+    }
+  }
+
   res.json({
     status: 'ok',
     discordReady: discordConnected,
     discordLoginError: discordLoginError,
+    tokenStatus,
+    tokenUser,
     uptimeMs: Date.now() - botStartedAt,
     guildCount: client.guilds.cache.size,
     envVarsPresent: {
