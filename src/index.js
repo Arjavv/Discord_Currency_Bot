@@ -128,19 +128,11 @@ app.get('/health', async (req, res) => {
     
   let tokenStatus = 'unchecked';
   let tokenUser = null;
-  if (process.env.DISCORD_TOKEN) {
-    try {
-      const dRes = await fetch('https://discord.com/api/v10/users/@me', {
-        headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
-      });
-      tokenStatus = dRes.status;
-      if (dRes.ok) {
-        const uData = await dRes.json();
-        tokenUser = `${uData.username}#${uData.discriminator || '0000'}`;
-      }
-    } catch (e) {
-      tokenStatus = 'error: ' + e.message;
-    }
+  if (client && client.user) {
+    tokenStatus = 200;
+    tokenUser = client.user.tag;
+  } else if (process.env.DISCORD_TOKEN) {
+    tokenStatus = 'configured_but_disconnected';
   }
 
   res.json({
