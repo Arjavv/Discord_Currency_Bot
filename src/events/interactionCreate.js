@@ -17,11 +17,20 @@ module.exports = {
       getFeatureForSlashCommand
     } = require('../utils/botControl');
 
+    const { logRequest } = require('../utils/requestLogger');
+    const cmdStr = `/${interaction.commandName}` + (interaction.options.getSubcommand(false) ? ` ${interaction.options.getSubcommand()}` : '');
+
     try {
       const control = await getBotControlState(interaction.guildId);
       const isAdminCommand = interaction.commandName === 'admin';
 
       if (control.maintenanceMode && !isAdminCommand) {
+        logRequest({
+          username: interaction.user.tag,
+          command: cmdStr,
+          fulfilled: false,
+          error: 'Maintenance Mode'
+        });
         return interaction.reply({
           content: control.maintenanceMessage,
           ephemeral: true
@@ -31,6 +40,12 @@ module.exports = {
       if (!isAdminCommand) {
         const feature = getFeatureForSlashCommand(interaction.commandName);
         if (feature && !control.features[feature]) {
+          logRequest({
+            username: interaction.user.tag,
+            command: cmdStr,
+            fulfilled: false,
+            error: 'Feature Disabled'
+          });
           return interaction.reply({
             content: `❌ **${interaction.commandName}** is temporarily disabled globally by the bot owner.`,
             ephemeral: true
@@ -39,8 +54,21 @@ module.exports = {
       }
 
       await command.execute(interaction);
+      
+      logRequest({
+        username: interaction.user.tag,
+        command: cmdStr,
+        fulfilled: true
+      });
     } catch (error) {
       console.error(`Error executing command ${interaction.commandName}:`, error);
+
+      logRequest({
+        username: interaction.user.tag,
+        command: cmdStr,
+        fulfilled: false,
+        error: error.message || 'Execution Error'
+      });
 
       const errorMessage = {
         content: 'There was an error while executing this command! Please try again later.',

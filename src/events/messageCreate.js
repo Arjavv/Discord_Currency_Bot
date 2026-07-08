@@ -140,15 +140,87 @@ module.exports = {
     if (content.toLowerCase().startsWith('s ')) {
       const args = content.slice(2).trim().split(/\s+/);
       const commandName = args.shift().toLowerCase();
+
+      const VALID_PREFIX_COMMANDS = [
+        'setup', 'reset-cycle', 'set-drop-channel', 'force-drop', 'auto-drops', 'help',
+        'daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb',
+        'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy',
+        'fight', 'gift', 'give', 'send', 'transfer', 'rob', 'steal', 'heist', 'inv', 'inventory',
+        'sell', 'rare'
+      ];
+      
+      const isValid = VALID_PREFIX_COMMANDS.includes(commandName);
+      let fulfilled = true;
+      let logged = false;
+      let errorText = '';
+
+      const logFinal = (status, errText = '') => {
+        if (!isValid || logged) return;
+        logged = true;
+        const { logRequest } = require('../utils/requestLogger');
+        logRequest({
+          username: message.author.tag,
+          command: content,
+          fulfilled: status,
+          error: errText
+        });
+      };
+
+      // Wrap message.reply to check what it replies with
+      const originalReply = message.reply;
+      message.reply = async function(options) {
+        let text = '';
+        if (typeof options === 'string') text = options;
+        else if (options && options.content) text = options.content;
+        else if (options && options.embeds && options.embeds[0]) {
+          const emb = options.embeds[0];
+          text = (emb.title || '') + ' ' + (emb.description || '');
+        }
+        
+        if (text.includes('❌') || text.includes('⏳') || text.includes('⚠️')) {
+          fulfilled = false;
+          errorText = text.replace(/<[^>]*>/g, '').slice(0, 60);
+        }
+        
+        const res = await originalReply.apply(this, arguments);
+        logFinal(fulfilled, errorText);
+        return res;
+      };
+
+      // Wrap message.channel.send to catch sendTempMessage
+      const originalSend = message.channel.send;
+      message.channel.send = async function(options) {
+        let text = '';
+        if (typeof options === 'string') text = options;
+        else if (options && options.content) text = options.content;
+        
+        if (text.includes('❌') || text.includes('⏳') || text.includes('⚠️')) {
+          fulfilled = false;
+          errorText = text.replace(/<[^>]*>/g, '').slice(0, 60);
+        }
+        
+        const res = await originalSend.apply(this, arguments);
+        logFinal(fulfilled, errorText);
+        return res;
+      };
+
       const control = await getBotControlState(message.guildId);
 
       if (control.maintenanceMode && !isAdminPrefixCommand(commandName)) {
-        return sendTempMessage(message.channel, control.maintenanceMessage);
+        fulfilled = false;
+        errorText = 'Maintenance Mode';
+        const res = sendTempMessage(message.channel, control.maintenanceMessage);
+        logFinal(false, errorText);
+        return res;
       }
 
       const featureKey = getFeatureForPrefixCommand(commandName);
       if (featureKey && !control.features[featureKey]) {
-        return sendTempMessage(message.channel, `❌ **${commandName}** is temporarily disabled globally by the bot owner.`);
+        fulfilled = false;
+        errorText = 'Feature Disabled';
+        const res = sendTempMessage(message.channel, `❌ **${commandName}** is temporarily disabled globally by the bot owner.`);
+        logFinal(false, errorText);
+        return res;
       }
 
       try {
@@ -1878,8 +1950,15 @@ module.exports = {
         }
       } catch (err) {
         console.error(`Error processing prefix command ${commandName} for user ${userId}:`, err);
-        return await message.reply('❌ An error occurred while executing this command.').catch(() => { });
+        fulfilled = false;
+        errorText = err.message || 'Execution Error';
+        const res = await message.reply('❌ An error occurred while executing this command.').catch(() => { });
+        logFinal(false, errorText);
+        return res;
       }
+
+      // If it reaches the end successfully and didn't call reply/send yet, we log it
+      logFinal(fulfilled, errorText);
 
       // Exit early so prefix command messages don't earn activity points
       return;

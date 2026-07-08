@@ -358,6 +358,28 @@
       </div>
 
       <div class="section">
+        <div class="section-title"><i class="fa-solid fa-terminal" style="color:var(--green)"></i> Recent Request Logs</div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Real-time status of the last 10 commands executed by users.</p>
+        <div style="overflow-x:auto;">
+          <table class="data-table" id="request-logs-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>User</th>
+                <th>Command</th>
+                <th>Status</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="request-logs-list">
+              <tr><td colspan="5" class="empty-state loading-dots">Loading logs</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <button class="save-btn" id="refresh-requests-btn" style="margin-top:16px; background:rgba(255,255,255,0.05)"><i class="fa-solid fa-rotate-right"></i> Refresh Requests</button>
+      </div>
+
+      <div class="section">
         <div class="section-title"><i class="fa-solid fa-bug" style="color:var(--red)"></i> System Logs & Crashes</div>
         <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Recent crashes and unhandled exceptions. Restart bot to clear if deleted from disk.</p>
         <div id="crash-logs-container" style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text);">
@@ -581,8 +603,44 @@ document.querySelectorAll('.nav-item').forEach(el => {
 });
 
 async function loadAll() {
-  await Promise.all([loadStatus(), loadSettings(), loadServers(), loadCrashLogs()]);
+  await Promise.all([loadStatus(), loadSettings(), loadServers(), loadCrashLogs(), loadRequestLogs()]);
 }
+
+async function loadRequestLogs() {
+  try {
+    const logs = await api('/api/request-logs');
+    const tbody = $('request-logs-list');
+    if (!logs || logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fa-solid fa-terminal"></i>No request logs available.</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = logs.map(l => {
+      const statusIcon = l.fulfilled 
+        ? '<span style="color: var(--green); font-size: 1.1rem; font-weight: bold;"><i class="fa-solid fa-circle-check"></i></span>'
+        : '<span style="color: var(--red); font-size: 1.1rem; font-weight: bold;"><i class="fa-solid fa-circle-xmark"></i></span>';
+      
+      const timeStr = new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const escCommand = l.command.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const escError = l.error ? l.error.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
+      
+      return `<tr>
+        <td class="mono" style="color:var(--muted); font-size:0.75rem;">${timeStr}</td>
+        <td style="font-weight: 500;">${l.username}</td>
+        <td class="mono" style="color:var(--violet); font-size:0.78rem;">${escCommand}</td>
+        <td style="text-align: center;">${statusIcon}</td>
+        <td style="color:var(--muted); font-size:0.75rem;">${escError}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    $('request-logs-list').innerHTML = `<tr><td colspan="5" class="empty-state" style="color:var(--red);"><i class="fa-solid fa-triangle-exclamation"></i>Failed to load request logs: ${e.message}</td></tr>`;
+  }
+}
+
+$('refresh-requests-btn').onclick = () => {
+  $('request-logs-list').innerHTML = '<tr><td colspan="5" class="empty-state loading-dots">Refreshing logs</td></tr>';
+  loadRequestLogs();
+};
 
 async function loadCrashLogs() {
   try {
@@ -1143,7 +1201,10 @@ $('save-collectibles-btn').onclick = () => saveBtn($('save-collectibles-btn'), (
 
 checkAuth();
 setInterval(() => {
-  if ($('app').style.display !== 'none') loadStatus();
+  if ($('app').style.display !== 'none') {
+    loadStatus();
+    loadRequestLogs();
+  }
 }, 30000);
 
 // ---- CYCLE RESET DANGER ZONE ----

@@ -174,6 +174,16 @@ app.get('/api/crash-logs', requireLogin, (req, res) => {
   }
 });
 
+// Request logs endpoint (Protected)
+app.get('/api/request-logs', requireLogin, (req, res) => {
+  try {
+    const { getLogs } = require('./utils/requestLogger');
+    res.json(getLogs());
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read request logs' });
+  }
+});
+
 // Bot status & economy overview (Protected)
 app.get('/api/bot-status', requireLogin, async (req, res) => {
   try {
