@@ -430,7 +430,7 @@ module.exports = {
                 { name: '🎁 `s gift @user <amount/name/index> [qty]`', value: 'Send Souls from your wallet, or transfer a caught soul from your inventory.' },
                 { name: '🎒 `s inv`', value: 'Open your spawn inventory to view all the souls you have caught.' },
                 { name: '💎 `s rare`', value: 'Check today\'s active collectibles and their daily prices.' },
-                { name: '🪙 `s sell <index/name> [qty]`', value: 'Sell caught souls from your inventory if they are collectible today.' },
+                { name: '🪙 `s sell <index/name> [qty]`', value: 'Sell any caught soul at its default price. Souls marked as collectibles today sell at higher admin-set prices.' },
                 { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
                 { name: '🚀 `s crash <amount>`', value: 'Watch the multiplier rise and cash out before it crashes! Higher risk, higher reward.' },
                 { name: '💣 `s mines <amount> [mines]`', value: 'Reveal tiles on a grid and avoid hidden mines! More mines = higher multiplier. Default: 3 mines.' },
@@ -1793,29 +1793,34 @@ module.exports = {
               return message.reply('❌ Character not found in your inventory. Type \`s inv\` to view what you have caught.').catch(() => {});
             }
 
-            // Check if the character is collectible today (from global_settings)
+            // Determine sell price: collectible (admin-set premium) or default character value
             const settings = await getGlobalSettings();
-            const isActive = settings[`collectible_active_${targetItem.id}`] === 'true';
-            if (!isActive) {
-              return message.reply(`❌ **${targetItem.name}** is not collectible today! Use \`s rare\` to check today's active collectibles and daily prices.`).catch(() => {});
-            }
+            const isCollectible = settings[`collectible_active_${targetItem.id}`] === 'true';
+            const collectiblePrice = settings[`collectible_price_${targetItem.id}`] !== undefined
+              ? parseInt(settings[`collectible_price_${targetItem.id}`], 10)
+              : null;
 
-            const dailyPrice = settings[`collectible_price_${targetItem.id}`] !== undefined 
-              ? parseInt(settings[`collectible_price_${targetItem.id}`], 10) 
+            // Use the collectible price if active AND a valid price is set, otherwise use default
+            const sellPrice = (isCollectible && collectiblePrice !== null && !isNaN(collectiblePrice))
+              ? collectiblePrice
               : targetItem.value;
-            
+
+            const priceLabel = (isCollectible && collectiblePrice !== null && !isNaN(collectiblePrice))
+              ? `💎 **Rare Collectible Price** (${sellPrice} ${currencyIcon})`
+              : `📦 **Default Price** (${sellPrice} ${currencyIcon})`;
+
             if (sellQty > targetItem.quantity) {
               return message.reply(`❌ You only have **${targetItem.quantity}** of **${targetItem.name}** in your inventory.`).catch(() => {});
             }
             
             // Execute sell
-            const sellResult = await sellCharacter(userId, targetItem.id, dailyPrice, sellQty);
+            const sellResult = await sellCharacter(userId, targetItem.id, sellPrice, sellQty);
             if (sellResult.success) {
-              const totalEarned = dailyPrice * sellQty;
+              const totalEarned = sellPrice * sellQty;
               const embed = new EmbedBuilder()
-                .setColor('#00ffaa')
-                .setTitle('💰 Spawn Sold Successfully!')
-                .setDescription(`You sold **${sellQty}x ${targetItem.name}** for **${totalEarned}** ${currencyIcon} ${currencyName}!`)
+                .setColor(isCollectible ? '#ffd700' : '#00ffaa')
+                .setTitle(isCollectible ? '💎 Rare Collectible Sold!' : '💰 Spawn Sold Successfully!')
+                .setDescription(`You sold **${sellQty}x ${targetItem.name}** for **${totalEarned}** ${currencyIcon} ${currencyName}!\n${priceLabel}`)
                 .addFields(
                   { name: 'Remaining Quantity', value: `🎒 **${sellResult.newQty}**`, inline: true },
                   { name: 'New Wallet Balance', value: `🏦 **${sellResult.newBalance}** ${currencyIcon} ${currencyName}`, inline: true }
