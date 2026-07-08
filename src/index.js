@@ -562,21 +562,7 @@ client.on('shardReconnecting', (shardId) => {
   console.log(`Discord WebSocket: shard ${shardId} reconnecting...`);
 });
 
-// Debug: log all Discord.js internal gateway events
-client.on('debug', (info) => {
-  // Only log gateway-related messages, not heartbeats
-  if (!info.includes('Heartbeat')) {
-    console.log('[DEBUG]', info);
-  }
-});
 
-client.on('warn', (info) => {
-  console.warn('[WARN]', info);
-});
-
-client.on('shardError', (error, shardId) => {
-  console.error(`[SHARD ERROR] Shard ${shardId}:`, error.message);
-});
 
 // Main Boot Sequence
 async function startBot() {
@@ -592,16 +578,8 @@ async function startBot() {
   // 2. Log in to Discord (non-fatal - Express/admin panel stays alive even if Discord fails)
   try {
     console.log('Logging in to Discord...');
-    
-    // Add a 30-second timeout to detect hanging logins
-    const loginPromise = client.login(token);
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Discord login timed out after 30 seconds — gateway may be unreachable from this server')), 30000);
-    });
-    
-    await Promise.race([loginPromise, timeoutPromise]);
+    await client.login(token);
     discordLoginError = null; // clear any previous error
-    console.log('Discord login promise resolved successfully.');
 
     // 3. Start periodic cleanup of old transactions & message_activity (every 6 hours)
     const { cleanupOldRecords } = require('./database/queries');
