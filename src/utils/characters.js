@@ -223,6 +223,49 @@ const CHARACTER_SPAWNS = [
     embedDescription: 'Angel Cat has appeared! Tier: DIVINE\n\nA holy celestial angel cat has entered this realm...\n\nType soul to claim it!',
     claimTitle: 'DIVINE ANGEL CAT CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Angel Cat ✨\n\n✦ The celestial angel kitty has chosen its master.`
+  },
+  // --- LEGENDARY ELDEN RING BOSSES ---
+  {
+    id: 'boss_malenia',
+    name: 'Malenia, Blade of Miquella',
+    tier: 'LEGENDARY',
+    value: 5000,
+    weight: 1,
+    imagePath: './src/assets/boss_malenia.png',
+    attachmentName: 'boss_malenia.png',
+    color: '#d97706',
+    embedTitle: '✦ A LEGENDARY BOSS HAS DESCENDED ✦',
+    embedDescription: 'Malenia, Blade of Miquella has appeared! Tier: LEGENDARY\n\n"I am Malenia, Blade of Miquella, and I have never known defeat."\n\nType soul to claim her!',
+    claimTitle: 'LEGENDARY BOSS CLAIMED!',
+    claimDescription: (userMention) => `${userMention} defeated Malenia, Blade of Miquella ⚔️\n\n✦ The Goddess of Rot has met her match.`
+  },
+  {
+    id: 'boss_radahn',
+    name: 'Starscourge Radahn',
+    tier: 'LEGENDARY',
+    value: 5000,
+    weight: 1,
+    imagePath: './src/assets/boss_radahn.png',
+    attachmentName: 'boss_radahn.png',
+    color: '#dc2626',
+    embedTitle: '✦ A LEGENDARY BOSS HAS DESCENDED ✦',
+    embedDescription: 'Starscourge Radahn has appeared! Tier: LEGENDARY\n\nThe conqueror of the stars has arrived!\n\nType soul to claim him!',
+    claimTitle: 'LEGENDARY BOSS CLAIMED!',
+    claimDescription: (userMention) => `${userMention} defeated Starscourge Radahn ☄️\n\n✦ The Starscourge has fallen.`
+  },
+  {
+    id: 'boss_elden_beast',
+    name: 'Elden Beast',
+    tier: 'LEGENDARY',
+    value: 5000,
+    weight: 1,
+    imagePath: './src/assets/boss_elden_beast.png',
+    attachmentName: 'boss_elden_beast.png',
+    color: '#2563eb',
+    embedTitle: '✦ A LEGENDARY BOSS HAS DESCENDED ✦',
+    embedDescription: 'Elden Beast has appeared! Tier: LEGENDARY\n\nThe vassal beast of the Greater Will has descended!\n\nType soul to claim it!',
+    claimTitle: 'LEGENDARY BOSS CLAIMED!',
+    claimDescription: (userMention) => `${userMention} defeated the Elden Beast 💫\n\n✦ The Elden Ring has been restored.`
   }
 ];
 
