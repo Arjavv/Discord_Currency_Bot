@@ -152,8 +152,8 @@ let lastDiscordDisconnectAt = null;
 let discordLoginError = null; // tracks Discord login failure reason
 
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Session configuration
 app.use(session({
@@ -333,7 +333,9 @@ app.get('/api/characters', requireLogin, (req, res) => {
       tier: c.tier,
       value: c.value,
       color: c.color,
-      imagePath: c.imagePath
+      imagePath: c.imagePath,
+      isCustom: c.isCustom || false,
+      weight: c.weight || 0
     })));
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch characters' });
@@ -394,6 +396,7 @@ app.get('/api/servers-info', requireLogin, async (req, res) => {
         dropChannelId: row.drop_channel_id,
         dropChannelName: dropChannel ? `#${dropChannel.name}` : null,
         autoDropsEnabled: row.auto_drops_enabled === true,
+        nextDropTime: nextDropTimers.has(row.server_id) ? nextDropTimers.get(row.server_id).nextDropTime : null,
         currencyName: settings.currency_name,
         currencyIcon: settings.currency_icon_url
       };
@@ -515,12 +518,125 @@ app.get('/api/server/:serverId/detail', requireLogin, async (req, res) => {
       name: guild ? guild.name : `Server ${serverId}`,
       icon: guild && guild.icon ? guild.iconURL({ size: 128 }) : null,
       memberCount: guild ? guild.memberCount : 0,
-      settings,
+      settings: {
+        ...settings,
+        nextDropTime: nextDropTimers.has(serverId) ? nextDropTimers.get(serverId).nextDropTime : null
+      },
       ...detail
     });
   } catch (err) {
     console.error('Error fetching server detail:', err);
     res.status(500).json({ error: 'Failed to fetch server detail' });
+  }
+});
+
+// POST create custom auto drop (Protected)
+app.post('/api/drops', requireLogin, async (req, res) => {
+  const { name, tier, value, weight, color, claimDescription, image } = req.body;
+  if (!name || !tier || !value || !weight) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const id = 'custom_' + Date.now();
+    let imagePath = null;
+    let attachmentName = null;
+
+    if (image) {
+      const matches = image.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        return res.status(400).json({ error: 'Invalid image format' });
+      }
+      const ext = matches[1];
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      const filename = `${id}.${ext}`;
+      const assetsDir = path.join(__dirname, 'assets');
+      if (!fs.existsSync(assetsDir)) {
+        fs.mkdirSync(assetsDir, { recursive: true });
+      }
+      const fullPath = path.join(assetsDir, filename);
+      fs.writeFileSync(fullPath, buffer);
+      
+      imagePath = `./src/assets/${filename}`;
+      attachmentName = filename;
+    }
+
+    const newChar = {
+      id,
+      name,
+      tier,
+      value: parseInt(value, 10),
+      weight: parseInt(weight, 10),
+      imagePath,
+      attachmentName,
+      color: color || '#ffffff',
+      embedTitle: `✦ A ${tier} SOUL HAS DESCENDED ✦`,
+      embedDescription: `${name} has appeared! Tier: ${tier}\n\nA rare presence has entered this realm...\n\nType soul to claim her!`,
+      claimTitle: `${tier} SOUL CLAIMED!`,
+      claimDescription: claimDescription || `{userMention} captured ${name}! 💚\n\n✦ The ${tier.toLowerCase()} soul has chosen its master.`,
+      isCustom: true
+    };
+
+    const customPath = path.join(__dirname, 'utils', 'custom_characters.json');
+    let customChars = [];
+    if (fs.existsSync(customPath)) {
+      try {
+        customChars = JSON.parse(fs.readFileSync(customPath, 'utf8'));
+      } catch (e) {
+        customChars = [];
+      }
+    }
+    customChars.push(newChar);
+    fs.writeFileSync(customPath, JSON.stringify(customChars, null, 2));
+
+    const { reloadCustomCharacters } = require('./utils/characters');
+    reloadCustomCharacters();
+
+    res.json({ success: true, character: newChar });
+  } catch (err) {
+    console.error('Error creating custom drop:', err);
+    res.status(500).json({ error: 'Failed to create custom drop' });
+  }
+});
+
+// DELETE custom auto drop (Protected)
+app.delete('/api/drops/:id', requireLogin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const customPath = path.join(__dirname, 'utils', 'custom_characters.json');
+    let customChars = [];
+    if (fs.existsSync(customPath)) {
+      try {
+        customChars = JSON.parse(fs.readFileSync(customPath, 'utf8'));
+      } catch (e) {
+        customChars = [];
+      }
+    }
+
+    const charToDelete = customChars.find(c => c.id === id);
+    if (!charToDelete) {
+      return res.status(404).json({ error: 'Custom drop not found' });
+    }
+
+    if (charToDelete.attachmentName) {
+      const fullPath = path.join(__dirname, 'assets', charToDelete.attachmentName);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+    }
+
+    customChars = customChars.filter(c => c.id !== id);
+    fs.writeFileSync(customPath, JSON.stringify(customChars, null, 2));
+
+    const { reloadCustomCharacters } = require('./utils/characters');
+    reloadCustomCharacters();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting custom drop:', err);
+    res.status(500).json({ error: 'Failed to delete custom drop' });
   }
 });
 

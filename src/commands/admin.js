@@ -238,7 +238,10 @@ module.exports = {
 
           // Clear any pending timeout
           if (nextDropTimers.has(serverId)) {
-            clearTimeout(nextDropTimers.get(serverId));
+            const timerObj = nextDropTimers.get(serverId);
+            if (timerObj && timerObj.timeoutId) {
+              clearTimeout(timerObj.timeoutId);
+            }
             nextDropTimers.delete(serverId);
           }
 

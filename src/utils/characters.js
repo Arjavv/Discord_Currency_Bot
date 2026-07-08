@@ -155,6 +155,29 @@ const CHARACTER_SPAWNS = [
   }
 ];
 
+const fs = require('fs');
+const path = require('path');
+
+const defaultSpawns = [...CHARACTER_SPAWNS]; // Make a copy of defaults
+const customPath = path.join(__dirname, 'custom_characters.json');
+
+function reloadCustomCharacters() {
+  try {
+    CHARACTER_SPAWNS.length = 0;
+    CHARACTER_SPAWNS.push(...defaultSpawns);
+
+    if (fs.existsSync(customPath)) {
+      const customSpawns = JSON.parse(fs.readFileSync(customPath, 'utf8'));
+      CHARACTER_SPAWNS.push(...customSpawns);
+    }
+  } catch (e) {
+    console.error('Failed to load custom characters:', e);
+  }
+}
+
+// Initial load
+reloadCustomCharacters();
+
 /**
  * Returns a random character spawn based on their weights.
  */
@@ -172,5 +195,6 @@ function getRandomCharacter() {
 
 module.exports = {
   CHARACTER_SPAWNS,
-  getRandomCharacter
+  getRandomCharacter,
+  reloadCustomCharacters
 };

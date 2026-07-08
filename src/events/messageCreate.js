@@ -122,7 +122,11 @@ module.exports = {
         }
 
         // Send congratulatory reply
-        const claimText = character.claimDescription(message.author);
+        const claimText = typeof character.claimDescription === 'function'
+          ? character.claimDescription(message.author)
+          : (typeof character.claimDescription === 'string'
+              ? character.claimDescription.replace('{userMention}', String(message.author))
+              : `${message.author} captured ${character.name}!`);
         const congratulateText = 
           `**${character.tier} SOUL CLAIMED!**\n` +
           `> ${claimText.replace(/\n/g, '\n> ')}\n\n` +

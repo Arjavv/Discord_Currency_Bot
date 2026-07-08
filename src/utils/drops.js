@@ -101,8 +101,12 @@ async function triggerDrop(client, guildId, channel) {
  */
 function scheduleNextDrop(client, guildId, channelId) {
   if (nextDropTimers.has(guildId)) {
-    clearTimeout(nextDropTimers.get(guildId));
+    const timerObj = nextDropTimers.get(guildId);
+    if (timerObj && timerObj.timeoutId) {
+      clearTimeout(timerObj.timeoutId);
+    }
   }
+  const nextDropTime = Date.now() + 10 * 60 * 1000;
   const timeoutId = setTimeout(async () => {
     // Remove the timer from the map since it's now executing/fired
     nextDropTimers.delete(guildId);
@@ -142,7 +146,7 @@ function scheduleNextDrop(client, guildId, channelId) {
     }
   }, 10 * 60 * 1000); // 10 minutes
 
-  nextDropTimers.set(guildId, timeoutId);
+  nextDropTimers.set(guildId, { timeoutId, nextDropTime });
 }
 
 module.exports = {
