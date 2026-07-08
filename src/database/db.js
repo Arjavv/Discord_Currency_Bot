@@ -13,7 +13,8 @@ if (!connectionString) {
 // Create pg connection pool
 const pool = new Pool({
   connectionString,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 5000 // 5 seconds connection timeout
 });
 
 pool.on('error', (err) => {

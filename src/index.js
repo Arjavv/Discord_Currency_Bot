@@ -126,6 +126,18 @@ app.get('/health', async (req, res) => {
     lastDiscordReadyAt !== null &&
     (lastDiscordDisconnectAt === null || lastDiscordReadyAt > lastDiscordDisconnectAt);
     
+  let databaseStatus = 'unchecked';
+  if (pool) {
+    try {
+      const dbPromise = pool.query('SELECT 1');
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 3000));
+      await Promise.race([dbPromise, timeoutPromise]);
+      databaseStatus = 'connected';
+    } catch (e) {
+      databaseStatus = 'error: ' + e.message;
+    }
+  }
+
   let tokenStatus = 'unchecked';
   let tokenUser = null;
   if (client && client.user) {
@@ -139,6 +151,7 @@ app.get('/health', async (req, res) => {
     status: 'ok',
     discordReady: discordConnected,
     discordLoginError: discordLoginError,
+    databaseStatus,
     tokenStatus,
     tokenUser,
     uptimeMs: Date.now() - botStartedAt,
