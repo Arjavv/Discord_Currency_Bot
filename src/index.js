@@ -721,6 +721,27 @@ async function startBot() {
       return;
     }
     console.log('Logging in to Discord...');
+    
+    // Asynchronous diagnostic check for Discord REST API accessibility
+    const https = require('https');
+    try {
+      https.get({
+        hostname: 'discord.com',
+        path: '/api/v10/gateway/bot',
+        headers: { Authorization: `Bot ${token}` }
+      }, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          console.log(`[DIAGNOSTIC] Discord API Status: ${res.statusCode}. Body: ${body}`);
+        });
+      }).on('error', (err) => {
+        console.error(`[DIAGNOSTIC] Discord API Connection Error: ${err.message}`);
+      });
+    } catch (e) {
+      console.error(`[DIAGNOSTIC] Failed to request Discord API: ${e.message}`);
+    }
+
     const loginPromise = client.login(token);
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Discord login timed out after 30 seconds — gateway may be unreachable or blocked')), 30000);
