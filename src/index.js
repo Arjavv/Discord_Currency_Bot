@@ -527,11 +527,21 @@ app.listen(port, () => {
 
 // Global Error Handlers for Crash Logging
 process.on('uncaughtException', (err) => {
+  // Suppress PM2 EPIPE errors — these are caused by PM2's IPC pipe breaking
+  // and cascade into a crash loop if not caught. They are not our fault.
+  if (err && (err.code === 'EPIPE' || (err.message && err.message.includes('EPIPE')))) {
+    // Silently ignore — PM2 IPC pipe is broken, nothing we can do
+    return;
+  }
   console.error('Uncaught Exception:', err);
   logCrash(err, 'UncaughtException');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+  // Suppress PM2 EPIPE rejections as well
+  if (reason && (reason.code === 'EPIPE' || (reason.message && reason.message.includes('EPIPE')))) {
+    return;
+  }
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   logCrash(reason instanceof Error ? reason : new Error(String(reason)), 'UnhandledRejection');
 });
@@ -556,13 +566,43 @@ client.on('shardReady', (shardId) => {
 client.on('shardDisconnect', (event, shardId) => {
   lastDiscordDisconnectAt = Date.now();
   console.warn(`Discord WebSocket: shard ${shardId} disconnected (code ${event.code}).`);
+
+  // Auto-reconnect if Discord doesn't reconnect on its own within 30 seconds
+  setTimeout(() => {
+    if (!client.isReady() || (lastDiscordDisconnectAt && (!lastDiscordReadyAt || lastDiscordDisconnectAt > lastDiscordReadyAt))) {
+      console.log('Discord did not auto-reconnect. Attempting manual re-login...');
+      client.login(token).catch(err => {
+        console.error('Manual re-login failed:', err.message);
+        discordLoginError = err.message;
+      });
+    }
+  }, 30000);
 });
 
 client.on('shardReconnecting', (shardId) => {
   console.log(`Discord WebSocket: shard ${shardId} reconnecting...`);
 });
 
+client.on('shardError', (err, shardId) => {
+  console.error(`Discord WebSocket: shard ${shardId} error:`, err.message);
+  logCrash(err, 'ShardError');
+});
 
+// Periodic Discord heartbeat check — catches silent WebSocket deaths
+// (e.g., after EPIPE crash loops leave the process alive but Discord dead)
+setInterval(() => {
+  const isConnected = client.isReady() &&
+    lastDiscordReadyAt !== null &&
+    (lastDiscordDisconnectAt === null || lastDiscordReadyAt > lastDiscordDisconnectAt);
+
+  if (!isConnected && !discordLoginError) {
+    console.warn('Heartbeat: Discord connection appears dead. Attempting re-login...');
+    client.login(token).catch(err => {
+      discordLoginError = err.message;
+      console.error('Heartbeat re-login failed:', err.message);
+    });
+  }
+}, 5 * 60 * 1000); // Check every 5 minutes
 
 // Main Boot Sequence
 async function startBot() {
