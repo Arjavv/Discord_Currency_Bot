@@ -641,6 +641,39 @@ app.delete('/api/drops/:id', requireLogin, async (req, res) => {
   }
 });
 
+// POST update custom/default auto drop weight (Protected)
+app.post('/api/drops/:id/weight', requireLogin, async (req, res) => {
+  const { id } = req.params;
+  const { weight } = req.body;
+  if (weight === undefined || isNaN(parseInt(weight, 10)) || parseInt(weight, 10) < 0) {
+    return res.status(400).json({ error: 'Invalid weight value' });
+  }
+
+  try {
+    const customWeightsPath = path.join(__dirname, 'utils', 'custom_weights.json');
+    let weights = {};
+    if (fs.existsSync(customWeightsPath)) {
+      try {
+        weights = JSON.parse(fs.readFileSync(customWeightsPath, 'utf8'));
+      } catch (e) {
+        weights = {};
+      }
+    }
+
+    weights[id] = parseInt(weight, 10);
+    fs.writeFileSync(customWeightsPath, JSON.stringify(weights, null, 2));
+
+    const { reloadCustomWeights, reloadCustomCharacters } = require('./utils/characters');
+    reloadCustomWeights();
+    reloadCustomCharacters();
+
+    res.json({ success: true, weight: weights[id] });
+  } catch (err) {
+    console.error('Error updating drop weight:', err);
+    res.status(500).json({ error: 'Failed to update drop weight' });
+  }
+});
+
 // POST toggle custom/default auto drop disabled status (Protected)
 app.post('/api/drops/:id/toggle', requireLogin, async (req, res) => {
   const { id } = req.params;

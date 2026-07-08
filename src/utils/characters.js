@@ -160,6 +160,30 @@ const path = require('path');
 
 const defaultSpawns = [...CHARACTER_SPAWNS]; // Make a copy of defaults
 const customPath = path.join(__dirname, 'custom_characters.json');
+const customWeightsPath = path.join(__dirname, 'custom_weights.json');
+const customWeights = {};
+
+function reloadCustomWeights() {
+  try {
+    for (const key in customWeights) {
+      delete customWeights[key];
+    }
+    if (fs.existsSync(customWeightsPath)) {
+      const loaded = JSON.parse(fs.readFileSync(customWeightsPath, 'utf8'));
+      Object.assign(customWeights, loaded);
+    }
+  } catch (e) {
+    console.error('Failed to load custom weights:', e);
+  }
+}
+
+function applyCustomWeights() {
+  for (const char of CHARACTER_SPAWNS) {
+    if (customWeights[char.id] !== undefined) {
+      char.weight = customWeights[char.id];
+    }
+  }
+}
 
 function reloadCustomCharacters() {
   try {
@@ -170,6 +194,8 @@ function reloadCustomCharacters() {
       const customSpawns = JSON.parse(fs.readFileSync(customPath, 'utf8'));
       CHARACTER_SPAWNS.push(...customSpawns);
     }
+
+    applyCustomWeights();
   } catch (e) {
     console.error('Failed to load custom characters:', e);
   }
@@ -190,6 +216,7 @@ function reloadDisabledDrops() {
 }
 
 // Initial loads
+reloadCustomWeights();
 reloadCustomCharacters();
 reloadDisabledDrops();
 
@@ -218,5 +245,6 @@ module.exports = {
   getRandomCharacter,
   reloadCustomCharacters,
   disabledIds,
-  reloadDisabledDrops
+  reloadDisabledDrops,
+  reloadCustomWeights
 };

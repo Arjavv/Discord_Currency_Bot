@@ -505,97 +505,7 @@
     <div class="panel" id="panel-drops-manager">
       <div class="panel-header">
         <h2><i class="fa-solid fa-gift" style="color:var(--violet);font-size:1.1rem;margin-right:8px"></i>Auto Drops Manager</h2>
-        <p>Create, manage, and preview custom characters/souls that spawn in the auto-drop cycle</p>
-      </div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-bottom: 20px;">
-        <!-- Left: Form -->
-        <div class="section" style="margin-bottom:0;">
-          <div class="section-title"><i class="fa-solid fa-plus"></i> Create Custom Auto Drop</div>
-          <div class="input-grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="input-group">
-              <label>Soul Name</label>
-              <input type="text" id="cd-name" placeholder="e.g. Blossom Soul" required>
-            </div>
-            <div class="input-group">
-              <label>Tier</label>
-              <select id="cd-tier">
-                <option value="COMMON">COMMON</option>
-                <option value="UNCOMMON">UNCOMMON</option>
-                <option value="RARE">RARE</option>
-                <option value="EPIC">EPIC</option>
-                <option value="MYTHIC">MYTHIC</option>
-                <option value="DIVINE">DIVINE</option>
-              </select>
-            </div>
-            <div class="input-group">
-              <label>Sell Value (Souls)</label>
-              <input type="number" id="cd-value" placeholder="e.g. 100" value="100" min="1" required>
-            </div>
-            <div class="input-group">
-              <label>Spawn Weight</label>
-              <input type="number" id="cd-weight" placeholder="e.g. 50" value="50" min="1" required>
-            </div>
-            <div class="input-group">
-              <label>Embed Theme Color (Hex)</label>
-              <input type="color" id="cd-color" value="#ec4899" style="padding:0; height:38px; cursor:pointer;">
-            </div>
-            <div class="input-group">
-              <label>Upload Soul Image</label>
-              <input type="file" id="cd-image" accept="image/*" style="padding: 5px 0; border: none; background: transparent;">
-            </div>
-          </div>
-          <div class="input-group" style="margin-top: 12px;">
-            <label>Catch Description Template</label>
-            <textarea id="cd-claim" placeholder="e.g. {userMention} captured Blossom Soul! 💚\n\n✦ The common soul has chosen its master." style="height: 60px; font-family: inherit; font-size: 0.85rem; width:100%; padding: 8px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); border-radius: 7px; color: var(--text); outline: none; transition: border 0.2s;"></textarea>
-          </div>
-          <button class="save-btn" id="create-drop-btn" style="margin-top:16px; width: 100%;"><i class="fa-solid fa-plus"></i> Create & Activate Drop</button>
-        </div>
-
-        <!-- Right: Previews -->
-        <div style="display: flex; flex-direction: column; gap: 20px;">
-          <!-- Spawn Msg Preview -->
-          <div class="section" style="background: #36393f; border-color: #202225; color: #dcddde; font-family: sans-serif; margin-bottom: 0;">
-            <div class="section-title" style="color: #8e9297; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 8px; margin-bottom: 12px;"><i class="fa-brands fa-discord"></i> Discord Spawn Preview</div>
-            <div style="display: flex; gap: 12px; margin-top: 6px;">
-              <div style="width: 40px; height: 40px; border-radius: 50%; background: #5865f2; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; flex-shrink: 0;">S</div>
-              <div style="flex: 1; overflow: hidden;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="font-weight: 600; color: white; font-size: 0.95rem;">Soul Bot</span>
-                  <span style="font-size: 0.62rem; background: #5865f2; color: white; padding: 1px 4px; border-radius: 3px; font-weight: 600; text-transform: uppercase;">BOT</span>
-                  <span style="font-size: 0.72rem; color: #72767d;">Just now</span>
-                </div>
-                <div id="preview-spawn-content" style="margin-top: 4px; font-size: 0.95rem; white-space: pre-wrap; color: #dbdee1; line-height: 1.35;">✦ **A COMMON SOUL HAS DESCENDED** ✦
-**Blossom Soul** has appeared! (Value: **100** Souls)
-Type `soul` to claim her!</div>
-                <div id="preview-spawn-image-container" style="margin-top: 8px; max-width: 260px; border-radius: 4px; overflow: hidden; border: 1px solid rgba(0,0,0,0.2); display: none;">
-                  <img id="preview-spawn-image" style="width: 100%; display: block;" src="">
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Catch Msg Preview -->
-          <div class="section" style="background: #36393f; border-color: #202225; color: #dcddde; font-family: sans-serif; margin-bottom: 0;">
-            <div class="section-title" style="color: #8e9297; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 8px; margin-bottom: 12px;"><i class="fa-brands fa-discord"></i> Discord Catch Preview</div>
-            <div style="display: flex; gap: 12px; margin-top: 6px;">
-              <div style="width: 40px; height: 40px; border-radius: 50%; background: #5865f2; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; flex-shrink: 0;">S</div>
-              <div style="flex: 1; overflow: hidden;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="font-weight: 600; color: white; font-size: 0.95rem;">Soul Bot</span>
-                  <span style="font-size: 0.62rem; background: #5865f2; color: white; padding: 1px 4px; border-radius: 3px; font-weight: 600; text-transform: uppercase;">BOT</span>
-                  <span style="font-size: 0.72rem; color: #72767d;">Just now</span>
-                </div>
-                <div id="preview-catch-content" style="margin-top: 4px; font-size: 0.95rem; white-space: pre-wrap; color: #dbdee1; line-height: 1.35;">**COMMON SOUL CLAIMED!**
-> <span style="color:#5865f2;background:rgba(88,101,242,0.15);padding:0 4px;border-radius:3px;font-weight:500;">@Player</span> captured Blossom Soul 💚
-> 
-> ✦ The common soul has chosen its master.
-
-🎒 **Saved to Inventory!** Type `s inv` to see your collection. (Quantity: `1` | Sell Value: `100` Souls)</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <p>Manage spawn weights and enable/disable characters that spawn in the auto-drop cycle</p>
       </div>
 
       <!-- Bottom: Table of Drops -->
@@ -1352,35 +1262,6 @@ $('save-collectibles-btn').onclick = () => saveBtn($('save-collectibles-btn'), (
 // --- AUTO DROPS MANAGER SCRIPTS ---
 let cdImageBase64 = null;
 
-function updateCDPreview() {
-  const name = $('cd-name').value.trim() || 'Blossom Soul';
-  const tier = $('cd-tier').value || 'COMMON';
-  const value = $('cd-value').value || '100';
-  const claim = $('cd-claim').value.trim() || '{userMention} captured Blossom Soul! 💚\n\n✦ The common soul has chosen its master.';
-  
-  $('preview-spawn-content').innerHTML = `✦ **A ${tier} SOUL HAS DESCENDED** ✦\n**${name}** has appeared! (Value: **${value}** Souls)\nType \`soul\` to claim her!`;
-  
-  const formattedClaim = claim.replace('{userMention}', '<span style="color:#5865f2;background:rgba(88,101,242,0.15);padding:0 4px;border-radius:3px;font-weight:500;">@Player</span>');
-  $('preview-catch-content').innerHTML = `**${tier} SOUL CLAIMED!**\n> ${formattedClaim.split('\n').join('\n> ')}\n\n🎒 **Saved to Inventory!** Type \`s inv\` to see your collection. (Quantity: \`1\` | Sell Value: \`${value}\` Souls)`;
-}
-
-$('cd-image').onchange = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    cdImageBase64 = reader.result;
-    $('preview-spawn-image').src = reader.result;
-    $('preview-spawn-image-container').style.display = 'block';
-  };
-  reader.readAsDataURL(file);
-};
-
-['cd-name', 'cd-tier', 'cd-value', 'cd-claim'].forEach(id => {
-  $(id).addEventListener('input', updateCDPreview);
-  $(id).addEventListener('change', updateCDPreview);
-});
-
 async function loadDropsManager() {
   try {
     const chars = await api('/api/characters');
@@ -1406,7 +1287,9 @@ async function loadDropsManager() {
         <td style="font-weight: 600;">${char.name}</td>
         <td><span class="source-chip" style="background: rgba(255,255,255,0.02); color: ${char.color || '#fff'}; border-color: ${char.color || '#fff'}">${char.tier}</span></td>
         <td class="mono">${fmt(char.value)} Souls</td>
-        <td class="mono">${char.weight}</td>
+        <td class="mono">
+          <input type="number" class="drop-weight-input" data-drop-id="${char.id}" value="${char.weight}" min="0" style="width: 55px; text-align: center; padding: 4px 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); border-radius: 5px; color: var(--text); outline: none;">
+        </td>
         <td class="mono">${chance}</td>
         <td>
           <label class="switch" style="display:inline-block; vertical-align:middle;">
@@ -1437,6 +1320,26 @@ async function loadDropsManager() {
         }
       };
     });
+
+    // Bind weights
+    tbody.querySelectorAll('.drop-weight-input').forEach(inp => {
+      inp.onchange = async () => {
+        const val = parseInt(inp.value, 10);
+        if (isNaN(val) || val < 0) {
+          toast('Weight must be 0 or a positive number', 'err');
+          loadDropsManager();
+          return;
+        }
+        try {
+          await api(`/api/drops/${inp.dataset.dropId}/weight`, 'POST', { weight: val });
+          toast(`Drop weight updated ✓`);
+          loadDropsManager();
+        } catch (e) {
+          toast('Error: ' + e.message, 'err');
+          loadDropsManager();
+        }
+      };
+    });
   } catch (e) {
     toast('Error: ' + e.message, 'err');
   }
@@ -1452,43 +1355,6 @@ async function deleteCustomDrop(id) {
     toast('Error: ' + e.message, 'err');
   }
 }
-
-$('create-drop-btn').onclick = async () => {
-  const btn = $('create-drop-btn');
-  const name = $('cd-name').value.trim();
-  const tier = $('cd-tier').value;
-  const value = parseInt($('cd-value').value, 10);
-  const weight = parseInt($('cd-weight').value, 10);
-  const color = $('cd-color').value;
-  const claim = $('cd-claim').value.trim();
-
-  if (!name) return toast('Please enter a name', 'err');
-  if (isNaN(value) || value <= 0) return toast('Please enter a valid value', 'err');
-  if (isNaN(weight) || weight <= 0) return toast('Please enter a valid weight', 'err');
-
-  saveBtn(btn, async () => {
-    await api('/api/drops', 'POST', {
-      name,
-      tier,
-      value,
-      weight,
-      color,
-      claimDescription: claim,
-      image: cdImageBase64
-    });
-    // Reset form
-    $('cd-name').value = '';
-    $('cd-value').value = '100';
-    $('cd-weight').value = '50';
-    $('cd-claim').value = '';
-    $('cd-image').value = '';
-    cdImageBase64 = null;
-    $('preview-spawn-image-container').style.display = 'none';
-    $('preview-spawn-image').src = '';
-    updateCDPreview();
-    loadDropsManager();
-  });
-};
 
 checkAuth();
 setInterval(() => {
