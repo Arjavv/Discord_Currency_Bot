@@ -11,11 +11,6 @@ if (!token || token === 'your_bot_token_here') {
   process.exit(1);
 }
 
-if (token === 'disabled_locally') {
-  console.log('Bot is disabled locally (DISCORD_TOKEN=disabled_locally). Exiting.');
-  process.exit(0);
-}
-
 // Create client instance with required Gateway Intents
 const client = new Client({
   intents: [
@@ -588,6 +583,8 @@ client.on('shardError', (err, shardId) => {
 // Periodic Discord heartbeat check — catches silent WebSocket deaths
 // (e.g., after EPIPE crash loops leave the process alive but Discord dead)
 setInterval(() => {
+  if (process.env.RUN_DISCORD_CLIENT === 'false') return;
+
   const isConnected = client.isReady() &&
     lastDiscordReadyAt !== null &&
     (lastDiscordDisconnectAt === null || lastDiscordReadyAt > lastDiscordDisconnectAt);
@@ -614,6 +611,11 @@ async function startBot() {
 
   // 2. Log in to Discord (non-fatal - Express/admin panel stays alive even if Discord fails)
   try {
+    const runDiscord = process.env.RUN_DISCORD_CLIENT !== 'false';
+    if (!runDiscord) {
+      console.log('Discord client connection is disabled locally (RUN_DISCORD_CLIENT=false).');
+      return;
+    }
     console.log('Logging in to Discord...');
     await client.login(token);
     discordLoginError = null; // clear any previous error
