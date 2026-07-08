@@ -152,6 +152,77 @@ const CHARACTER_SPAWNS = [
     embedDescription: 'Celestia Soul has appeared! Tier: DIVINE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'DIVINE SOUL CLAIMED!',
     claimDescription: (userMention) => `${userMention} captured Celestia Soul ✨\n\n✦ The divine soul has chosen its master.`
+  },
+  // --- CUTE CATS ---
+  {
+    id: 'cat_wink',
+    name: 'Winky Cat',
+    tier: 'COMMON',
+    value: 150,
+    weight: 50,
+    imagePath: './src/assets/wink_cat.png',
+    attachmentName: 'wink_cat.png',
+    color: '#4ade80',
+    embedTitle: '✦ A CUTE CAT HAS DESCENDED ✦',
+    embedDescription: 'Winky Cat has appeared! Tier: COMMON\n\nA silly winking cat has entered this realm...\n\nType soul to claim it!',
+    claimTitle: 'CUTE CAT CLAIMED!',
+    claimDescription: (userMention) => `${userMention} captured Winky Cat 😜\n\n✦ The winking cat has chosen its master.`
+  },
+  {
+    id: 'cat_derp',
+    name: 'Derp Cat',
+    tier: 'UNCOMMON',
+    value: 400,
+    weight: 25,
+    imagePath: './src/assets/derp_cat.png',
+    attachmentName: 'derp_cat.png',
+    color: '#3b82f6',
+    embedTitle: '✦ AN UNCOMMON CAT HAS DESCENDED ✦',
+    embedDescription: 'Derp Cat has appeared! Tier: UNCOMMON\n\nA surprised shocked cat has entered this realm...\n\nType soul to claim it!',
+    claimTitle: 'UNCOMMON CAT CLAIMED!',
+    claimDescription: (userMention) => `${userMention} captured Derp Cat 🙀\n\n✦ The shocked cat has chosen its master.`
+  },
+  {
+    id: 'cat_smug',
+    name: 'Smug Cat',
+    tier: 'RARE',
+    value: 900,
+    weight: 15,
+    imagePath: './src/assets/smug_cat.png',
+    attachmentName: 'smug_cat.png',
+    color: '#f97316',
+    embedTitle: '✦ A RARE CAT HAS DESCENDED ✦',
+    embedDescription: 'Smug Cat has appeared! Tier: RARE\n\nA cool orange tabby has entered this realm...\n\nType soul to claim it!',
+    claimTitle: 'RARE CAT CLAIMED!',
+    claimDescription: (userMention) => `${userMention} captured Smug Cat 😏\n\n✦ The smug cat has chosen its master.`
+  },
+  {
+    id: 'cat_heart',
+    name: 'Heart Kitten',
+    tier: 'EPIC',
+    value: 1800,
+    weight: 8,
+    imagePath: './src/assets/heart_cat.png',
+    attachmentName: 'heart_cat.png',
+    color: '#db2777',
+    embedTitle: '✦ AN EPIC KITTEN HAS DESCENDED ✦',
+    embedDescription: 'Heart Kitten has appeared! Tier: EPIC\n\nA loving standing kitten has entered this realm...\n\nType soul to claim it!',
+    claimTitle: 'EPIC KITTEN CLAIMED!',
+    claimDescription: (userMention) => `${userMention} captured Heart Kitten ❤️\n\n✦ The lovely kitten has chosen its master.`
+  },
+  {
+    id: 'cat_angel',
+    name: 'Angel Cat',
+    tier: 'DIVINE',
+    value: 3000,
+    weight: 2,
+    imagePath: './src/assets/angel_cat.png',
+    attachmentName: 'angel_cat.png',
+    color: '#fbbf24',
+    embedTitle: '✦ A DIVINE ANGEL CAT HAS DESCENDED ✦',
+    embedDescription: 'Angel Cat has appeared! Tier: DIVINE\n\nA holy celestial angel cat has entered this realm...\n\nType soul to claim it!',
+    claimTitle: 'DIVINE ANGEL CAT CLAIMED!',
+    claimDescription: (userMention) => `${userMention} captured Angel Cat ✨\n\n✦ The celestial angel kitty has chosen its master.`
   }
 ];
 
