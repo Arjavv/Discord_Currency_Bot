@@ -611,7 +611,8 @@ Type `soul` to claim her!</div>
                 <th>Tier</th>
                 <th>Value</th>
                 <th>Weight</th>
-                <th>Type</th>
+                <th>Chance %</th>
+                <th>Status</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -1386,6 +1387,8 @@ async function loadDropsManager() {
     const tbody = $('drops-manager-list');
     tbody.innerHTML = '';
     
+    const totalWeight = chars.filter(c => !c.isDisabled).reduce((acc, c) => acc + c.weight, 0);
+
     chars.forEach(char => {
       let imgUrl = '';
       if (char.imagePath) {
@@ -1393,22 +1396,46 @@ async function loadDropsManager() {
         imgUrl = `/assets/spawns/${imgName}`;
       }
       
+      const chance = char.isDisabled ? '0.0%' : (totalWeight > 0 ? ((char.weight / totalWeight) * 100).toFixed(1) + '%' : '0.0%');
+
       const row = document.createElement('tr');
       if (char.isCustom) row.style.background = 'rgba(139,92,246,0.03)';
+      if (char.isDisabled) row.style.opacity = '0.55';
       row.innerHTML = `
         <td>${imgUrl ? `<img src="${imgUrl}" style="width: 42px; height: 42px; border-radius: 6px; border: 1px solid var(--card-border);">` : '<span style="color:var(--muted)">No image</span>'}</td>
         <td style="font-weight: 600;">${char.name}</td>
         <td><span class="source-chip" style="background: rgba(255,255,255,0.02); color: ${char.color || '#fff'}; border-color: ${char.color || '#fff'}">${char.tier}</span></td>
         <td class="mono">${fmt(char.value)} Souls</td>
         <td class="mono">${char.weight}</td>
-        <td>${char.isCustom ? '<span style="color:var(--violet); font-weight:600;">Custom</span>' : '<span style="color:var(--muted);">Default</span>'}</td>
+        <td class="mono">${chance}</td>
+        <td>
+          <label class="switch" style="display:inline-block; vertical-align:middle;">
+            <input type="checkbox" class="drop-status-toggle" data-drop-id="${char.id}" ${char.isDisabled ? '' : 'checked'}>
+            <span class="slider"></span>
+          </label>
+          <span style="font-size:0.78rem; margin-left:6px; font-weight:600; color:${char.isDisabled?'var(--red)':'var(--green)'};">${char.isDisabled?'OFF':'ON'}</span>
+        </td>
         <td>
           ${char.isCustom 
             ? `<button class="btn-logout" style="padding: 4px 8px; font-size: 0.75rem; margin: 0; display: inline-block; width: auto;" onclick="deleteCustomDrop('${char.id}')"><i class="fa-solid fa-trash"></i> Delete</button>` 
-            : '<span style="color:var(--muted); font-size: 0.78rem;">Locked</span>'}
+            : '<span style="color:var(--muted); font-size: 0.78rem;">Locked (Default)</span>'}
         </td>
       `;
       tbody.appendChild(row);
+    });
+
+    // Bind toggles
+    tbody.querySelectorAll('.drop-status-toggle').forEach(inp => {
+      inp.onchange = async () => {
+        try {
+          await api(`/api/drops/${inp.dataset.dropId}/toggle`, 'POST', { isDisabled: !inp.checked });
+          toast(`Drop status updated ✓`);
+          loadDropsManager();
+        } catch (e) {
+          toast('Error: ' + e.message, 'err');
+          inp.checked = !inp.checked; // revert
+        }
+      };
     });
   } catch (e) {
     toast('Error: ' + e.message, 'err');

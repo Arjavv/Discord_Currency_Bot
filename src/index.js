@@ -326,7 +326,7 @@ app.get('/api/settings', requireLogin, async (req, res) => {
 // GET characters list (Protected)
 app.get('/api/characters', requireLogin, (req, res) => {
   try {
-    const { CHARACTER_SPAWNS } = require('./utils/characters');
+    const { CHARACTER_SPAWNS, disabledIds } = require('./utils/characters');
     res.json(CHARACTER_SPAWNS.map(c => ({
       id: c.id,
       name: c.name,
@@ -335,7 +335,8 @@ app.get('/api/characters', requireLogin, (req, res) => {
       color: c.color,
       imagePath: c.imagePath,
       isCustom: c.isCustom || false,
-      weight: c.weight || 0
+      weight: c.weight || 0,
+      isDisabled: disabledIds.includes(c.id)
     })));
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch characters' });
@@ -637,6 +638,41 @@ app.delete('/api/drops/:id', requireLogin, async (req, res) => {
   } catch (err) {
     console.error('Error deleting custom drop:', err);
     res.status(500).json({ error: 'Failed to delete custom drop' });
+  }
+});
+
+// POST toggle custom/default auto drop disabled status (Protected)
+app.post('/api/drops/:id/toggle', requireLogin, async (req, res) => {
+  const { id } = req.params;
+  const { isDisabled } = req.body;
+  try {
+    const disabledPath = path.join(__dirname, 'utils', 'disabled_drops.json');
+    let disabledIdsList = [];
+    if (fs.existsSync(disabledPath)) {
+      try {
+        disabledIdsList = JSON.parse(fs.readFileSync(disabledPath, 'utf8'));
+      } catch (e) {
+        disabledIdsList = [];
+      }
+    }
+    
+    if (isDisabled) {
+      if (!disabledIdsList.includes(id)) {
+        disabledIdsList.push(id);
+      }
+    } else {
+      disabledIdsList = disabledIdsList.filter(dId => dId !== id);
+    }
+    
+    fs.writeFileSync(disabledPath, JSON.stringify(disabledIdsList, null, 2));
+    
+    const { reloadDisabledDrops } = require('./utils/characters');
+    reloadDisabledDrops();
+    
+    res.json({ success: true, isDisabled });
+  } catch (err) {
+    console.error('Error toggling drop status:', err);
+    res.status(500).json({ error: 'Failed to toggle drop status' });
   }
 });
 

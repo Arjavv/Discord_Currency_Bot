@@ -174,27 +174,49 @@ function reloadCustomCharacters() {
     console.error('Failed to load custom characters:', e);
   }
 }
+const disabledPath = path.join(__dirname, 'disabled_drops.json');
+const disabledIds = [];
 
-// Initial load
+function reloadDisabledDrops() {
+  try {
+    disabledIds.length = 0;
+    if (fs.existsSync(disabledPath)) {
+      const loaded = JSON.parse(fs.readFileSync(disabledPath, 'utf8'));
+      disabledIds.push(...loaded);
+    }
+  } catch (e) {
+    console.error('Failed to load disabled drops:', e);
+  }
+}
+
+// Initial loads
 reloadCustomCharacters();
+reloadDisabledDrops();
 
 /**
  * Returns a random character spawn based on their weights.
  */
 function getRandomCharacter() {
-  const totalWeight = CHARACTER_SPAWNS.reduce((acc, c) => acc + c.weight, 0);
+  const activeSpawns = CHARACTER_SPAWNS.filter(c => !disabledIds.includes(c.id));
+  if (activeSpawns.length === 0) {
+    return CHARACTER_SPAWNS[0]; // fallback
+  }
+
+  const totalWeight = activeSpawns.reduce((acc, c) => acc + c.weight, 0);
   let random = Math.random() * totalWeight;
-  for (const char of CHARACTER_SPAWNS) {
+  for (const char of activeSpawns) {
     if (random < char.weight) {
       return char;
     }
     random -= char.weight;
   }
-  return CHARACTER_SPAWNS[0]; // fallback
+  return activeSpawns[0];
 }
 
 module.exports = {
   CHARACTER_SPAWNS,
   getRandomCharacter,
-  reloadCustomCharacters
+  reloadCustomCharacters,
+  disabledIds,
+  reloadDisabledDrops
 };
