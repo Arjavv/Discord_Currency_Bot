@@ -11,6 +11,11 @@ if (!token || token === 'your_bot_token_here') {
   process.exit(1);
 }
 
+if (token === 'disabled_locally') {
+  console.log('Bot is disabled locally (DISCORD_TOKEN=disabled_locally). Exiting.');
+  process.exit(0);
+}
+
 // Create client instance with required Gateway Intents
 const client = new Client({
   intents: [
