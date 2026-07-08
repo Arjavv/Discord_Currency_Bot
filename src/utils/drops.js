@@ -104,6 +104,9 @@ function scheduleNextDrop(client, guildId, channelId) {
     clearTimeout(nextDropTimers.get(guildId));
   }
   const timeoutId = setTimeout(async () => {
+    // Remove the timer from the map since it's now executing/fired
+    nextDropTimers.delete(guildId);
+
     try {
       const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
       if (!guild) return;
@@ -117,13 +120,25 @@ function scheduleNextDrop(client, guildId, channelId) {
 
       const control = await getBotControlState();
       if (control.maintenanceMode || !control.features.drops) {
-        scheduleNextDrop(client, guildId, channelId);
+        // If drops are paused/disabled or in maintenance, schedule retry
+        if (!nextDropTimers.has(guildId)) {
+          scheduleNextDrop(client, guildId, channelId);
+        }
         return;
       }
 
       await triggerDrop(client, guildId, channel);
+
+      // Schedule the next drop if no newer timer was scheduled in the meantime (e.g. from a catch)
+      if (!nextDropTimers.has(guildId)) {
+        scheduleNextDrop(client, guildId, targetChannelId);
+      }
     } catch (err) {
       console.error(`Error in scheduled drop for ${guildId}:`, err);
+      // Re-schedule on error to avoid loop dying
+      if (!nextDropTimers.has(guildId)) {
+        scheduleNextDrop(client, guildId, channelId);
+      }
     }
   }, 10 * 60 * 1000); // 10 minutes
 

@@ -122,6 +122,7 @@ const express = require('express');
 const session = require('express-session');
 const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, getShopPrices, setShopPrice, resetCycle, getDatabaseSize } = require('./database/queries');
 const { getBotControlState } = require('./utils/botControl');
+const { scheduleNextDrop, triggerDrop, nextDropTimers } = require('./utils/drops');
 
 const crashLogPath = path.join(__dirname, '..', 'crash_logs.json');
 
@@ -459,7 +460,36 @@ app.patch('/api/server/:serverId', requireLogin, async (req, res) => {
 
   try {
     if (auto_drops_enabled !== undefined) {
-      await toggleAutoDrops(serverId, auto_drops_enabled === true || auto_drops_enabled === 'true');
+      const isEnabling = auto_drops_enabled === true || auto_drops_enabled === 'true';
+      await toggleAutoDrops(serverId, isEnabling);
+
+      if (isEnabling) {
+        if (!nextDropTimers.has(serverId)) {
+          const settings = await getServerSettings(serverId);
+          const guild = client.guilds.cache.get(serverId) || await client.guilds.fetch(serverId).catch(() => null);
+          if (guild) {
+            let dropChannel = null;
+            if (settings.drop_channel_id) {
+              dropChannel = guild.channels.cache.get(settings.drop_channel_id) || 
+                            await guild.channels.fetch(settings.drop_channel_id).catch(() => null);
+            } else {
+              const currentChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
+              dropChannel = currentChannels.find(
+                c => c.name.toLowerCase() === 'general' && c.isTextBased()
+              );
+            }
+            if (dropChannel) {
+              await triggerDrop(client, serverId, dropChannel);
+              scheduleNextDrop(client, serverId, dropChannel.id);
+            }
+          }
+        }
+      } else {
+        if (nextDropTimers.has(serverId)) {
+          clearTimeout(nextDropTimers.get(serverId));
+          nextDropTimers.delete(serverId);
+        }
+      }
     }
     if (drop_channel_id !== undefined) {
       await updateDropChannel(serverId, drop_channel_id || null);

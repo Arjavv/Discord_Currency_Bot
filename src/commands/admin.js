@@ -221,6 +221,9 @@ module.exports = {
           // Trigger first drop immediately
           await triggerDrop(interaction.client, serverId, dropChannel);
 
+          // Schedule the next drop cycle
+          scheduleNextDrop(interaction.client, serverId, dropChannel.id);
+
           const embed = new EmbedBuilder()
             .setColor('#00ffaa')
             .setTitle('▶️ Auto Drops Started')
