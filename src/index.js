@@ -4,8 +4,9 @@ const path = require('path');
 const { initDatabase, pool } = require('./database/db');
 require('dotenv').config();
 
-// Force DNS resolution to prefer IPv4 globally (works on all Node.js versions)
+// Force DNS resolution to prefer IPv4 ONLY for Discord domains
 // Fixes known gateway connection hangs in cloud environments (like Render/AWS)
+// Other domains like Supabase (which are IPv6-only) will resolve normally
 const dns = require('dns');
 const originalLookup = dns.lookup;
 dns.lookup = function (hostname, options, callback) {
@@ -17,7 +18,11 @@ dns.lookup = function (hostname, options, callback) {
   } else if (!options) {
     options = {};
   }
-  options.family = 4; // Force IPv4
+  
+  if (hostname && hostname.includes('discord')) {
+    options.family = 4; // Force IPv4 for Discord
+  }
+  
   return originalLookup.call(this, hostname, options, callback);
 };
 
