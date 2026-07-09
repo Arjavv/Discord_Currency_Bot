@@ -2,6 +2,7 @@ const { initDatabase, pool } = require('./src/database/db');
 require('dotenv').config();
 
 const TEST_SERVER = '999999999999999999';
+const TEST_SERVER_2 = '888888888888888888';
 const TEST_USER_1 = '111111111111111111';
 const TEST_USER_2 = '222222222222222222';
 
@@ -13,7 +14,10 @@ const mockState = {
   cycles: [],
   cycle_results: [],
   server_settings: new Map(), // key: serverId
-  global_settings: new Map()  // key: settingKey
+  global_settings: new Map(),  // key: settingKey
+  server_treasury: new Map(), // key: serverId
+  user_daily_tax: new Map(),  // key: userId + '_' + serverId
+  user_inventory: new Map()   // key: userId + '_' + serverId + '_' + itemId
 };
 
 let nextCycleId = 1;
@@ -24,6 +28,118 @@ let nextResultId = 1;
  */
 function mockQueryExecutor(sql, params) {
   const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+
+  // --- Treasury Mock Queries ---
+  if (normalizedSql.includes('INSERT INTO server_treasury')) {
+    const [serverId] = params;
+    if (!mockState.server_treasury.has(serverId)) {
+      mockState.server_treasury.set(serverId, {
+        server_id: serverId,
+        balance: 100000,
+        daily_tax_rate: 1.00,
+        win_tax_rate: 10.00,
+        sell_tax_rate: 10.00
+      });
+    }
+    return { rows: [] };
+  }
+
+  if (normalizedSql.includes('SELECT balance, daily_tax_rate, win_tax_rate, sell_tax_rate FROM server_treasury')) {
+    const [serverId] = params;
+    const treasury = mockState.server_treasury.get(serverId) || {
+      server_id: serverId,
+      balance: 100000,
+      daily_tax_rate: 1.00,
+      win_tax_rate: 10.00,
+      sell_tax_rate: 10.00
+    };
+    return { rows: [treasury] };
+  }
+
+  if (normalizedSql.includes('SELECT daily_tax_rate FROM server_treasury') || normalizedSql.includes('SELECT win_tax_rate FROM server_treasury') || normalizedSql.includes('SELECT sell_tax_rate FROM server_treasury')) {
+    const [serverId] = params;
+    const treasury = mockState.server_treasury.get(serverId) || {
+      server_id: serverId,
+      balance: 100000,
+      daily_tax_rate: 1.00,
+      win_tax_rate: 10.00,
+      sell_tax_rate: 10.00
+    };
+    return { rows: [treasury] };
+  }
+
+  if (normalizedSql.includes('UPDATE server_treasury SET daily_tax_rate = COALESCE')) {
+    const [dailyRate, winRate, sellRate, serverId] = params;
+    const treasury = mockState.server_treasury.get(serverId) || {
+      server_id: serverId,
+      balance: 100000,
+      daily_tax_rate: 1.00,
+      win_tax_rate: 10.00,
+      sell_tax_rate: 10.00
+    };
+    if (dailyRate !== null && dailyRate !== undefined) treasury.daily_tax_rate = dailyRate;
+    if (winRate !== null && winRate !== undefined) treasury.win_tax_rate = winRate;
+    if (sellRate !== null && sellRate !== undefined) treasury.sell_tax_rate = sellRate;
+    mockState.server_treasury.set(serverId, treasury);
+    return { rows: [treasury] };
+  }
+
+  if (normalizedSql.includes('UPDATE server_treasury SET balance = balance + $1')) {
+    const [amount, serverId] = params;
+    const treasury = mockState.server_treasury.get(serverId) || {
+      server_id: serverId,
+      balance: 100000,
+      daily_tax_rate: 1.00,
+      win_tax_rate: 10.00,
+      sell_tax_rate: 10.00
+    };
+    treasury.balance = (BigInt(treasury.balance) + BigInt(amount)).toString();
+    mockState.server_treasury.set(serverId, treasury);
+    return { rows: [treasury] };
+  }
+
+  // --- Daily Tax Mock Queries ---
+  if (normalizedSql.includes('SELECT last_taxed_at FROM user_daily_tax')) {
+    const [discordId, serverId] = params;
+    const key = `${discordId}_${serverId}`;
+    const taxRecord = mockState.user_daily_tax.get(key);
+    return { rows: taxRecord ? [taxRecord] : [] };
+  }
+
+  if (normalizedSql.includes('INSERT INTO user_daily_tax')) {
+    const [discordId, serverId, lastTaxed] = params;
+    const key = `${discordId}_${serverId}`;
+    mockState.user_daily_tax.set(key, {
+      discord_id: discordId,
+      server_id: serverId,
+      last_taxed_at: lastTaxed
+    });
+    return { rows: [] };
+  }
+
+  // --- Inventory Mock Queries (for Sell) ---
+  if (normalizedSql.includes('SELECT quantity FROM user_inventory')) {
+    const [discordId, itemId] = params; // select quantity from user_inventory where discord_id = $1 and server_id = 'GLOBAL' and item_id = $2
+    const key = `${discordId}_GLOBAL_${itemId}`;
+    const item = mockState.user_inventory.get(key);
+    return { rows: item ? [item] : [] };
+  }
+
+  if (normalizedSql.includes('UPDATE user_inventory SET quantity = $3')) {
+    const [discordId, itemId, qty] = params; // update user_inventory set quantity = $3 where discord_id = $1 and server_id = 'GLOBAL' and item_id = $2
+    const key = `${discordId}_GLOBAL_${itemId}`;
+    const item = mockState.user_inventory.get(key) || { discord_id: discordId, server_id: 'GLOBAL', item_id: itemId, quantity: 0 };
+    item.quantity = qty;
+    mockState.user_inventory.set(key, item);
+    return { rows: [] };
+  }
+
+  if (normalizedSql.includes('DELETE FROM user_inventory')) {
+    const [discordId, itemId] = params;
+    const key = `${discordId}_GLOBAL_${itemId}`;
+    mockState.user_inventory.delete(key);
+    return { rows: [] };
+  }
 
   // 0. SELECT global_settings
   if (normalizedSql.includes('SELECT key, value FROM global_settings')) {
@@ -393,7 +509,11 @@ async function runTests() {
     resetCycle,
     recordCasinoGame,
     updateDropChannel,
-    awardDropCoins
+    awardDropCoins,
+    getTreasury,
+    updateTreasuryRates,
+    applyDailyTaxIfDue,
+    sellCharacter
 } = require('./src/database/queries');
 
   try {
@@ -525,6 +645,8 @@ async function runTests() {
 
     // 4.5 Testing Casino Game transactions
     console.log('\nTesting Casino Game Coin Flip Bets...');
+    // Disable tax rates temporarily so original tests pass without tax
+    await updateTreasuryRates(TEST_SERVER, 0.00, 0.00, 0.00);
     // User 1 starts with 20 coins
     // Place a win bet (should add 10 coins)
     const casinoWin = await recordCasinoGame(TEST_USER_1, TEST_SERVER, 10, true);
@@ -584,6 +706,90 @@ async function runTests() {
       throw new Error('Failed to award drop coins correctly to user 1');
     }
     console.log('✔ Drop channel settings and drop catch tests passed.');
+
+    // 5.7 Testing Server Treasury (Soul Well) and Contributions (Tributes)
+    console.log('\nTesting Server Treasury / Soul Well settings & balance...');
+    // Initial treasury check on TEST_SERVER_2 (TEST_SERVER was configured to 0% above)
+    let treasury = await getTreasury(TEST_SERVER_2);
+    console.log('Initial treasury on server 2:', treasury);
+    if (parseInt(treasury.balance, 10) !== 100000 || treasury.dailyTaxRate !== 1.00 || treasury.winTaxRate !== 10.00) {
+      throw new Error('Default treasury properties incorrect');
+    }
+
+    // Configure rates
+    const updatedRates = await updateTreasuryRates(TEST_SERVER, 2.50, 15.00, 5.00);
+    console.log('Updated rates:', updatedRates);
+    treasury = await getTreasury(TEST_SERVER);
+    if (treasury.dailyTaxRate !== 2.50 || treasury.winTaxRate !== 15.00 || treasury.sellTaxRate !== 5.00) {
+      throw new Error('Failed to update treasury rates');
+    }
+
+    // Test Win Tax applied to casino wins
+    if (!useMock) {
+      await pool.query("UPDATE users SET coin_balance = 100 WHERE discord_id = $1 AND server_id = 'GLOBAL'", [TEST_USER_1]);
+    } else {
+      mockState.users.get(`${TEST_USER_1}_GLOBAL`).coin_balance = 100;
+    }
+    
+    console.log('Testing Win Tax on Casino Game (15% win tax configured)...');
+    const winResult = await recordCasinoGame(TEST_USER_1, TEST_SERVER, 100, true);
+    console.log('Casino win result with 15% tax:', winResult);
+    if (!winResult.success || winResult.taxAmount !== 15 || winResult.newBalance !== 185) {
+      throw new Error('Win tax was not computed/applied correctly');
+    }
+    treasury = await getTreasury(TEST_SERVER);
+    if (parseInt(treasury.balance, 10) !== 100015) {
+      throw new Error(`Treasury balance incorrect. Expected 100015, got ${treasury.balance}`);
+    }
+    console.log('✔ Win tax casino test passed.');
+
+    // Test Sell Tax on character sell
+    if (!useMock) {
+      await pool.query(`
+        INSERT INTO user_inventory (discord_id, server_id, item_id, quantity)
+        VALUES ($1, 'GLOBAL', 'dumbbell_soul', 2)
+        ON CONFLICT (discord_id, server_id, item_id) DO UPDATE SET quantity = 2
+      `, [TEST_USER_1]);
+    } else {
+      mockState.user_inventory.set(`${TEST_USER_1}_GLOBAL_dumbbell_soul`, {
+        discord_id: TEST_USER_1,
+        server_id: 'GLOBAL',
+        item_id: 'dumbbell_soul',
+        quantity: 2
+      });
+    }
+
+    console.log('Testing Sell Tax on character sell (5% sell tax configured)...');
+    const sellResult = await sellCharacter(TEST_USER_1, TEST_SERVER, 'dumbbell_soul', 200, 1);
+    console.log('Sell character result with 5% tax:', sellResult);
+    if (!sellResult.success || sellResult.taxAmount !== 10 || sellResult.netEarnings !== 190 || sellResult.newBalance !== 375) {
+      throw new Error('Sell tax was not computed/applied correctly');
+    }
+    treasury = await getTreasury(TEST_SERVER);
+    if (parseInt(treasury.balance, 10) !== 100025) {
+      throw new Error(`Treasury balance incorrect after sell. Expected 100025, got ${treasury.balance}`);
+    }
+    console.log('✔ Sell tax test passed.');
+
+    // Test Daily Tax / Tribute (2.5% daily tax configured)
+    console.log('Testing Daily Tax / Tribute (2.5% daily tax)...');
+    const dailyTax1 = await applyDailyTaxIfDue(TEST_USER_1, TEST_SERVER);
+    console.log('Daily tax first run result:', dailyTax1);
+    if (!dailyTax1.success || dailyTax1.taxAmount !== 9 || dailyTax1.newBalance !== 366) {
+      throw new Error('Daily tax was not applied correctly');
+    }
+    treasury = await getTreasury(TEST_SERVER);
+    if (parseInt(treasury.balance, 10) !== 100034) {
+      throw new Error(`Treasury balance incorrect after daily tax. Expected 100034, got ${treasury.balance}`);
+    }
+
+    // Try applying daily tax again immediately (should be rate-limited/cooldown)
+    const dailyTax2 = await applyDailyTaxIfDue(TEST_USER_1, TEST_SERVER);
+    console.log('Daily tax second run (cooldown) result:', dailyTax2);
+    if (dailyTax2.success) {
+      throw new Error('Daily tax should have been rate-limited');
+    }
+    console.log('✔ Daily tax/tribute test passed.');
 
     // 6. Reset Cycle Test (Now succeeds under dashboard/owner controls)
     console.log('\nTesting Cycle Reset (should succeed and clear balances)...');

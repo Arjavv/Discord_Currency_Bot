@@ -143,3 +143,22 @@ CREATE TABLE IF NOT EXISTS server_feature_overrides (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (server_id, feature)
 );
+
+-- 13. Server Treasury settings and balance (starts with default of 1 lakh = 100,000)
+CREATE TABLE IF NOT EXISTS server_treasury (
+    server_id VARCHAR(64) PRIMARY KEY,
+    balance BIGINT NOT NULL DEFAULT 100000,
+    daily_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 1.00, -- Default 1% daily tax
+    win_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 10.00,  -- Default 10% win tax
+    sell_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 10.00  -- Default 10% sell tax
+);
+
+-- 14. Track user daily tax payment timestamps per server
+CREATE TABLE IF NOT EXISTS user_daily_tax (
+    discord_id VARCHAR(64) NOT NULL,
+    server_id VARCHAR(64) NOT NULL,
+    last_taxed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (discord_id, server_id),
+    FOREIGN KEY (discord_id, server_id) REFERENCES users (discord_id, server_id) ON DELETE CASCADE
+);
+

@@ -23,7 +23,10 @@ const {
   giftCharacter,
   purchaseShopItem,
   recordDuelLoss,
-  getGlobalSettings
+  getGlobalSettings,
+  getTreasury,
+  updateTreasuryRates,
+  applyDailyTaxIfDue
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 
@@ -171,7 +174,7 @@ module.exports = {
         'daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb',
         'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy',
         'fight', 'gift', 'give', 'send', 'transfer', 'rob', 'steal', 'heist', 'inv', 'inventory',
-        'sell', 'rare'
+        'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut'
       ];
       
       const isValid = VALID_PREFIX_COMMANDS.includes(commandName);
@@ -249,6 +252,16 @@ module.exports = {
       }
 
       try {
+        // Apply daily tax/tribute if due
+        try {
+          const taxRes = await applyDailyTaxIfDue(userId, serverId);
+          if (taxRes.success && taxRes.taxAmount > 0) {
+            sendTempMessage(message.channel, `✨ **Daily Reaper's Cut**: Siphoned **${taxRes.taxAmount}** Souls to the server's **Soul Vault**.`);
+          }
+        } catch (taxErr) {
+          console.error('[Daily Tax Error]', taxErr);
+        }
+
         const settings = await getServerSettings(serverId);
         const currencyName = settings.currency_name;
         const currencyIcon = settings.currency_icon_url;
@@ -449,10 +462,10 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare'].includes(commandName)) {
-          // Lock user commands to #soul-bot — EXCEPT 's help admin' and inventory/gifting commands which can be run anywhere
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut'].includes(commandName)) {
+          // Lock user commands to #soul-bot — EXCEPT 's help admin', inventory/gifting, and treasury commands which can be run anywhere
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
-          const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer', 'rare'].includes(commandName);
+          const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut'].includes(commandName);
           if (!isAdminHelpRequest && !isInventoryCommand && !message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
           }
@@ -593,13 +606,197 @@ module.exports = {
           if (['cash', 'balance', 'bal', 'money'].includes(commandName)) {
             const targetUser = message.mentions.users.first() || message.author;
             const balanceInfo = await getUserBalance(targetUser.id, serverId);
+            const treasuryInfo = await getTreasury(serverId);
             const embed = new EmbedBuilder()
               .setColor('#ffd700')
               .setTitle(`${targetUser.username}'s Wallet`)
               .setDescription(`Holding **${balanceInfo.balance}** ${currencyIcon} ${currencyName}`)
               .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
+              .setFooter({ text: `Server Soul Vault: ${treasuryInfo.balance.toLocaleString()} ${currencyName}` })
               .setTimestamp();
             return await message.reply({ embeds: [embed] }).catch(() => { });
+          }
+
+          if (['vault', 'well'].includes(commandName)) {
+            const treasuryInfo = await getTreasury(serverId);
+            const embed = new EmbedBuilder()
+              .setColor('#7b2fff')
+              .setTitle(`🏛️ Server Soul Vault 🏛️`)
+              .setDescription(
+                `The **Soul Vault** collects a **Reaper's Cut** from all active users in **${message.guild.name}**.\n\n` +
+                `### 🔮 Stored Balance: \`${treasuryInfo.balance.toLocaleString()}\` Souls\n\n` +
+                `**Current Rates:**\n` +
+                `• **Daily Reaper's Cut:** \`${treasuryInfo.dailyTaxRate}%\` of wallet balance daily\n` +
+                `• **Win Reaper's Cut:** \`${treasuryInfo.winTaxRate}%\` siphoned from casino/duel wins\n` +
+                `• **Sell Reaper's Cut:** \`${treasuryInfo.sellTaxRate}%\` deducted on character sales\n\n` +
+                `*Rates can be customized by the Server Owner using the command \`s tax\` (or \`s cut\`).*`
+              )
+              .setThumbnail(message.guild.iconURL({ dynamic: true }))
+              .setTimestamp();
+            return await message.reply({ embeds: [embed] }).catch(() => { });
+          }
+
+          if (['tax', 'tribute', 'cut'].includes(commandName)) {
+            // Check if user is the server owner
+            if (message.author.id !== message.guild.ownerId) {
+              return message.reply("❌ **Access Denied**: Only the **Server Owner** can configure the Soul Vault Reaper's Cut rates.").catch(() => {});
+            }
+
+            const ownerUser = message.author;
+            const guildName = message.guild.name;
+
+            // Fetch current treasury settings
+            const treasuryInfo = await getTreasury(serverId);
+
+            // Build select menus
+            const dailySelect = new StringSelectMenuBuilder()
+              .setCustomId(`set_daily_tax_${serverId}`)
+              .setPlaceholder(`Daily Cut: currently ${treasuryInfo.dailyTaxRate}%`)
+              .addOptions(
+                new StringSelectMenuOptionBuilder().setLabel('0% (Disable daily cut)').setValue('0.00'),
+                new StringSelectMenuOptionBuilder().setLabel('0.5% (Very Low)').setValue('0.50'),
+                new StringSelectMenuOptionBuilder().setLabel('1.0% (Default Cut)').setValue('1.00'),
+                new StringSelectMenuOptionBuilder().setLabel('2.0% (Moderate)').setValue('2.00'),
+                new StringSelectMenuOptionBuilder().setLabel('3.0% (High)').setValue('3.00'),
+                new StringSelectMenuOptionBuilder().setLabel('5.0% (Aggressive)').setValue('5.00'),
+                new StringSelectMenuOptionBuilder().setLabel('10.0% (Extreme)').setValue('10.00')
+              );
+
+            const winSelect = new StringSelectMenuBuilder()
+              .setCustomId(`set_win_tax_${serverId}`)
+              .setPlaceholder(`Win Cut: currently ${treasuryInfo.winTaxRate}%`)
+              .addOptions(
+                new StringSelectMenuOptionBuilder().setLabel('0% (Keep full payouts)').setValue('0.00'),
+                new StringSelectMenuOptionBuilder().setLabel('2% (Slight Cut)').setValue('2.00'),
+                new StringSelectMenuOptionBuilder().setLabel('5% (Low Cut)').setValue('5.00'),
+                new StringSelectMenuOptionBuilder().setLabel('10% (Default Cut)').setValue('10.00'),
+                new StringSelectMenuOptionBuilder().setLabel('15% (High Cut)').setValue('15.00'),
+                new StringSelectMenuOptionBuilder().setLabel('20% (Aggressive)').setValue('20.00')
+              );
+
+            const sellSelect = new StringSelectMenuBuilder()
+              .setCustomId(`set_sell_tax_${serverId}`)
+              .setPlaceholder(`Sell Cut: currently ${treasuryInfo.sellTaxRate}%`)
+              .addOptions(
+                new StringSelectMenuOptionBuilder().setLabel('0% (Keep full sales)').setValue('0.00'),
+                new StringSelectMenuOptionBuilder().setLabel('2% (Slight Cut)').setValue('2.00'),
+                new StringSelectMenuOptionBuilder().setLabel('5% (Low Cut)').setValue('5.00'),
+                new StringSelectMenuOptionBuilder().setLabel('10% (Default Cut)').setValue('10.00'),
+                new StringSelectMenuOptionBuilder().setLabel('15% (High Cut)').setValue('15.00'),
+                new StringSelectMenuOptionBuilder().setLabel('20% (Aggressive)').setValue('20.00')
+              );
+
+            const row1 = new ActionRowBuilder().addComponents(dailySelect);
+            const row2 = new ActionRowBuilder().addComponents(winSelect);
+            const row3 = new ActionRowBuilder().addComponents(sellSelect);
+
+            const panelEmbed = new EmbedBuilder()
+              .setColor('#7b2fff')
+              .setTitle(`⚙️ Configure Soul Vault Reaper's Cuts — ${guildName}`)
+              .setDescription(
+                `Use the menus below to configure how much of the server's currency is siphoned as a **Reaper's Cut** to the **Soul Vault**:\n\n` +
+                `• **Daily Reaper's Cut:** deducted from active users once every 24 hours.\n` +
+                `• **Win Reaper's Cut:** siphoned from net casino & duel winnings.\n` +
+                `• **Sell Reaper's Cut:** deducted from spawn inventory sales.\n\n` +
+                `**Current Settings:**\n` +
+                `🏛️ **Soul Vault Balance:** \`${treasuryInfo.balance.toLocaleString()}\` Souls\n` +
+                `📅 **Daily Reaper's Cut Rate:** \`${treasuryInfo.dailyTaxRate}%\`\n` +
+                `🎰 **Win Reaper's Cut Rate:** \`${treasuryInfo.winTaxRate}%\`\n` +
+                `🪙 **Sell Reaper's Cut Rate:** \`${treasuryInfo.sellTaxRate}%\``
+              )
+              .setTimestamp();
+
+            try {
+              const dm = await ownerUser.send({
+                embeds: [panelEmbed],
+                components: [row1, row2, row3]
+              });
+
+              await message.reply(`📬 **${ownerUser.username}**, I have sent the interactive configuration panel to your DMs!`).then(temp => {
+                setTimeout(() => temp.delete().catch(() => {}), 4000);
+              }).catch(() => {});
+
+              // Create collector for DM menu interactions
+              const collector = dm.createMessageComponentCollector({
+                componentType: ComponentType.StringSelect,
+                time: 300000 // 5 minutes
+              });
+
+              collector.on('collect', async (menuInteraction) => {
+                await menuInteraction.deferUpdate();
+                const selectedValue = parseFloat(menuInteraction.values[0]);
+
+                let currentDaily = null;
+                let currentWin = null;
+                let currentSell = null;
+
+                if (menuInteraction.customId.startsWith('set_daily_tax_')) {
+                  currentDaily = selectedValue;
+                } else if (menuInteraction.customId.startsWith('set_win_tax_')) {
+                  currentWin = selectedValue;
+                } else if (menuInteraction.customId.startsWith('set_sell_tax_')) {
+                  currentSell = selectedValue;
+                }
+
+                // Update settings in database
+                await updateTreasuryRates(serverId, currentDaily, currentWin, currentSell);
+                
+                // Fetch latest to show updated values
+                const currentTreasury = await getTreasury(serverId);
+
+                // Update placeholders and description
+                const updatedDailySelect = StringSelectMenuBuilder.from(dailySelect)
+                  .setPlaceholder(`Daily Cut: currently ${currentTreasury.dailyTaxRate}%`);
+                const updatedWinSelect = StringSelectMenuBuilder.from(winSelect)
+                  .setPlaceholder(`Win Cut: currently ${currentTreasury.winTaxRate}%`);
+                const updatedSellSelect = StringSelectMenuBuilder.from(sellSelect)
+                  .setPlaceholder(`Sell Cut: currently ${currentTreasury.sellTaxRate}%`);
+
+                const updatedRow1 = new ActionRowBuilder().addComponents(updatedDailySelect);
+                const updatedRow2 = new ActionRowBuilder().addComponents(updatedWinSelect);
+                const updatedRow3 = new ActionRowBuilder().addComponents(updatedSellSelect);
+
+                const updatedEmbed = EmbedBuilder.from(panelEmbed)
+                  .setDescription(
+                    `Use the menus below to configure how much of the server's currency is siphoned as a **Reaper's Cut** to the **Soul Vault**:\n\n` +
+                    `• **Daily Reaper's Cut:** deducted from active users once every 24 hours.\n` +
+                    `• **Win Reaper's Cut:** siphoned from net casino & duel winnings.\n` +
+                    `• **Sell Reaper's Cut:** deducted from spawn inventory sales.\n\n` +
+                    `**Current Settings:**\n` +
+                    `🏛️ **Soul Vault Balance:** \`${currentTreasury.balance.toLocaleString()}\` Souls\n` +
+                    `📅 **Daily Reaper's Cut Rate:** \`${currentTreasury.dailyTaxRate}%\`\n` +
+                    `🎰 **Win Reaper's Cut Rate:** \`${currentTreasury.winTaxRate}%\`\n` +
+                    `🪙 **Sell Reaper's Cut Rate:** \`${currentTreasury.sellTaxRate}%\`\n\n` +
+                    `✅ *Successfully updated Reaper's Cut settings!*`
+                  );
+
+                await dm.edit({
+                  embeds: [updatedEmbed],
+                  components: [updatedRow1, updatedRow2, updatedRow3]
+                }).catch(() => {});
+              });
+
+              collector.on('end', async () => {
+                // Disable components on timeout
+                const disabledDaily = StringSelectMenuBuilder.from(dailySelect).setDisabled(true);
+                const disabledWin = StringSelectMenuBuilder.from(winSelect).setDisabled(true);
+                const disabledSell = StringSelectMenuBuilder.from(sellSelect).setDisabled(true);
+
+                const disabledRow1 = new ActionRowBuilder().addComponents(disabledDaily);
+                const disabledRow2 = new ActionRowBuilder().addComponents(disabledWin);
+                const disabledRow3 = new ActionRowBuilder().addComponents(disabledSell);
+
+                await dm.edit({
+                  components: [disabledRow1, disabledRow2, disabledRow3]
+                }).catch(() => {});
+              });
+
+            } catch (dmErr) {
+              console.error(`Failed to DM owner ${message.guild.ownerId}:`, dmErr);
+              await message.reply("❌ **Error**: I could not send you a DM. Please enable direct messages in your Discord privacy settings and try again.").catch(() => {});
+            }
+
+            return;
           }
 
           if (['gift', 'give', 'send', 'transfer'].includes(commandName)) {
@@ -852,7 +1049,11 @@ module.exports = {
 
             let outputText = `**${message.author.username}** spent <:Soul_Head:1523605643158618214> **${bet}** and chose **${choice}**\n`;
             if (isWin) {
-              outputText += `The coin spins... ${displayResult} and you won <:Soul_Head:1523605643158618214> **${bet * 2}**!!`;
+              const payout = bet * 2 - (result.taxAmount || 0);
+              outputText += `The coin spins... ${displayResult} and you won <:Soul_Head:1523605643158618214> **${payout}**!!`;
+              if (result.taxAmount > 0) {
+                outputText += ` *(Reaper's Cut: **${result.taxAmount}** Souls siphoned to the Soul Vault)*`;
+              }
             } else {
               outputText += `The coin spins... ${displayResult} and you lost it all...`;
             }
@@ -1346,7 +1547,7 @@ module.exports = {
             const barLength = 15;
 
             // Build initial embed
-            function buildCrashEmbed(multiplier, state, winnings) {
+            function buildCrashEmbed(multiplier, state, winnings, taxAmount = 0) {
               const embed = new EmbedBuilder()
                 .setAuthor({
                   name: `${message.author.username}'s Crash Game`,
@@ -1369,6 +1570,9 @@ module.exports = {
                     `⚠️ *Hit **Cash Out** before it crashes!*`
                   );
               } else if (state === 'cashed_out') {
+                const profit = winnings - bet;
+                const netProfit = profit - taxAmount;
+                const netPayout = winnings - taxAmount;
                 embed.setColor('#00ffaa')
                   .setTitle('💰 Crash — CASHED OUT!')
                   .setDescription(
@@ -1376,8 +1580,9 @@ module.exports = {
                     `### ✅ Cashed Out At: \`${multiplier.toFixed(2)}x\`\n\n` +
                     `${progressBar}\n\n` +
                     `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
-                    `**Winnings:** +${winnings} ${currencyIcon} ${currencyName}\n` +
-                    `**Net Profit:** +${winnings - bet} ${currencyIcon} ${currencyName}\n\n` +
+                    `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
+                    `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
+                    (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n\n` : '') +
                     `*The rocket crashed at \`${crashPoint.toFixed(2)}x\`*`
                   );
               } else if (state === 'crashed') {
@@ -1484,7 +1689,7 @@ module.exports = {
               activeCrashGames.delete(gameKey);
 
               const winnings = Math.floor(bet * currentMultiplier);
-              await recordCasinoGame(userId, serverId, winnings, true, true);
+              const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
 
               const disabledButton = new ButtonBuilder()
                 .setCustomId(buttonId)
@@ -1493,7 +1698,7 @@ module.exports = {
                 .setDisabled(true);
               const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
 
-              const winEmbed = buildCrashEmbed(currentMultiplier, 'cashed_out', winnings);
+              const winEmbed = buildCrashEmbed(currentMultiplier, 'cashed_out', winnings, result.taxAmount || 0);
               await buttonInteraction.update({ embeds: [winEmbed], components: [disabledRow] }).catch(() => {});
             });
 
@@ -1633,7 +1838,7 @@ module.exports = {
             }
 
             // Build game embed
-            function buildMinesEmbed(state, winnings) {
+            function buildMinesEmbed(state, winnings, taxAmount = 0) {
               const embed = new EmbedBuilder()
                 .setAuthor({
                   name: `${message.author.username}'s Mines Game`,
@@ -1654,6 +1859,9 @@ module.exports = {
                     `Click a numbered tile to reveal it. Avoid the mines!`
                   );
               } else if (state === 'cashed_out') {
+                const profit = winnings - bet;
+                const netProfit = profit - taxAmount;
+                const netPayout = winnings - taxAmount;
                 embed.setColor('#00ffaa')
                   .setTitle('💰 Mines — CASHED OUT!')
                   .setDescription(
@@ -1661,8 +1869,9 @@ module.exports = {
                     `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
                     `**Tiles Revealed:** ${revealedPositions.size} 💎\n` +
                     `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\` (${currentMultiplier.toFixed(2)} times bet)\n` +
-                    `**Winnings:** +${winnings} ${currencyIcon} ${currencyName}\n` +
-                    `**Net Profit:** +${winnings - bet} ${currencyIcon} ${currencyName}`
+                    `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
+                    `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
+                    (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n` : '')
                   );
               } else if (state === 'mine_hit') {
                 embed.setColor('#ff3366')
@@ -1682,6 +1891,9 @@ module.exports = {
                     `*The game auto-ended after 60 seconds of inactivity.*`
                   );
               } else if (state === 'auto_cashout') {
+                const profit = winnings - bet;
+                const netProfit = profit - taxAmount;
+                const netPayout = winnings - taxAmount;
                 embed.setColor('#00ffaa')
                   .setTitle('🏆 Mines — ALL TILES CLEARED!')
                   .setDescription(
@@ -1689,8 +1901,9 @@ module.exports = {
                     `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
                     `**All ${safeTiles} Safe Tiles Revealed** 💎\n` +
                     `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\` (${currentMultiplier.toFixed(2)} times bet)\n` +
-                    `**Winnings:** +${winnings} ${currencyIcon} ${currencyName}\n` +
-                    `**Net Profit:** +${winnings - bet} ${currencyIcon} ${currencyName}`
+                    `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
+                    `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
+                    (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n` : '')
                   );
               }
 
@@ -1731,9 +1944,9 @@ module.exports = {
                 collector.stop('cashed_out');
 
                 const winnings = Math.floor(bet * currentMultiplier);
-                await recordCasinoGame(userId, serverId, winnings, true, true);
+                const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
 
-                const winEmbed = buildMinesEmbed('cashed_out', winnings);
+                const winEmbed = buildMinesEmbed('cashed_out', winnings, result.taxAmount || 0);
                 const endComponents = buildGridComponents(true, false);
                 await buttonInteraction.update({ embeds: [winEmbed], components: endComponents }).catch(() => {});
                 return;
@@ -1771,9 +1984,9 @@ module.exports = {
                   collector.stop('all_cleared');
 
                   const winnings = Math.floor(bet * currentMultiplier);
-                  await recordCasinoGame(userId, serverId, winnings, true, true);
+                  const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
 
-                  const winEmbed = buildMinesEmbed('auto_cashout', winnings);
+                  const winEmbed = buildMinesEmbed('auto_cashout', winnings, result.taxAmount || 0);
                   const endComponents = buildGridComponents(true, false);
                   await buttonInteraction.update({ embeds: [winEmbed], components: endComponents }).catch(() => {});
                   return;
@@ -1938,13 +2151,17 @@ module.exports = {
             }
             
             // Execute sell
-            const sellResult = await sellCharacter(userId, targetItem.id, sellPrice, sellQty);
+            const sellResult = await sellCharacter(userId, serverId, targetItem.id, sellPrice, sellQty);
             if (sellResult.success) {
               const totalEarned = sellPrice * sellQty;
+              let desc = `You sold **${sellQty}x ${targetItem.name}** for a total of **${totalEarned}** ${currencyIcon} ${currencyName}!\n${priceLabel}`;
+              if (sellResult.taxAmount > 0) {
+                desc += `\n\n*Reaper's Cut: **${sellResult.taxAmount}** Souls siphoned to the Soul Vault (Net earned: **${sellResult.netEarnings}** Souls).*`;
+              }
               const embed = new EmbedBuilder()
                 .setColor(isCollectible ? '#ffd700' : '#00ffaa')
                 .setTitle(isCollectible ? '💎 Rare Collectible Sold!' : '💰 Spawn Sold Successfully!')
-                .setDescription(`You sold **${sellQty}x ${targetItem.name}** for **${totalEarned}** ${currencyIcon} ${currencyName}!\n${priceLabel}`)
+                .setDescription(desc)
                 .addFields(
                   { name: 'Remaining Quantity', value: `🎒 **${sellResult.newQty}**`, inline: true },
                   { name: 'New Wallet Balance', value: `🏦 **${sellResult.newBalance}** ${currencyIcon} ${currencyName}`, inline: true }

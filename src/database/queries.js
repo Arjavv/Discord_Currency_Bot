@@ -421,7 +421,7 @@ async function resetCycle(serverId) {
  * Deducts bet amount on loss, awards net bet amount on win.
  * Logs transaction with source 'casino_win' or 'casino_loss'.
  */
-async function recordCasinoGame(discordId, serverId, betAmount, isWin, isPayout = false) {
+async function recordCasinoGame(discordId, serverId, betAmount, isWin, isPayout = false, originalBet = 0) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -444,8 +444,38 @@ async function recordCasinoGame(discordId, serverId, betAmount, isWin, isPayout 
       return { success: false, reason: 'insufficient_funds', currentBalance };
     }
 
+    // Calculate tax on casino wins
+    let taxAmount = 0;
+    let netChange = 0;
+
+    if (isWin) {
+      // Ensure treasury exists for this server
+      await ensureTreasuryExists(client, serverId);
+      
+      const treasuryQuery = `
+        SELECT win_tax_rate FROM server_treasury
+        WHERE server_id = $1
+        FOR UPDATE
+      `;
+      const treasuryRes = await client.query(treasuryQuery, [serverId]);
+      const winTaxRate = treasuryRes.rows[0] ? parseFloat(treasuryRes.rows[0].win_tax_rate) : 10.00;
+
+      const profit = isPayout ? (betAmount - originalBet) : betAmount;
+      taxAmount = Math.max(0, Math.floor(profit * (winTaxRate / 100.0)));
+      netChange = betAmount - taxAmount;
+
+      if (taxAmount > 0) {
+        // Add tax to server treasury balance
+        await client.query(`
+          UPDATE server_treasury SET balance = balance + $1
+          WHERE server_id = $2
+        `, [taxAmount, serverId]);
+      }
+    } else {
+      netChange = -betAmount;
+    }
+
     // 3. Calculate new balance globally
-    const netChange = isWin ? betAmount : -betAmount;
     const updateQuery = `
       UPDATE users 
       SET coin_balance = coin_balance + $1 
@@ -463,11 +493,20 @@ async function recordCasinoGame(discordId, serverId, betAmount, isWin, isPayout 
     const source = isWin ? 'casino_win' : 'casino_loss';
     await client.query(logQuery, [discordId, netChange, source]);
 
+    // Also log the tax transaction if any
+    if (taxAmount > 0) {
+      await client.query(`
+        INSERT INTO transactions (user_id, server_id, amount, source)
+        VALUES ($1, 'GLOBAL', $2, 'win_tribute_paid')
+      `, [discordId, -taxAmount]);
+    }
+
     await client.query('COMMIT');
     return {
       success: true,
       won: isWin,
       netChange,
+      taxAmount,
       newBalance
     };
   } catch (error) {
@@ -1254,7 +1293,7 @@ async function addCharacterToInventory(discordId, characterId) {
 /**
  * Sells a character from the user's inventory, awarding them coins.
  */
-async function sellCharacter(discordId, characterId, value, quantityToSell = 1) {
+async function sellCharacter(discordId, serverId, characterId, value, quantityToSell = 1) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -1289,25 +1328,55 @@ async function sellCharacter(discordId, characterId, value, quantityToSell = 1) 
       `, [discordId, characterId, newQty]);
     }
 
-    // Award coins globally
+    // Get server sell tax rate
+    await ensureTreasuryExists(client, serverId);
+    const treasuryQuery = `
+      SELECT sell_tax_rate FROM server_treasury
+      WHERE server_id = $1
+      FOR UPDATE
+    `;
+    const treasuryRes = await client.query(treasuryQuery, [serverId]);
+    const sellTaxRate = treasuryRes.rows[0] ? parseFloat(treasuryRes.rows[0].sell_tax_rate) : 10.00;
+
+    // Calculate total coins before tax
     const totalCoins = value * quantityToSell;
+    // Calculate tax amount
+    const taxAmount = Math.max(0, Math.floor(totalCoins * (sellTaxRate / 100.0)));
+    const netEarnings = totalCoins - taxAmount;
+
+    // Award coins globally
     const balRes = await client.query(`
       UPDATE users
       SET coin_balance = coin_balance + $1
       WHERE discord_id = $2 AND server_id = 'GLOBAL'
       RETURNING coin_balance
-    `, [totalCoins, discordId]);
+    `, [netEarnings, discordId]);
 
     const newBalance = balRes.rows[0].coin_balance;
+
+    if (taxAmount > 0) {
+      // Add tax to server treasury
+      await client.query(`
+        UPDATE server_treasury SET balance = balance + $1
+        WHERE server_id = $2
+      `, [taxAmount, serverId]);
+    }
 
     // Log transaction
     await client.query(`
       INSERT INTO transactions (user_id, server_id, amount, source)
       VALUES ($1, 'GLOBAL', $2, $3)
-    `, [discordId, totalCoins, `sell_${characterId}`]);
+    `, [discordId, netEarnings, `sell_${characterId}`]);
+
+    if (taxAmount > 0) {
+      await client.query(`
+        INSERT INTO transactions (user_id, server_id, amount, source)
+        VALUES ($1, 'GLOBAL', $2, 'sell_tribute_paid')
+      `, [discordId, -taxAmount]);
+    }
 
     await client.query('COMMIT');
-    return { success: true, newBalance, newQty };
+    return { success: true, newBalance, newQty, taxAmount, netEarnings };
   } catch (error) {
     await client.query('ROLLBACK');
     console.error(`Error in sellCharacter for user ${discordId}:`, error);
@@ -1622,6 +1691,174 @@ async function getDatabaseSize() {
   }
 }
 
+/**
+ * Ensures a server's treasury exists.
+ */
+async function ensureTreasuryExists(client, serverId) {
+  const query = `
+    INSERT INTO server_treasury (server_id, balance)
+    VALUES ($1, 100000)
+    ON CONFLICT (server_id) DO NOTHING
+  `;
+  await client.query(query, [serverId]);
+}
+
+/**
+ * Gets a server's treasury balance and settings.
+ */
+async function getTreasury(serverId) {
+  const client = await pool.connect();
+  try {
+    await ensureTreasuryExists(client, serverId);
+    const query = `
+      SELECT balance, daily_tax_rate, win_tax_rate, sell_tax_rate
+      FROM server_treasury
+      WHERE server_id = $1
+    `;
+    const res = await client.query(query, [serverId]);
+    const row = res.rows[0];
+    return {
+      balance: parseInt(row.balance, 10),
+      dailyTaxRate: parseFloat(row.daily_tax_rate),
+      winTaxRate: parseFloat(row.win_tax_rate),
+      sellTaxRate: parseFloat(row.sell_tax_rate)
+    };
+  } catch (error) {
+    console.error(`Error in getTreasury for server ${serverId}:`, error);
+    return {
+      balance: 100000,
+      dailyTaxRate: 1.00,
+      winTaxRate: 10.00,
+      sellTaxRate: 10.00
+    };
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Updates a server's treasury settings (tax rates).
+ */
+async function updateTreasuryRates(serverId, dailyRate, winRate, sellRate) {
+  const client = await pool.connect();
+  try {
+    await ensureTreasuryExists(client, serverId);
+    const query = `
+      UPDATE server_treasury
+      SET daily_tax_rate = COALESCE($1, daily_tax_rate),
+          win_tax_rate = COALESCE($2, win_tax_rate),
+          sell_tax_rate = COALESCE($3, sell_tax_rate)
+      WHERE server_id = $4
+      RETURNING *
+    `;
+    const res = await client.query(query, [dailyRate, winRate, sellRate, serverId]);
+    return res.rows[0];
+  } catch (error) {
+    console.error(`Error in updateTreasuryRates for server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Applies a daily tribute/tax if it is due (last taxed > 24 hours ago).
+ * Returns an object with { success: boolean, taxAmount: number, newBalance: number }.
+ */
+async function applyDailyTaxIfDue(discordId, serverId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Ensure treasury and user exist
+    await ensureTreasuryExists(client, serverId);
+    await ensureUserExists(client, discordId, serverId);
+
+    // 2. Check if they were already taxed in this server in the last 24 hours
+    const taxCheckQuery = `
+      SELECT last_taxed_at FROM user_daily_tax
+      WHERE discord_id = $1 AND server_id = $2
+      FOR UPDATE
+    `;
+    const taxCheckRes = await client.query(taxCheckQuery, [discordId, serverId]);
+    const now = new Date();
+
+    if (taxCheckRes.rows.length > 0) {
+      const lastTaxed = new Date(taxCheckRes.rows[0].last_taxed_at);
+      const timeDiffMs = now.getTime() - lastTaxed.getTime();
+      const cooldownMs = 24 * 60 * 60 * 1000;
+
+      if (timeDiffMs < cooldownMs) {
+        await client.query('ROLLBACK');
+        return { success: false, reason: 'cooldown' };
+      }
+    }
+
+    // 3. Fetch current user balance globally
+    const balanceQuery = `
+      SELECT coin_balance FROM users
+      WHERE discord_id = $1 AND server_id = 'GLOBAL'
+      FOR UPDATE
+    `;
+    const balanceRes = await client.query(balanceQuery, [discordId]);
+    const userBalance = balanceRes.rows[0] ? balanceRes.rows[0].coin_balance : 0;
+
+    // 4. Fetch server tax rates
+    const treasuryQuery = `
+      SELECT daily_tax_rate FROM server_treasury
+      WHERE server_id = $1
+      FOR UPDATE
+    `;
+    const treasuryRes = await client.query(treasuryQuery, [serverId]);
+    const dailyTaxRate = treasuryRes.rows[0] ? parseFloat(treasuryRes.rows[0].daily_tax_rate) : 1.00;
+
+    // 5. Calculate tax amount
+    const taxAmount = Math.max(0, Math.floor(userBalance * (dailyTaxRate / 100.0)));
+
+    if (taxAmount > 0) {
+      // Deduct from user
+      await client.query(`
+        UPDATE users SET coin_balance = coin_balance - $1
+        WHERE discord_id = $2 AND server_id = 'GLOBAL'
+      `, [taxAmount, discordId]);
+
+      // Add to server treasury
+      await client.query(`
+        UPDATE server_treasury SET balance = balance + $1
+        WHERE server_id = $2
+      `, [taxAmount, serverId]);
+
+      // Log transaction
+      await client.query(`
+        INSERT INTO transactions (user_id, server_id, amount, source)
+        VALUES ($1, 'GLOBAL', $2, 'daily_tribute_paid')
+      `, [discordId, -taxAmount]);
+    }
+
+    // 6. Update user_daily_tax record
+    await client.query(`
+      INSERT INTO user_daily_tax (discord_id, server_id, last_taxed_at)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (discord_id, server_id)
+      DO UPDATE SET last_taxed_at = $3
+    `, [discordId, serverId, now]);
+
+    await client.query('COMMIT');
+
+    return {
+      success: true,
+      taxAmount,
+      newBalance: userBalance - taxAmount
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in applyDailyTaxIfDue for user ${discordId} on server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
@@ -1654,6 +1891,10 @@ module.exports = {
   setServerFeatureOverride,
   getServerDetail,
   getUserInspect,
-  getDatabaseSize
+  getDatabaseSize,
+  ensureTreasuryExists,
+  getTreasury,
+  updateTreasuryRates,
+  applyDailyTaxIfDue
 };
 
