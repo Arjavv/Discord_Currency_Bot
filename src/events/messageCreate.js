@@ -253,6 +253,33 @@ module.exports = {
         const currencyName = settings.currency_name;
         const currencyIcon = settings.currency_icon_url;
 
+        // --- Permission Validation Check ---
+        const botMember = message.guild.members.me || await message.guild.members.fetch(message.client.user.id).catch(() => null);
+        if (botMember) {
+          const perms = message.channel.permissionsFor(botMember);
+          if (perms) {
+            // Identify commands that require Attach Files
+            const requiresAttachFiles = ['inv', 'inventory'].includes(commandName);
+            if (requiresAttachFiles && !perms.has(PermissionFlagsBits.AttachFiles)) {
+              fulfilled = false;
+              errorText = 'Missing Attach Files Permission';
+              const res = await message.reply(`⚠️ **Missing Permissions**: The bot needs the **Attach Files** permission in this channel to display inventory images. Please contact an administrator to enable it.`).catch(() => {});
+              logFinal(false, errorText);
+              return res;
+            }
+
+            // Identify commands that require Embed Links (almost all other prefix commands except flip)
+            const requiresEmbedLinks = !['flip', 'soul'].includes(commandName) && !requiresAttachFiles;
+            if (requiresEmbedLinks && !perms.has(PermissionFlagsBits.EmbedLinks)) {
+              fulfilled = false;
+              errorText = 'Missing Embed Links Permission';
+              const res = await message.reply(`⚠️ **Missing Permissions**: The bot needs the **Embed Links** permission in this channel to display embeds. Please contact an administrator to enable it.`).catch(() => {});
+              logFinal(false, errorText);
+              return res;
+            }
+          }
+        }
+
         // --- 1. ADMIN COMMANDS ---
         if (['setup', 'reset-cycle', 'set-drop-channel', 'force-drop'].includes(commandName)) {
           // Check administrator permission
