@@ -62,6 +62,20 @@ module.exports = {
     const userId = message.author.id;
     const serverId = message.guild.id;
 
+    // Log incoming message for debugging
+    console.log(`[Msg] User: ${message.author.tag} (${userId}) | Ch: #${message.channel.name} (${message.channel.id}) | Content: "${content}"`);
+
+    // Log bot permissions in this channel
+    try {
+      const botMember = message.guild.members.me || await message.guild.members.fetch(message.client.user.id).catch(() => null);
+      if (botMember) {
+        const perms = message.channel.permissionsFor(botMember);
+        console.log(`[Perms] SendMessages: ${perms.has(PermissionFlagsBits.SendMessages)} | EmbedLinks: ${perms.has(PermissionFlagsBits.EmbedLinks)} | AttachFiles: ${perms.has(PermissionFlagsBits.AttachFiles)} | UseExternalEmojis: ${perms.has(PermissionFlagsBits.UseExternalEmojis)}`);
+      }
+    } catch (permErr) {
+      console.error('[Perms Check Error]', permErr);
+    }
+
     // --- DROP CATCH INTERCEPT ---
     let normalized = content.replace(/[*_~`|]/g, '');
     normalized = normalized.replace(/<a?:\w+:\d+>/g, '');
@@ -150,6 +164,7 @@ module.exports = {
     if (content.toLowerCase().startsWith('s ')) {
       const args = content.slice(2).trim().split(/\s+/);
       const commandName = args.shift().toLowerCase();
+      console.log(`[Command Trigger] prefix: "s", command: "${commandName}", args:`, args);
 
       const VALID_PREFIX_COMMANDS = [
         'setup', 'reset-cycle', 'set-drop-channel', 'force-drop', 'auto-drops', 'help',
@@ -1962,7 +1977,9 @@ module.exports = {
         console.error(`Error processing prefix command ${commandName} for user ${userId}:`, err);
         fulfilled = false;
         errorText = err.message || 'Execution Error';
-        const res = await message.reply('❌ An error occurred while executing this command.').catch(() => { });
+        const res = await message.reply(`❌ An error occurred while executing this command: ${err.message}`).catch((replyErr) => {
+          console.error('[Error Response Failed]', replyErr);
+        });
         logFinal(false, errorText);
         return res;
       }
