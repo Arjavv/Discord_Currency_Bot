@@ -1859,10 +1859,70 @@ async function applyDailyTaxIfDue(discordId, serverId) {
   }
 }
 
+/**
+ * Retrieves the leaderboard of soul collectors in a server, optionally filtered by tier.
+ */
+async function getSoulsLeaderboard(serverId, tier = 'ALL', limit = 10) {
+  try {
+    const settings = await getServerSettings(serverId);
+    const { CHARACTER_SPAWNS } = require('../utils/characters');
+
+    let query;
+    let params;
+
+    if (tier === 'ALL') {
+      query = `
+        SELECT u.discord_id, SUM(ui.quantity)::int AS total_souls
+        FROM users u
+        JOIN user_inventory ui ON ui.discord_id = u.discord_id AND ui.server_id = 'GLOBAL'
+        WHERE u.server_id = $1
+        GROUP BY u.discord_id
+        ORDER BY total_souls DESC
+        LIMIT $2
+      `;
+      params = [serverId, limit];
+    } else {
+      // Filter spawns by the requested tier
+      const tierCharIds = CHARACTER_SPAWNS.filter(c => c.tier.toUpperCase() === tier.toUpperCase()).map(c => c.id);
+      
+      // If there are no characters defined for this tier in the config, return empty rankings
+      if (tierCharIds.length === 0) {
+        return {
+          rankings: [],
+          currencyName: settings.currency_name,
+          currencyIcon: settings.currency_icon_url
+        };
+      }
+
+      query = `
+        SELECT u.discord_id, SUM(ui.quantity)::int AS total_souls
+        FROM users u
+        JOIN user_inventory ui ON ui.discord_id = u.discord_id AND ui.server_id = 'GLOBAL'
+        WHERE u.server_id = $1 AND ui.item_id = ANY($2)
+        GROUP BY u.discord_id
+        ORDER BY total_souls DESC
+        LIMIT $3
+      `;
+      params = [serverId, tierCharIds, limit];
+    }
+
+    const res = await pool.query(query, params);
+    return {
+      rankings: res.rows,
+      currencyName: settings.currency_name,
+      currencyIcon: settings.currency_icon_url
+    };
+  } catch (error) {
+    console.error(`Error in getSoulsLeaderboard for server ${serverId}:`, error);
+    throw error;
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerSetting,
   checkInUser,
+  getSoulsLeaderboard,
   recordMessageActivity,
   getUserBalance,
   getLeaderboard,

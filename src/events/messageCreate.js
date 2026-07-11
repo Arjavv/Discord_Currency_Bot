@@ -174,7 +174,7 @@ module.exports = {
         'daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb',
         'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy',
         'fight', 'gift', 'give', 'send', 'transfer', 'rob', 'steal', 'heist', 'inv', 'inventory',
-        'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut'
+        'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul'
       ];
       
       const isValid = VALID_PREFIX_COMMANDS.includes(commandName);
@@ -462,11 +462,12 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut'].includes(commandName)) {
-          // Lock user commands to #soul-bot — EXCEPT 's help admin', inventory/gifting, and treasury commands which can be run anywhere
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul'].includes(commandName)) {
+          // Lock user commands to #soul-bot — EXCEPT 's help admin', 's soul lb', inventory/gifting, and treasury commands which can be run anywhere
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
+          const isSoulLbRequest = commandName === 'soul' && args[0] && args[0].toLowerCase() === 'lb';
           const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut'].includes(commandName);
-          if (!isAdminHelpRequest && !isInventoryCommand && !message.channel.name.toLowerCase().includes('soul-bot')) {
+          if (!isAdminHelpRequest && !isSoulLbRequest && !isInventoryCommand && !message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
           }
 
@@ -553,28 +554,46 @@ module.exports = {
 
             // --- REGULAR USER HELP ---
             const helpEmbed = new EmbedBuilder()
-              .setColor('#ffd700')
-              .setTitle(`${currencyName} Commands`)
-              .setDescription('Here are all the ways you can interact with the Soul Currency bot in this channel:')
+              .setColor('#7b2fff')
+              .setTitle(`🔮 ${currencyName} Commands Reference`)
+              .setDescription('Explore all the commands available to interact with the economy, stats, and collectibles!')
               .addFields(
-                { name: '💰 `s daily`', value: 'Claim your daily allowance of Souls (resets every 24 hours).' },
-                { name: '🏦 `s cash`', value: 'Check your wallet balance (or tag another user to check theirs).' },
-                { name: '🏆 `s lb`', value: 'View the top 10 richest users in the current monthly cycle.' },
-                { name: '📊 `s stats [@user]`', value: 'Check stats (Strength, Defense, Speed, Magic). Others are hidden as `???`.' },
-                { name: '🛒 `s shop`', value: 'Browse stat training boosters, 24-hour elixirs, and shields.' },
-                { name: '🛍️ `s buy <item>`', value: 'Purchase upgrades or items from the shop.' },
-                { name: '⚔️ `s fight @user <bet>`', value: 'Challenge a player to a mystery stat clash! Winner takes the pot.' },
-                { name: '🎁 `s gift @user <amount/name/index> [qty]`', value: 'Send Souls from your wallet, or transfer a caught soul from your inventory.' },
-                { name: '🎒 `s inv`', value: 'Open your spawn inventory to view all the souls you have caught.' },
-                { name: '💎 `s rare`', value: 'Check today\'s active collectibles and their daily prices.' },
-                { name: '🪙 `s sell <index/name> [qty]`', value: 'Sell any caught soul at its default price. Souls marked as collectibles today sell at higher admin-set prices.' },
-                { name: '🎰 `s flip <heads/tails> <amount>`', value: 'Flip a coin for double or nothing! Defaults to heads if no choice is given.' },
-                { name: '🚀 `s crash <amount>`', value: 'Watch the multiplier rise and cash out before it crashes! Higher risk, higher reward.' },
-                { name: '💣 `s mines <amount> [mines]`', value: 'Reveal tiles on a grid and avoid hidden mines! More mines = higher multiplier. Default: 3 mines.' },
-                { name: '🥷 `s rob @user`', value: 'Attempt to steal 10% of their wallet (30% success rate). Caught? Pay a 5% fine! (1hr cooldown).' },
-                { name: '🏃‍♂️ `soul`', value: 'Type exactly this word when a Soul Coin drops to catch it before anyone else!' }
+                {
+                  name: '💰 Economy & Daily',
+                  value: 
+                    `• \`s daily\` / \`s claim\` · Claim your daily allowance of Souls (24h cooldown).\n` +
+                    `• \`s cash\` [\`@user\`] · Check wallet balance (yours or another user's).\n` +
+                    `• \`s lb\` · View the monthly top 10 richest users.\n` +
+                    `• \`s gift @user <amount>\` · Send Souls from your wallet to another user.`
+                },
+                {
+                  name: '🔮 Soul Catching & Inventory',
+                  value:
+                    `• \`soul\` · Type when a drop spawns in chat to capture the Soul!\n` +
+                    `• \`s inv\` · Open inventory to view all your caught souls.\n` +
+                    `• \`s soul lb\` · View the server leaderboard of top soul collectors (run anywhere).\n` +
+                    `• \`s rare\` · View today's active collectibles and their daily premium prices.\n` +
+                    `• \`s sell <index/name> [qty]\` · Sell caught souls at base or collectible prices.\n` +
+                    `• \`s gift @user <name/index> [qty]\` · Gift a caught soul from your inventory.`
+                },
+                {
+                  name: '🎰 Casino & Crime',
+                  value:
+                    `• \`s flip [heads/tails] <amount>\` · Flip a coin for double or nothing.\n` +
+                    `• \`s crash <amount>\` · Watch the multiplier rise and cash out before the crash.\n` +
+                    `• \`s mines <amount> [mines]\` · Uncover tiles on a grid while avoiding mines.\n` +
+                    `• \`s rob @user\` · Try to steal 10% of their wallet (1h cooldown, risk of 5% fine).`
+                },
+                {
+                  name: '⚔️ Stats & Training',
+                  value:
+                    `• \`s stats\` [\`@user\`] · Check stats (Strength, Defense, Speed, Magic).\n` +
+                    `• \`s shop\` · Browse boosters, 24h elixirs, and shields.\n` +
+                    `• \`s buy <item_id>\` · Purchase training items/upgrades from the shop.\n` +
+                    `• \`s fight @user <bet>\` · Challenge a player to a stat-clash duel for Souls.`
+                }
               )
-              .setFooter({ text: 'Tip: Passively earn Souls by chatting in active channels! · Admins: use `s help admin` in any channel.' })
+              .setFooter({ text: 'Tip: Passively earn Souls by chatting! · Admins: use `s help admin` in any channel.' })
               .setTimestamp();
 
             return await message.reply({ embeds: [helpEmbed] }).catch(() => { });
@@ -993,6 +1012,151 @@ module.exports = {
               embed.setDescription(listStr);
             }
             return await message.reply({ embeds: [embed] }).catch(() => { });
+          }
+
+          if (['soul'].includes(commandName)) {
+            if (args[0] && args[0].toLowerCase() === 'lb') {
+              const serverId = message.guild.id;
+              const { getSoulsLeaderboard } = require('../database/queries');
+
+              // Fetch initial leaderboard (All Souls)
+              const initialTier = 'ALL';
+              const { rankings } = await getSoulsLeaderboard(serverId, initialTier, 10);
+
+              const embed = new EmbedBuilder()
+                .setColor('#a855f7')
+                .setTitle(`🔮 ${message.guild.name} Souls Leaderboard (ALL)`)
+                .setDescription('Leaderboard of top soul collectors in this server.')
+                .setTimestamp();
+
+              if (rankings.length === 0) {
+                embed.setDescription('No souls caught by members of this server yet. Start catching drops!');
+              } else {
+                const rankList = [];
+                const medals = ['🥇', '🥈', '🥉'];
+                for (let i = 0; i < rankings.length; i++) {
+                  const r = rankings[i];
+                  const medal = medals[i] || `\`#${i + 1}\``;
+                  let username = `<@${r.discord_id}>`;
+                  rankList.push(`${medal} ${username} — **${r.total_souls}** caught`);
+                }
+                embed.setDescription(rankList.join('\n'));
+              }
+
+              // Create select menu component
+              const selectId = `soul_lb_select_${userId}_${Date.now()}`;
+              const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(selectId)
+                .setPlaceholder('🔮 Filter by Soul rarity...')
+                .addOptions(
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('All Souls')
+                    .setDescription('Show leaderboard for all souls caught')
+                    .setValue('ALL')
+                    .setEmoji('🔮'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Legendary Souls')
+                    .setDescription('Show leaderboard for Legendary souls')
+                    .setValue('LEGENDARY')
+                    .setEmoji('✦'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Divine Souls')
+                    .setDescription('Show leaderboard for Divine souls')
+                    .setValue('DIVINE')
+                    .setEmoji('💜'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Mythic Souls')
+                    .setDescription('Show leaderboard for Mythic souls')
+                    .setValue('MYTHIC')
+                    .setEmoji('✨'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Epic Souls')
+                    .setDescription('Show leaderboard for Epic souls')
+                    .setValue('EPIC')
+                    .setEmoji('🔥'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Rare Souls')
+                    .setDescription('Show leaderboard for Rare souls')
+                    .setValue('RARE')
+                    .setEmoji('💎'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Uncommon Souls')
+                    .setDescription('Show leaderboard for Uncommon souls')
+                    .setValue('UNCOMMON')
+                    .setEmoji('🔷'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Common Souls')
+                    .setDescription('Show leaderboard for Common souls')
+                    .setValue('COMMON')
+                    .setEmoji('🟢')
+                );
+
+              const row = new ActionRowBuilder().addComponents(selectMenu);
+
+              const lbMessage = await message.reply({
+                embeds: [embed],
+                components: [row]
+              }).catch(() => {});
+
+              if (!lbMessage) return;
+
+              // Create collector for the select menu
+              const collector = lbMessage.createMessageComponentCollector({
+                componentType: ComponentType.StringSelect,
+                time: 60000,
+                filter: (i) => i.user.id === userId && i.customId === selectId
+              });
+
+              collector.on('collect', async (menuInteraction) => {
+                const selectedTier = menuInteraction.values[0];
+                await menuInteraction.deferUpdate();
+
+                const { rankings: updatedRankings } = await getSoulsLeaderboard(serverId, selectedTier, 10);
+
+                const updatedEmbed = new EmbedBuilder()
+                  .setColor('#a855f7')
+                  .setTitle(`🔮 ${message.guild.name} Souls Leaderboard (${selectedTier})`)
+                  .setTimestamp();
+
+                if (updatedRankings.length === 0) {
+                  updatedEmbed.setDescription(`No souls caught in this category yet! Keep catching drops!`);
+                } else {
+                  const rankList = [];
+                  const medals = ['🥇', '🥈', '🥉'];
+                  for (let i = 0; i < updatedRankings.length; i++) {
+                    const r = updatedRankings[i];
+                    const medal = medals[i] || `\`#${i + 1}\``;
+                    let username = `<@${r.discord_id}>`;
+                    rankList.push(`${medal} ${username} — **${r.total_souls}** caught`);
+                  }
+                  updatedEmbed.setDescription(rankList.join('\n'));
+                }
+
+                // Create a fresh menu, keeping it active
+                const updatedSelectMenu = StringSelectMenuBuilder.from(selectMenu)
+                  .setPlaceholder(`Filtering by: ${selectedTier}`);
+                
+                const updatedRow = new ActionRowBuilder().addComponents(updatedSelectMenu);
+
+                await menuInteraction.editReply({
+                  embeds: [updatedEmbed],
+                  components: [updatedRow]
+                }).catch(() => {});
+              });
+
+              collector.on('end', async () => {
+                // Disable select menu on timeout
+                const disabledSelectMenu = StringSelectMenuBuilder.from(selectMenu)
+                  .setDisabled(true)
+                  .setPlaceholder('Leaderboard session expired. Type s soul lb to reopen.');
+                const disabledRow = new ActionRowBuilder().addComponents(disabledSelectMenu);
+                await lbMessage.edit({ components: [disabledRow] }).catch(() => {});
+              });
+
+              return;
+            } else {
+              return message.reply('❌ **Usage:** `s soul lb` to view the soul collectors leaderboard.').catch(() => {});
+            }
           }
 
           if (['flip', 'casino', 'bet'].includes(commandName)) {
