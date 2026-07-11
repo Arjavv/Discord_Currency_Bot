@@ -482,7 +482,7 @@ module.exports = {
               const prefixEmbed = new EmbedBuilder()
                 .setColor('#7b2fff')
                 .setTitle('🛡️ Admin Prefix Commands (`s <command>`)')
-                .setDescription('These commands use the `s ` prefix and require **Administrator** permission.')
+                .setDescription('These commands use the `s ` prefix and require **Administrator** or **Server Owner** permission.')
                 .addFields(
                   {
                     name: '🏗️ `s setup`',
@@ -497,6 +497,11 @@ module.exports = {
                   {
                     name: '💥 `s force-drop`',
                     value: 'Immediately triggers a Soul Coin drop in the configured drop channel.\n> Can be run in **any channel**.',
+                    inline: false
+                  },
+                  {
+                    name: '👑 `s tax` / `s cut` / `s tribute`',
+                    value: 'Opens the configuration menu to adjust daily, casino win, and soul sell Reaper\'s Cuts.\n> ⚠️ **Server Owner Only**. Can be run in **any channel**.',
                     inline: false
                   }
                 )
@@ -541,8 +546,9 @@ module.exports = {
                 .setColor('#3b0764')
                 .setTitle('📋 Quick Reference')
                 .addFields(
-                  { name: '✅ Available Anywhere', value: '`s setup` · `s set-drop-channel` · `s force-drop`\n`/admin setup` · `/admin set-drop-channel` · `/admin force-drop` · `/admin auto-drops`', inline: false },
+                  { name: '✅ Available Anywhere', value: '`s setup` · `s set-drop-channel` · `s force-drop` · `s tax`\n`/admin setup` · `/admin set-drop-channel` · `/admin force-drop` · `/admin auto-drops`', inline: false },
                   { name: '⚡ Slash-Only (no prefix version)', value: '`/admin auto-drops`', inline: false },
+                  { name: '🔒 Server Owner Only (Prefix)', value: '`s tax` / `s cut` / `s tribute` — configuration of Reaper\'s cuts.', inline: false },
                   { name: '🔒 Bot Owner Dashboard Only', value: '**Cycle Reset** — must be triggered from the Admin Cockpit dashboard.\nServer admins cannot reset cycles directly.', inline: false },
                   { name: '⛔ Globally Disabled', value: 'Currency name & icon changes · Shop price overrides\n*(These were removed from this bot\'s configuration.)*', inline: false }
                 )
@@ -561,33 +567,34 @@ module.exports = {
                 {
                   name: '💰 Economy & Daily',
                   value: 
-                    `• \`s daily\` / \`s claim\` · Claim your daily allowance of Souls (24h cooldown).\n` +
-                    `• \`s cash\` [\`@user\`] · Check wallet balance (yours or another user's).\n` +
-                    `• \`s lb\` · View the monthly top 10 richest users.\n` +
-                    `• \`s gift @user <amount>\` · Send Souls from your wallet to another user.`
+                    `• \`s daily\` / \`s claim\` / \`s checkin\` · Claim your daily allowance of Souls (24h cooldown).\n` +
+                    `• \`s cash\` / \`s bal\` / \`s money\` [\`@user\`] · Check wallet balance (yours or another user's).\n` +
+                    `• \`s lb\` / \`s leaderboard\` / \`s rich\` · View the monthly top 10 richest users.\n` +
+                    `• \`s vault\` / \`s well\` · View the Server Soul Vault balance and tax rates.\n` +
+                    `• \`s gift @user <amount>\` / \`s give\` / \`s send\` / \`s transfer\` · Send Souls to another user.`
                 },
                 {
                   name: '🔮 Soul Catching & Inventory',
                   value:
                     `• \`soul\` · Type when a drop spawns in chat to capture the Soul!\n` +
-                    `• \`s inv\` · Open inventory to view all your caught souls.\n` +
+                    `• \`s inv\` / \`s inventory\` · Open inventory to view all your caught souls.\n` +
                     `• \`s soul lb\` · View the server leaderboard of top soul collectors (run anywhere).\n` +
                     `• \`s rare\` · View today's active collectibles and their daily premium prices.\n` +
                     `• \`s sell <index/name> [qty]\` · Sell caught souls at base or collectible prices.\n` +
-                    `• \`s gift @user <name/index> [qty]\` · Gift a caught soul from your inventory.`
+                    `• \`s gift @user <name/index> [qty]\` / \`s give\` / \`s send\` / \`s transfer\` · Gift a caught soul from your inventory.`
                 },
                 {
                   name: '🎰 Casino & Crime',
                   value:
-                    `• \`s flip [heads/tails] <amount>\` · Flip a coin for double or nothing.\n` +
+                    `• \`s flip [heads/tails] <amount>\` / \`s bet\` / \`s casino\` · Flip a coin for double or nothing.\n` +
                     `• \`s crash <amount>\` · Watch the multiplier rise and cash out before the crash.\n` +
                     `• \`s mines <amount> [mines]\` · Uncover tiles on a grid while avoiding mines.\n` +
-                    `• \`s rob @user\` · Try to steal 10% of their wallet (1h cooldown, risk of 5% fine).`
+                    `• \`s rob @user\` / \`s steal\` / \`s heist\` · Try to steal 10% of their wallet (1h cooldown, risk of 5% fine).`
                 },
                 {
                   name: '⚔️ Stats & Training',
                   value:
-                    `• \`s stats\` [\`@user\`] · Check stats (Strength, Defense, Speed, Magic).\n` +
+                    `• \`s stats\` / \`s profile\` [\`@user\`] · Check stats (Strength, Defense, Speed, Magic).\n` +
                     `• \`s shop\` · Browse boosters, 24h elixirs, and shields.\n` +
                     `• \`s buy <item_id>\` · Purchase training items/upgrades from the shop.\n` +
                     `• \`s fight @user <bet>\` · Challenge a player to a stat-clash duel for Souls.`
