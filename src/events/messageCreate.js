@@ -1058,7 +1058,7 @@ module.exports = {
                     .setLabel('Legendary Souls')
                     .setDescription('Show leaderboard for Legendary souls')
                     .setValue('LEGENDARY')
-                    .setEmoji('✦'),
+                    .setEmoji('⭐'),
                   new StringSelectMenuOptionBuilder()
                     .setLabel('Divine Souls')
                     .setDescription('Show leaderboard for Divine souls')
@@ -1096,7 +1096,7 @@ module.exports = {
               const lbMessage = await message.reply({
                 embeds: [embed],
                 components: [row]
-              }).catch(() => {});
+              }).catch(err => console.error('[Soul LB Error] Failed to send initial leaderboard:', err));
 
               if (!lbMessage) return;
 
@@ -1141,7 +1141,7 @@ module.exports = {
                 await menuInteraction.editReply({
                   embeds: [updatedEmbed],
                   components: [updatedRow]
-                }).catch(() => {});
+                }).catch(err => console.error('[Soul LB Error] Failed to edit reply on collect:', err));
               });
 
               collector.on('end', async () => {
@@ -1150,7 +1150,7 @@ module.exports = {
                   .setDisabled(true)
                   .setPlaceholder('Leaderboard session expired. Type s soul lb to reopen.');
                 const disabledRow = new ActionRowBuilder().addComponents(disabledSelectMenu);
-                await lbMessage.edit({ components: [disabledRow] }).catch(() => {});
+                await lbMessage.edit({ components: [disabledRow] }).catch(err => console.error('[Soul LB Error] Failed to edit message on end:', err));
               });
 
               return;
