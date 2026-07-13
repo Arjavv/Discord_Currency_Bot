@@ -71,6 +71,7 @@ if (!token || token === 'your_bot_token_here') {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent // Useful for message activity verification
   ],
