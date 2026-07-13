@@ -466,7 +466,7 @@ module.exports = {
           // Lock user commands to #soul-bot — EXCEPT 's help admin', 's soul lb', inventory/gifting, and treasury commands which can be run anywhere
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
           const isSoulLbRequest = commandName === 'soul' && args[0] && args[0].toLowerCase() === 'lb';
-          const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut'].includes(commandName);
+          const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'flex'].includes(commandName);
           if (!isAdminHelpRequest && !isSoulLbRequest && !isInventoryCommand && !message.channel.name.toLowerCase().includes('soul-bot')) {
             return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
           }
@@ -1183,16 +1183,14 @@ module.exports = {
             }
 
             if (!targetMember) {
-              let members = Array.from(message.guild.members.cache.values())
-                .filter(m => !m.user.bot && m.id !== userId);
-
-              if (members.length === 0) {
-                try {
-                  const fetched = await message.guild.members.fetch({ limit: 100 });
-                  members = Array.from(fetched.values()).filter(m => !m.user.bot && m.id !== userId);
-                } catch (err) {
-                  console.error('Failed to fetch members for ship command:', err);
-                }
+              let members = [];
+              try {
+                // Fetch full guild member list to ensure wide random selection
+                const fetched = await message.guild.members.fetch();
+                members = Array.from(fetched.values()).filter(m => !m.user.bot && m.id !== userId);
+              } catch (err) {
+                console.error('Failed to fetch guild members for ship command:', err);
+                members = Array.from(message.guild.members.cache.values()).filter(m => !m.user.bot && m.id !== userId);
               }
 
               if (members.length === 0) {
@@ -1210,18 +1208,10 @@ module.exports = {
               return message.reply("❌ You can't ship with a bot!").catch(() => {});
             }
 
-            const id1 = userId;
-            const id2 = targetMember.id;
-            const sortedIds = [id1, id2].sort().join('-');
+            // Generate fully randomized compatibility and comment selections for continuous re-rolling
+            const percent = Math.floor(Math.random() * 101);
+            const randIndex = Math.floor(Math.random() * 100);
             const today = new Date().toISOString().split('T')[0];
-            const seed = `${sortedIds}-${today}`;
-
-            let hash = 0;
-            for (let i = 0; i < seed.length; i++) {
-              hash = (hash << 5) - hash + seed.charCodeAt(i);
-              hash |= 0;
-            }
-            const percent = Math.abs(hash) % 101;
 
             let msg = '';
             let embedColor = '#808080';
@@ -1231,7 +1221,7 @@ module.exports = {
                 "Negative compatibility. Run away! 🏃‍♂️💨",
                 "A match made in... well, not here. 🤮"
               ];
-              msg = msgs[Math.abs(hash) % msgs.length];
+              msg = msgs[randIndex % msgs.length];
               embedColor = '#4b5563';
             } else if (percent <= 30) {
               const msgs = [
@@ -1239,7 +1229,7 @@ module.exports = {
                 "Very low compatibility. Maybe stick to typing `soul`. 🤷‍♂️",
                 "There is a spark, but it's more like static electricity. ⚡"
               ];
-              msg = msgs[Math.abs(hash) % msgs.length];
+              msg = msgs[randIndex % msgs.length];
               embedColor = '#ef4444';
             } else if (percent <= 50) {
               const msgs = [
@@ -1247,7 +1237,7 @@ module.exports = {
                 "Decent friendship potential. ☕",
                 "Meh. It's average. 😐"
               ];
-              msg = msgs[Math.abs(hash) % msgs.length];
+              msg = msgs[randIndex % msgs.length];
               embedColor = '#f97316';
             } else if (percent <= 70) {
               const msgs = [
@@ -1255,7 +1245,7 @@ module.exports = {
                 "Good chemistry! Go ahead and DM them. 😉",
                 "Cute couple vibes. 🌸"
               ];
-              msg = msgs[Math.abs(hash) % msgs.length];
+              msg = msgs[randIndex % msgs.length];
               embedColor = '#eab308';
             } else if (percent <= 90) {
               const msgs = [
@@ -1263,7 +1253,7 @@ module.exports = {
                 "High compatibility! You two are looking good together. ❤️",
                 "So compatible, it's getting hot in here! 🔥"
               ];
-              msg = msgs[Math.abs(hash) % msgs.length];
+              msg = msgs[randIndex % msgs.length];
               embedColor = '#ec4899';
             } else {
               const msgs = [
@@ -1271,7 +1261,7 @@ module.exports = {
                 "True love! A match made in heaven. ✨💍",
                 "100% destined to be together. Get married already! 💒"
               ];
-              msg = msgs[Math.abs(hash) % msgs.length];
+              msg = msgs[randIndex % msgs.length];
               embedColor = '#db2777';
             }
 
@@ -1288,7 +1278,7 @@ module.exports = {
                 `*${msg}*`
               )
               .setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }))
-              .setFooter({ text: `Matched on: ${today} (re-rolls reset daily)` })
+              .setFooter({ text: `Matched on: ${today}` })
               .setTimestamp();
 
             return await message.reply({ embeds: [shipEmbed] }).catch(() => {});
