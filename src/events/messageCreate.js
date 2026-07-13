@@ -1341,6 +1341,17 @@ module.exports = {
             const charDef = CHARACTER_SPAWNS.find(c => c.id === selectedChar.id);
             const dropPercentage = totalWeight > 0 ? ((charDef.weight / totalWeight) * 100).toFixed(2) : '0.00';
 
+            // Check if active daily collectible and resolve the daily premium price
+            const globalSettings = await getGlobalSettings();
+            const isCollectible = globalSettings[`collectible_active_${selectedChar.id}`] === 'true';
+            const collectiblePrice = globalSettings[`collectible_price_${selectedChar.id}`] !== undefined
+              ? parseInt(globalSettings[`collectible_price_${selectedChar.id}`], 10)
+              : null;
+
+            if (isCollectible && collectiblePrice !== null && !isNaN(collectiblePrice)) {
+              selectedChar.value = collectiblePrice;
+            }
+
             await message.channel.sendTyping();
 
             try {
@@ -1349,7 +1360,8 @@ module.exports = {
                 message.author.username,
                 selectedChar,
                 dropPercentage,
-                currencyName
+                currencyName,
+                isCollectible
               );
 
               const attachment = new AttachmentBuilder(imageBuffer, { name: 'flex.png' });

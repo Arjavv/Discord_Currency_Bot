@@ -40,7 +40,7 @@ function drawRect(image, x, y, w, h, fillColor, borderColor, borderWidth = 2) {
  * @param {string} currencyName - Guild's currency name
  * @returns {Promise<Buffer>}
  */
-async function renderFlexImage(username, character, dropPercentage, currencyName) {
+async function renderFlexImage(username, character, dropPercentage, currencyName, isCollectible = false) {
   const width = 600;
   const height = 250;
   
@@ -93,11 +93,15 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
     text: `Tier: ${character.tier}`
   });
   
+  const valueLabelText = isCollectible
+    ? `Value: ${character.value} ${currencyName} (Rare)`
+    : `Value: ${character.value} ${currencyName}`;
+
   canvas.print({
     font: font16,
     x: 220,
     y: 130,
-    text: `Value: ${character.value} ${currencyName}`
+    text: valueLabelText
   });
   
   canvas.print({
