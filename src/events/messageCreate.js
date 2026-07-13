@@ -1218,48 +1218,54 @@ module.exports = {
             if (percent <= 10) {
               const msgs = [
                 "Absolute disaster. You two shouldn't even be in the same server. 💀",
-                "Negative compatibility. Run away! 🏃‍♂️💨",
-                "A match made in... well, not here. 🤮"
+                "Negative compatibility. Run away as fast as you can! 🏃‍♂️💨",
+                "A match made in... well, definitely not in heaven. 🤮",
+                "Even water and oil mix better than you two. ☠️"
               ];
               msg = msgs[randIndex % msgs.length];
               embedColor = '#4b5563';
             } else if (percent <= 30) {
               const msgs = [
                 "Just friends. Barely. 😶",
-                "Very low compatibility. Maybe stick to typing `soul`. 🤷‍♂️",
-                "There is a spark, but it's more like static electricity. ⚡"
+                "Very low compatibility. Maybe stick to catching souls instead of feelings. 🤷‍♂️",
+                "There is a spark, but it's more like static electricity from a cheap sweater. ⚡",
+                "Awkward side-eyes. You're better off as distant acquaintances. 🥶"
               ];
               msg = msgs[randIndex % msgs.length];
               embedColor = '#ef4444';
             } else if (percent <= 50) {
               const msgs = [
-                "Awkward silence vibes. Could work, but needs effort. 🤝",
-                "Decent friendship potential. ☕",
-                "Meh. It's average. 😐"
+                "Awkward silence vibes. Could work, but needs a ton of effort. 🤝",
+                "Decent friendship potential. Grab a cup of coffee first. ☕",
+                "Meh. It's purely average. 😐",
+                "Not bad, but not exactly exciting either. 🥱"
               ];
               msg = msgs[randIndex % msgs.length];
               embedColor = '#f97316';
             } else if (percent <= 70) {
               const msgs = [
-                "Warm feelings! There is definitely something there. 😏",
-                "Good chemistry! Go ahead and DM them. 😉",
-                "Cute couple vibes. 🌸"
+                "Warm feelings! There is definitely a sweet connection there. 😏",
+                "Good chemistry! You should go ahead and slide into their DMs. 😉",
+                "Cute couple vibes! The stars are beginning to align. 🌸",
+                "A solid match. Give it a shot! 💘"
               ];
               msg = msgs[randIndex % msgs.length];
               embedColor = '#eab308';
             } else if (percent <= 90) {
               const msgs = [
-                "Great match! Mutual crush incoming? 👀",
-                "High compatibility! You two are looking good together. ❤️",
-                "So compatible, it's getting hot in here! 🔥"
+                "Great match! A mutual crush is definitely incoming. 👀",
+                "High compatibility! You two look absolutely stunning together. ❤️",
+                "So compatible, it's starting to get hot in here! 🔥",
+                "Highly compatible! The shipping charts are off the hook. 📈"
               ];
               msg = msgs[randIndex % msgs.length];
               embedColor = '#ec4899';
             } else {
               const msgs = [
-                "Soulmates! Perfectly matched. 💖",
-                "True love! A match made in heaven. ✨💍",
-                "100% destined to be together. Get married already! 💒"
+                "Soulmates! Perfectly matched in every single universe. 💖",
+                "True love! A match made in the heavens. ✨💍",
+                "100% destined to be together. Get married already! 💒",
+                "Unstoppable duo! Together you could conquer the world. 👑💕"
               ];
               msg = msgs[randIndex % msgs.length];
               embedColor = '#db2777';
@@ -1272,7 +1278,7 @@ module.exports = {
               .setColor(embedColor)
               .setTitle('💖 Soul Matchmaker 💖')
               .setDescription(
-                `💘 **${message.author.username}** & **${targetMember.user.username}** 💘\n\n` +
+                `💘 <@${userId}> & <@${targetMember.id}> 💘\n\n` +
                 `📈 **Compatibility:** \`${percent}%\`\n` +
                 `${bar}\n\n` +
                 `*${msg}*`
@@ -1281,7 +1287,10 @@ module.exports = {
               .setFooter({ text: `Matched on: ${today}` })
               .setTimestamp();
 
-            return await message.reply({ embeds: [shipEmbed] }).catch(() => {});
+            return await message.reply({
+              content: `💞 **New matchmaking results:** <@${userId}> x <@${targetMember.id}>!`,
+              embeds: [shipEmbed]
+            }).catch(() => {});
           }
 
           if (commandName === 'flex') {
