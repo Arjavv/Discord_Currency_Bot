@@ -3,7 +3,7 @@ const { getGlobalSettings, getServerFeatureOverrides } = require('../database/qu
 const ADMIN_PREFIX_COMMANDS = ['setup', 'set-drop-channel', 'force-drop', 'auto-drops', 'help'];
 
 
-const READONLY_PREFIX_COMMANDS = ['cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'stats', 'profile', 'help', 'soul'];
+const READONLY_PREFIX_COMMANDS = ['cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'stats', 'profile', 'help', 'soul', 'ship', 'flex'];
 const READONLY_SLASH_COMMANDS = ['balance', 'leaderboard', 'stats'];
 
 const FEATURE_COMMAND_MAP = {

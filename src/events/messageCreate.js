@@ -174,7 +174,7 @@ module.exports = {
         'daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb',
         'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy',
         'fight', 'gift', 'give', 'send', 'transfer', 'rob', 'steal', 'heist', 'inv', 'inventory',
-        'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul'
+        'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul', 'ship', 'flex'
       ];
       
       const isValid = VALID_PREFIX_COMMANDS.includes(commandName);
@@ -272,7 +272,7 @@ module.exports = {
           const perms = message.channel.permissionsFor(botMember);
           if (perms) {
             // Identify commands that require Attach Files
-            const requiresAttachFiles = ['inv', 'inventory'].includes(commandName);
+            const requiresAttachFiles = ['inv', 'inventory', 'flex'].includes(commandName);
             if (requiresAttachFiles && !perms.has(PermissionFlagsBits.AttachFiles)) {
               fulfilled = false;
               errorText = 'Missing Attach Files Permission';
@@ -462,7 +462,7 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul', 'ship', 'flex'].includes(commandName)) {
           // Lock user commands to #soul-bot — EXCEPT 's help admin', 's soul lb', inventory/gifting, and treasury commands which can be run anywhere
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
           const isSoulLbRequest = commandName === 'soul' && args[0] && args[0].toLowerCase() === 'lb';
@@ -581,7 +581,8 @@ module.exports = {
                     `• \`s soul lb\` · View the server leaderboard of top soul collectors (run anywhere).\n` +
                     `• \`s rare\` · View today's active collectibles and their daily premium prices.\n` +
                     `• \`s sell <index/name> [qty]\` · Sell caught souls at base or collectible prices.\n` +
-                    `• \`s gift @user <name/index> [qty]\` / \`s give\` / \`s send\` / \`s transfer\` · Gift a caught soul from your inventory.`
+                    `• \`s gift @user <name/index> [qty]\` / \`s give\` / \`s send\` / \`s transfer\` · Gift a caught soul from your inventory.\n` +
+                    `• \`s flex <index/name>\` · Flex a collectible with a temporary auto-deleting image card.`
                 },
                 {
                   name: '🎰 Casino & Crime',
@@ -597,7 +598,8 @@ module.exports = {
                     `• \`s stats\` / \`s profile\` [\`@user\`] · Check stats (Strength, Defense, Speed, Magic).\n` +
                     `• \`s shop\` · Browse boosters, 24h elixirs, and shields.\n` +
                     `• \`s buy <item_id>\` · Purchase training items/upgrades from the shop.\n` +
-                    `• \`s fight @user <bet>\` · Challenge a player to a stat-clash duel for Souls.`
+                    `• \`s fight @user <bet>\` · Challenge a player to a stat-clash duel for Souls.\n` +
+                    `• \`s ship\` [\`@user\`] · Matchmaker check compatibility with a user or a random server member.`
                 }
               )
               .setFooter({ text: 'Tip: Passively earn Souls by chatting! · Admins: use `s help admin` in any channel.' })
@@ -1163,6 +1165,217 @@ module.exports = {
               return;
             } else {
               return message.reply('❌ **Usage:** `s soul lb` to view the soul collectors leaderboard.').catch(() => {});
+            }
+          }
+
+          if (['ship'].includes(commandName)) {
+            let targetMember = null;
+
+            if (message.mentions.members.first()) {
+              targetMember = message.mentions.members.first();
+            } else if (args.length > 0) {
+              const searchStr = args.join(' ').toLowerCase();
+              targetMember = message.guild.members.cache.find(m => 
+                m.user.username.toLowerCase().includes(searchStr) || 
+                (m.nickname && m.nickname.toLowerCase().includes(searchStr)) || 
+                m.id === searchStr
+              );
+            }
+
+            if (!targetMember) {
+              let members = Array.from(message.guild.members.cache.values())
+                .filter(m => !m.user.bot && m.id !== userId);
+
+              if (members.length === 0) {
+                try {
+                  const fetched = await message.guild.members.fetch({ limit: 100 });
+                  members = Array.from(fetched.values()).filter(m => !m.user.bot && m.id !== userId);
+                } catch (err) {
+                  console.error('Failed to fetch members for ship command:', err);
+                }
+              }
+
+              if (members.length === 0) {
+                return message.reply('❌ No other members found in this server to ship with!').catch(() => {});
+              }
+
+              targetMember = members[Math.floor(Math.random() * members.length)];
+            }
+
+            if (targetMember.id === userId) {
+              return message.reply("❌ You can't ship with yourself! Pick someone else.").catch(() => {});
+            }
+
+            if (targetMember.user.bot) {
+              return message.reply("❌ You can't ship with a bot!").catch(() => {});
+            }
+
+            const id1 = userId;
+            const id2 = targetMember.id;
+            const sortedIds = [id1, id2].sort().join('-');
+            const today = new Date().toISOString().split('T')[0];
+            const seed = `${sortedIds}-${today}`;
+
+            let hash = 0;
+            for (let i = 0; i < seed.length; i++) {
+              hash = (hash << 5) - hash + seed.charCodeAt(i);
+              hash |= 0;
+            }
+            const percent = Math.abs(hash) % 101;
+
+            let msg = '';
+            let embedColor = '#808080';
+            if (percent <= 10) {
+              const msgs = [
+                "Absolute disaster. You two shouldn't even be in the same server. 💀",
+                "Negative compatibility. Run away! 🏃‍♂️💨",
+                "A match made in... well, not here. 🤮"
+              ];
+              msg = msgs[Math.abs(hash) % msgs.length];
+              embedColor = '#4b5563';
+            } else if (percent <= 30) {
+              const msgs = [
+                "Just friends. Barely. 😶",
+                "Very low compatibility. Maybe stick to typing `soul`. 🤷‍♂️",
+                "There is a spark, but it's more like static electricity. ⚡"
+              ];
+              msg = msgs[Math.abs(hash) % msgs.length];
+              embedColor = '#ef4444';
+            } else if (percent <= 50) {
+              const msgs = [
+                "Awkward silence vibes. Could work, but needs effort. 🤝",
+                "Decent friendship potential. ☕",
+                "Meh. It's average. 😐"
+              ];
+              msg = msgs[Math.abs(hash) % msgs.length];
+              embedColor = '#f97316';
+            } else if (percent <= 70) {
+              const msgs = [
+                "Warm feelings! There is definitely something there. 😏",
+                "Good chemistry! Go ahead and DM them. 😉",
+                "Cute couple vibes. 🌸"
+              ];
+              msg = msgs[Math.abs(hash) % msgs.length];
+              embedColor = '#eab308';
+            } else if (percent <= 90) {
+              const msgs = [
+                "Great match! Mutual crush incoming? 👀",
+                "High compatibility! You two are looking good together. ❤️",
+                "So compatible, it's getting hot in here! 🔥"
+              ];
+              msg = msgs[Math.abs(hash) % msgs.length];
+              embedColor = '#ec4899';
+            } else {
+              const msgs = [
+                "Soulmates! Perfectly matched. 💖",
+                "True love! A match made in heaven. ✨💍",
+                "100% destined to be together. Get married already! 💒"
+              ];
+              msg = msgs[Math.abs(hash) % msgs.length];
+              embedColor = '#db2777';
+            }
+
+            const filledCount = Math.round(percent / 10);
+            const bar = '❤️'.repeat(filledCount) + '🖤'.repeat(10 - filledCount);
+
+            const shipEmbed = new EmbedBuilder()
+              .setColor(embedColor)
+              .setTitle('💖 Soul Matchmaker 💖')
+              .setDescription(
+                `💘 **${message.author.username}** & **${targetMember.user.username}** 💘\n\n` +
+                `📈 **Compatibility:** \`${percent}%\`\n` +
+                `${bar}\n\n` +
+                `*${msg}*`
+              )
+              .setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }))
+              .setFooter({ text: `Matched on: ${today} (re-rolls reset daily)` })
+              .setTimestamp();
+
+            return await message.reply({ embeds: [shipEmbed] }).catch(() => {});
+          }
+
+          if (commandName === 'flex') {
+            const userInv = await getUserInventory(userId, serverId);
+            const characterItems = [];
+            
+            for (const [itemId, qty] of Object.entries(userInv)) {
+              const charDef = CHARACTER_SPAWNS.find(c => c.id === itemId);
+              if (charDef) {
+                characterItems.push({
+                  id: charDef.id,
+                  name: charDef.name,
+                  tier: charDef.tier,
+                  value: charDef.value,
+                  quantity: qty,
+                  color: charDef.color,
+                  imagePath: charDef.imagePath
+                });
+              }
+            }
+
+            if (characterItems.length === 0) {
+              return message.reply('❌ Your inventory is currently empty! Catch some drops first.').catch(() => {});
+            }
+            
+            const tierOrder = { 'DIVINE': 0, 'MYTHIC': 1, 'EPIC': 2, 'RARE': 3, 'UNCOMMON': 4, 'COMMON': 5 };
+            characterItems.sort((a, b) => {
+              const orderA = tierOrder[a.tier] !== undefined ? tierOrder[a.tier] : 99;
+              const orderB = tierOrder[b.tier] !== undefined ? tierOrder[b.tier] : 99;
+              if (orderA !== orderB) return orderA - orderB;
+              return a.name.localeCompare(b.name);
+            });
+
+            if (args.length === 0) {
+              return message.reply('❌ **Usage:** `s flex <index>` or `s flex <collectible name>`. Example: `s flex 1` or `s flex Blossom Soul`.').catch(() => {});
+            }
+
+            let selectedChar = null;
+            const indexArg = parseInt(args[0], 10);
+            if (!isNaN(indexArg)) {
+              const idx = indexArg - 1;
+              if (idx < 0 || idx >= characterItems.length) {
+                return message.reply(`❌ Invalid index. Please choose a number between 1 and ${characterItems.length}.`).catch(() => {});
+              }
+              selectedChar = characterItems[idx];
+            } else {
+              const searchStr = args.join(' ').toLowerCase().trim();
+              selectedChar = characterItems.find(item => item.name.toLowerCase().includes(searchStr));
+              if (!selectedChar) {
+                return message.reply(`❌ You do not own any collectible matching "${args.join(' ')}".`).catch(() => {});
+              }
+            }
+
+            const { disabledIds } = require('../utils/characters');
+            const activeSpawns = CHARACTER_SPAWNS.filter(c => !disabledIds.includes(c.id));
+            const totalWeight = activeSpawns.reduce((acc, c) => acc + c.weight, 0);
+            const charDef = CHARACTER_SPAWNS.find(c => c.id === selectedChar.id);
+            const dropPercentage = totalWeight > 0 ? ((charDef.weight / totalWeight) * 100).toFixed(2) : '0.00';
+
+            await message.channel.sendTyping();
+
+            try {
+              const { renderFlexImage } = require('../utils/flexRenderer');
+              const imageBuffer = await renderFlexImage(
+                message.author.username,
+                selectedChar,
+                dropPercentage,
+                currencyName
+              );
+
+              const attachment = new AttachmentBuilder(imageBuffer, { name: 'flex.png' });
+              const flexMessage = await message.reply({
+                content: `✨ **${message.author.username}** is flexing their collectible! *(This message will auto-delete in 15 seconds)*`,
+                files: [attachment]
+              });
+
+              setTimeout(() => {
+                flexMessage.delete().catch(() => {});
+              }, 15000);
+
+              return;
+            } catch (renderErr) {
+              console.error('Failed to render flex image:', renderErr);
+              return message.reply('❌ Failed to render showcase image. Please try again.').catch(() => {});
             }
           }
 
