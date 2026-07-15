@@ -437,25 +437,28 @@ async function startMinesGame(userId, serverId, bet, mineCount, replyTarget, use
 
     if (state === 'playing') {
       const nextPay = getNextPayout(safeTiles + 1);
+      const currentMult = (winnings / bet).toFixed(2);
+      const nextMult = (nextPay / bet).toFixed(2);
       embed.setColor('#ffaa00')
         .setTitle('💣 Mines — Choose a Tile!')
         .setDescription(
           `**Mines:** ${mineCount} 💣 | **Safe Tiles:** ${safeTiles} 💎\n` +
-          `**Current Value:** ${winnings} ${currencyIcon} ${currencyName}\n` +
-          `**Next Tile Value:** ${nextPay} ${currencyIcon} ${currencyName}\n\n` +
+          `**Current Value:** ${winnings} ${currencyIcon} ${currencyName} **(${currentMult}x)**\n` +
+          `**Next Tile Value:** ${nextPay} ${currencyIcon} ${currencyName} **(${nextMult}x)**\n\n` +
           `Click a numbered tile to reveal it. Avoid the mines!`
         );
     } else if (state === 'cashed_out' || state === 'auto_cashout') {
       const profit = winningsValue - bet;
       const netProfit = profit - taxAmount;
       const netPayout = winningsValue - taxAmount;
+      const mult = (winningsValue / bet).toFixed(2);
       embed.setColor('#00ffaa')
         .setTitle('💰 Mines — CASHED OUT!')
         .setDescription(
           `You successfully cashed out!\n\n` +
           `**Mines:** ${mineCount} 💣 | **Safe Tiles:** ${safeTiles} 💎\n` +
           `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
-          `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
+          `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName} **(${mult}x)**\n` +
           `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
           (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n\n` : '') +
           `*All mine positions have been revealed below.*`
@@ -481,13 +484,14 @@ async function startMinesGame(userId, serverId, bet, mineCount, replyTarget, use
       const profit = winningsValue - bet;
       const netProfit = profit - taxAmount;
       const netPayout = winningsValue - taxAmount;
+      const mult = (winningsValue / bet).toFixed(2);
       embed.setColor('#fbbf24')
         .setTitle('🏆 Mines — ALL TILES CLEARED!')
         .setDescription(
           `Incredible! You cleared all safe tiles!\n\n` +
           `**Mines:** ${mineCount} 💣 | **Safe Tiles:** ${safeTiles} 💎\n` +
           `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
-          `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
+          `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName} **(${mult}x)**\n` +
           `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
           (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n\n` : '')
         );
