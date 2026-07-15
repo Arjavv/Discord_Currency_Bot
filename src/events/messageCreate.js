@@ -1941,17 +1941,13 @@ module.exports = {
                   files.push(new AttachmentBuilder(bannerPath, { name: 'casino_banner.png' }));
                 }
 
-                const embed1 = new EmbedBuilder()
+                const embed = new EmbedBuilder()
                   .setAuthor({
                     name: `${message.author.username}'s Casino Lobby`,
                     iconURL: message.author.displayAvatarURL({ dynamic: true })
                   })
                   .setColor('#7d00ff') // Cyberpunk purple
                   .setTitle('🎰   THE GRAND SOUL CASINO   🎰')
-                  .setImage('attachment://casino_banner.png');
-
-                const embed2 = new EmbedBuilder()
-                  .setColor('#7d00ff')
                   .setDescription(
                     `Welcome to the VIP Casino Lounge, **${message.author.username}**!\n\n` +
                     `💼 **Your Balance:** **${balanceInfo.balance}** ${currencyIcon} ${currencyName}\n\n` +
@@ -1971,6 +1967,7 @@ module.exports = {
                       value: `> Uncover safe tiles on a 4x5 grid. Avoid the hidden mines. More mines = higher risk & reward!`
                     }
                   )
+                  .setImage('attachment://casino_banner.png')
                   .setFooter({ text: "Gamble responsibly • Powered by the Reaper's Treasury" })
                   .setTimestamp();
 
@@ -1995,7 +1992,7 @@ module.exports = {
                 const row = new ActionRowBuilder().addComponents(buttonFlip, buttonCrash, buttonMines);
 
                 const dashboardMsg = await message.reply({
-                  embeds: [embed1, embed2],
+                  embeds: [embed],
                   components: [row],
                   files
                 });
