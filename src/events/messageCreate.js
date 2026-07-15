@@ -352,7 +352,7 @@ async function startMinesGame(userId, serverId, bet, mineCount, replyTarget, use
   }
 
   // Generate board
-  const boardSize = 25;
+  const boardSize = 20;
   const board = Array(boardSize).fill('safe'); // 'safe' or 'mine'
   
   // Randomly place mines
@@ -375,7 +375,7 @@ async function startMinesGame(userId, serverId, bet, mineCount, replyTarget, use
     if (revealedCount === 0) return bet;
     let multiplier = 1.0;
     for (let i = 0; i < revealedCount; i++) {
-      multiplier *= (25 - i) / (25 - i - mineCount);
+      multiplier *= (20 - i) / (20 - i - mineCount);
     }
     multiplier *= Math.pow(0.98, revealedCount);
     return Math.floor(bet * multiplier);
@@ -385,7 +385,7 @@ async function startMinesGame(userId, serverId, bet, mineCount, replyTarget, use
 
   function buildGridComponents(disabledState = false, showAll = false) {
     const rows = [];
-    for (let r = 0; r < 5; r++) {
+    for (let r = 0; r < 4; r++) { // 4 rows of 5 buttons (20 buttons total)
       const row = new ActionRowBuilder();
       for (let c = 0; c < 5; c++) {
         const idx = r * 5 + c;
