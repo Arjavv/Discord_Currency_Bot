@@ -36,6 +36,8 @@ const activeCrashGames = new Set();
 
 // Track active mines games per user
 const activeMinesGames = new Map();
+// Track active blackjack games per user
+const activeBlackjackGames = new Set();
 const path = require('path');
 const fs = require('fs');
 const { activeDrops, triggerDrop, scheduleNextDrop } = require('../utils/drops');
@@ -310,6 +312,368 @@ async function startCrashGame(userId, serverId, bet, replyTarget, user, currency
       const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
 
       const timeoutEmbed = buildCrashEmbed(currentMultiplier, 'timeout', 0);
+      await gameMessage.edit({ embeds: [timeoutEmbed], components: [disabledRow] }).catch(() => {});
+    }
+  });
+}
+
+async function startBlackjackGame(userId, serverId, bet, replyTarget, user, currencyIcon, currencyName) {
+  const isInteraction = typeof replyTarget.editReply === 'function';
+
+  // Prevent multiple simultaneous blackjack games
+  const gameKey = `${userId}_${serverId}`;
+  if (activeBlackjackGames.has(gameKey)) {
+    const errMsg = '❌ You already have an active blackjack game! Finish it first.';
+    if (isInteraction) {
+      return await replyTarget.editReply({ content: errMsg, embeds: [], components: [] }).catch(() => {});
+    } else {
+      return sendTempMessage(replyTarget.channel, errMsg);
+    }
+  }
+
+  // Deduct bet upfront
+  const deductResult = await recordCasinoGame(userId, serverId, bet, false);
+  if (!deductResult.success) {
+    if (deductResult.reason === 'insufficient_funds') {
+      const errorEmbed = new EmbedBuilder()
+        .setColor('#ff3366')
+        .setTitle('❌ Insufficient Coins')
+        .setDescription(`You don't have enough coins to place that bet!`)
+        .addFields(
+          { name: 'Your Balance', value: `**${deductResult.currentBalance}** ${currencyIcon} ${currencyName}`, inline: true },
+          { name: 'Attempted Bet', value: `**${bet}** ${currencyIcon} ${currencyName}`, inline: true }
+        )
+        .setTimestamp();
+      if (isInteraction) {
+        return await replyTarget.editReply({ embeds: [errorEmbed], components: [] }).catch(() => {});
+      } else {
+        return await replyTarget.reply({ embeds: [errorEmbed] }).catch(() => {});
+      }
+    }
+    throw new Error('Database transaction failed');
+  }
+
+  activeBlackjackGames.add(gameKey);
+
+  const suits = ['♠️', '♥️', '♦️', '♣️'];
+  const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  
+  const deck = [];
+  for (const s of suits) {
+    for (const r of ranks) {
+      let val = parseInt(r);
+      if (['J', 'Q', 'K'].includes(r)) val = 10;
+      if (r === 'A') val = 11;
+      deck.push({ rank: r, suit: s, value: val });
+    }
+  }
+  
+  // Shuffle
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+
+  const playerHand = [deck.pop(), deck.pop()];
+  const dealerHand = [deck.pop(), deck.pop()];
+  let gameEnded = false;
+  let winnings = 0;
+  let doubleDownBet = bet;
+  const gameTimestamp = Date.now();
+
+  function calculateHand(hand) {
+    let value = 0;
+    let aces = 0;
+    for (const card of hand) {
+      value += card.value;
+      if (card.rank === 'A') aces++;
+    }
+    while (value > 21 && aces > 0) {
+      value -= 10;
+      aces--;
+    }
+    return value;
+  }
+
+  function buildBlackjackEmbed(state, playerDone = false, taxAmount = 0) {
+    const playerVal = calculateHand(playerHand);
+    const dealerVal = playerDone ? calculateHand(dealerHand) : calculateHand([dealerHand[0]]);
+    
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: `${user.username}'s Blackjack Game`,
+        iconURL: user.displayAvatarURL({ dynamic: true })
+      })
+      .setTimestamp();
+      
+    const playerCardStr = playerHand.map(c => `\`[ ${c.rank}${c.suit} ]\``).join(' ');
+    const dealerCardStr = playerDone 
+      ? dealerHand.map(c => `\`[ ${c.rank}${c.suit} ]\``).join(' ')
+      : `\`[ ${dealerHand[0].rank}${dealerHand[0].suit} ]\` \`[  ?  ]\``;
+      
+    embed.addFields(
+      { name: `Dealer's Hand (Score: ${playerDone ? dealerVal : '?'})`, value: dealerCardStr, inline: false },
+      { name: `Your Hand (Score: ${playerVal})`, value: playerCardStr, inline: false }
+    );
+    
+    const bannerPath = path.join(__dirname, '..', 'assets', 'blackjack_banner.png');
+    if (fs.existsSync(bannerPath)) {
+      embed.setImage('attachment://blackjack_banner.png');
+    }
+    
+    if (state === 'playing') {
+      embed.setColor('#7d00ff')
+        .setTitle('🃏 Blackjack — Hit, Stand, or Double Down!')
+        .setDescription(`**Bet:** ${doubleDownBet} ${currencyIcon} ${currencyName}\n\n*Choose your next move using the buttons below.*`);
+    } else if (state === 'player_win' || state === 'natural_win') {
+      const profit = winnings - doubleDownBet;
+      const netProfit = profit - taxAmount;
+      const netPayout = winnings - taxAmount;
+      embed.setColor('#00ffaa')
+        .setTitle(state === 'natural_win' ? '🏆 Blackjack — NATURAL BLACKJACK!' : '💰 Blackjack — YOU WON!')
+        .setDescription(
+          `**Result:** Player wins!\n` +
+          `**Bet:** ${doubleDownBet} ${currencyIcon} ${currencyName}\n` +
+          `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName} **(${(winnings / doubleDownBet).toFixed(2)}x)**\n` +
+          `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
+          (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n` : '')
+        );
+    } else if (state === 'dealer_win' || state === 'player_bust') {
+      embed.setColor('#ff3366')
+        .setTitle(state === 'player_bust' ? '💥 Blackjack — BUSTED!' : '❌ Blackjack — DEALER WINS')
+        .setDescription(
+          `**Result:** ${state === 'player_bust' ? 'You busted (>21) and lost!' : 'Dealer wins!'}\n` +
+          `**Bet Lost:** -${doubleDownBet} ${currencyIcon} ${currencyName}`
+        );
+    } else if (state === 'push') {
+      embed.setColor('#fbbf24')
+        .setTitle('👔 Blackjack — PUSH (TIE)')
+        .setDescription(
+          `**Result:** It's a push (tie). Your bet has been returned!\n` +
+          `**Returned:** ${doubleDownBet} ${currencyIcon} ${currencyName}`
+        );
+    } else if (state === 'timeout') {
+      embed.setColor('#ff3366')
+        .setTitle('⏰ Blackjack — TIMED OUT!')
+        .setDescription(`You took too long to play. Your bet of **${doubleDownBet}** ${currencyName} was lost.`);
+    }
+    
+    return embed;
+  }
+
+  // Setup buttons
+  const hitButton = new ButtonBuilder()
+    .setCustomId(`bj_hit_${userId}_${gameTimestamp}`)
+    .setLabel('Hit')
+    .setStyle(ButtonStyle.Success)
+    .setEmoji('🟢');
+
+  const standButton = new ButtonBuilder()
+    .setCustomId(`bj_stand_${userId}_${gameTimestamp}`)
+    .setLabel('Stand')
+    .setStyle(ButtonStyle.Danger)
+    .setEmoji('🔴');
+
+  const doubleButton = new ButtonBuilder()
+    .setCustomId(`bj_double_${userId}_${gameTimestamp}`)
+    .setLabel('Double Down')
+    .setStyle(ButtonStyle.Primary)
+    .setEmoji('🔵');
+
+  // Check if player can double down (must have enough balance to cover another bet)
+  const userBal = await getUserBalance(userId, serverId);
+  const canDouble = userBal.balance >= bet;
+  if (!canDouble) {
+    doubleButton.setDisabled(true);
+  }
+
+  const row = new ActionRowBuilder().addComponents(hitButton, standButton, doubleButton);
+
+  const initialEmbed = buildBlackjackEmbed('playing', false);
+
+  const files = [];
+  const bannerPath = path.join(__dirname, '..', 'assets', 'blackjack_banner.png');
+  if (fs.existsSync(bannerPath)) {
+    files.push(new AttachmentBuilder(bannerPath, { name: 'blackjack_banner.png' }));
+  }
+
+  const gameMessage = isInteraction
+    ? await replyTarget.editReply({ embeds: [initialEmbed], components: [row], files })
+    : await replyTarget.reply({ embeds: [initialEmbed], components: [row], files });
+
+  // Check initial naturals
+  const initialPlayerVal = calculateHand(playerHand);
+  const initialDealerVal = calculateHand(dealerHand);
+
+  if (initialPlayerVal === 21) {
+    gameEnded = true;
+    activeBlackjackGames.delete(gameKey);
+    
+    let state = 'natural_win';
+    if (initialDealerVal === 21) {
+      state = 'push';
+      winnings = bet;
+      await recordCasinoGame(userId, serverId, winnings, true, false, 0);
+    } else {
+      winnings = Math.floor(bet * 2.5); // 3:2 payout (returns original bet + 1.5x profit)
+      const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
+      
+      const endEmbed = buildBlackjackEmbed('natural_win', true, result.taxAmount || 0);
+      const disabledRow = new ActionRowBuilder().addComponents(
+        hitButton.setDisabled(true),
+        standButton.setDisabled(true),
+        doubleButton.setDisabled(true)
+      );
+      await gameMessage.edit({ embeds: [endEmbed], components: [disabledRow] }).catch(() => {});
+      return;
+    }
+    
+    const endEmbed = buildBlackjackEmbed(state, true, 0);
+    const disabledRow = new ActionRowBuilder().addComponents(
+      hitButton.setDisabled(true),
+      standButton.setDisabled(true),
+      doubleButton.setDisabled(true)
+    );
+    await gameMessage.edit({ embeds: [endEmbed], components: [disabledRow] }).catch(() => {});
+    return;
+  }
+
+  const collector = gameMessage.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 60000,
+    filter: (i) => i.user.id === userId && i.customId.includes(`_${userId}_${gameTimestamp}`)
+  });
+
+  async function runDealerTurn(buttonInteraction) {
+    gameEnded = true;
+    collector.stop('dealer_turn');
+    activeBlackjackGames.delete(gameKey);
+    
+    let dealerScore = calculateHand(dealerHand);
+    while (dealerScore < 17) {
+      dealerHand.push(deck.pop());
+      dealerScore = calculateHand(dealerHand);
+    }
+    
+    const playerScore = calculateHand(playerHand);
+    let state = 'push';
+    
+    if (dealerScore > 21) {
+      state = 'player_win';
+      winnings = doubleDownBet * 2;
+    } else if (playerScore > dealerScore) {
+      state = 'player_win';
+      winnings = doubleDownBet * 2;
+    } else if (playerScore < dealerScore) {
+      state = 'dealer_win';
+      winnings = 0;
+    } else {
+      state = 'push';
+      winnings = doubleDownBet;
+    }
+    
+    let taxAmount = 0;
+    if (state === 'player_win') {
+      const result = await recordCasinoGame(userId, serverId, winnings, true, true, doubleDownBet);
+      taxAmount = result.taxAmount || 0;
+    } else if (state === 'push') {
+      await recordCasinoGame(userId, serverId, winnings, true, false, 0);
+    }
+    
+    const endEmbed = buildBlackjackEmbed(state, true, taxAmount);
+    const disabledRow = new ActionRowBuilder().addComponents(
+      hitButton.setDisabled(true),
+      standButton.setDisabled(true),
+      doubleButton.setDisabled(true)
+    );
+    
+    if (buttonInteraction) {
+      await buttonInteraction.update({ embeds: [endEmbed], components: [disabledRow] }).catch(() => {});
+    } else {
+      await gameMessage.edit({ embeds: [endEmbed], components: [disabledRow] }).catch(() => {});
+    }
+  }
+
+  collector.on('collect', async (buttonInteraction) => {
+    if (gameEnded) return;
+
+    const customId = buttonInteraction.customId;
+
+    if (customId.startsWith('bj_hit_')) {
+      playerHand.push(deck.pop());
+      const score = calculateHand(playerHand);
+      
+      if (score > 21) {
+        // Player busts
+        gameEnded = true;
+        collector.stop('player_bust');
+        activeBlackjackGames.delete(gameKey);
+        
+        const bustEmbed = buildBlackjackEmbed('player_bust', true, 0);
+        const disabledRow = new ActionRowBuilder().addComponents(
+          hitButton.setDisabled(true),
+          standButton.setDisabled(true),
+          doubleButton.setDisabled(true)
+        );
+        await buttonInteraction.update({ embeds: [bustEmbed], components: [disabledRow] }).catch(() => {});
+        return;
+      }
+      
+      // Update double button state (disable after hit)
+      const currentEmbed = buildBlackjackEmbed('playing', false);
+      const updatedRow = new ActionRowBuilder().addComponents(
+        hitButton,
+        standButton,
+        doubleButton.setDisabled(true)
+      );
+      await buttonInteraction.update({ embeds: [currentEmbed], components: [updatedRow] }).catch(() => {});
+    }
+
+    if (customId.startsWith('bj_stand_')) {
+      await runDealerTurn(buttonInteraction);
+    }
+
+    if (customId.startsWith('bj_double_')) {
+      // Deduct the additional bet
+      const doubleDeduct = await recordCasinoGame(userId, serverId, bet, false);
+      if (!doubleDeduct.success) {
+        return await buttonInteraction.reply({ content: '❌ Insufficient funds to double down!', ephemeral: true }).catch(() => {});
+      }
+      
+      doubleDownBet = bet * 2;
+      playerHand.push(deck.pop());
+      
+      const score = calculateHand(playerHand);
+      if (score > 21) {
+        gameEnded = true;
+        collector.stop('player_bust');
+        activeBlackjackGames.delete(gameKey);
+        
+        const bustEmbed = buildBlackjackEmbed('player_bust', true, 0);
+        const disabledRow = new ActionRowBuilder().addComponents(
+          hitButton.setDisabled(true),
+          standButton.setDisabled(true),
+          doubleButton.setDisabled(true)
+        );
+        await buttonInteraction.update({ embeds: [bustEmbed], components: [disabledRow] }).catch(() => {});
+        return;
+      }
+      
+      await runDealerTurn(buttonInteraction);
+    }
+  });
+
+  collector.on('end', async (collected, reason) => {
+    if (!gameEnded) {
+      gameEnded = true;
+      activeBlackjackGames.delete(gameKey);
+
+      const timeoutEmbed = buildBlackjackEmbed('timeout', true, 0);
+      const disabledRow = new ActionRowBuilder().addComponents(
+        hitButton.setDisabled(true),
+        standButton.setDisabled(true),
+        doubleButton.setDisabled(true)
+      );
       await gameMessage.edit({ embeds: [timeoutEmbed], components: [disabledRow] }).catch(() => {});
     }
   });
