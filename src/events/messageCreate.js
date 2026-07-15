@@ -37,6 +37,7 @@ const activeCrashGames = new Set();
 // Track active mines games per user
 const activeMinesGames = new Map();
 const path = require('path');
+const fs = require('fs');
 const { activeDrops, triggerDrop, scheduleNextDrop } = require('../utils/drops');
 const { CHARACTER_SPAWNS } = require('../utils/characters');
 const { renderInventoryImage } = require('../utils/inventoryRenderer');
