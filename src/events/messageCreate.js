@@ -1,5 +1,6 @@
 const {
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
+  ModalBuilder, TextInputBuilder, TextInputStyle
 } = require('discord.js');
 const {
   recordMessageActivity,
@@ -53,6 +54,537 @@ const sendTempMessage = (channel, content) => {
     setTimeout(() => msg.delete().catch(() => { }), 5000);
   }).catch(err => console.error('Failed to send temp message:', err));
 };
+
+async function startFlipGame(userId, serverId, bet, choice, replyTarget, user, currencyIcon, currencyName) {
+  const isInteraction = typeof replyTarget.editReply === 'function';
+
+  // Rig the flip to a 30% win chance
+  const isWin = Math.random() < 0.30;
+  const flipResult = isWin ? choice : (choice === 'heads' ? 'tails' : 'heads');
+
+  const result = await recordCasinoGame(userId, serverId, bet, isWin);
+
+  const capitalizedChoice = choice.charAt(0).toUpperCase() + choice.slice(1);
+  const capitalizedResult = flipResult.charAt(0).toUpperCase() + flipResult.slice(1);
+
+  const displayChoice = choice === 'heads' ? '<:Soul_Head:1523605643158618214>' : '<:Soul_Tail:1523605605787373610>';
+  const displayResult = flipResult === 'heads' ? '<:Soul_Head:1523605643158618214>' : '<:Soul_Tail:1523605605787373610>';
+
+  let outputText = `**${user.username}** spent <:Soul_Head:1523605643158618214> **${bet}** and chose **${choice}**\n`;
+  if (isWin) {
+    const payout = bet * 2 - (result.taxAmount || 0);
+    outputText += `The coin spins... ${displayResult} and you won <:Soul_Head:1523605643158618214> **${payout}**!!`;
+    if (result.taxAmount > 0) {
+      outputText += ` *(Reaper's Cut: **${result.taxAmount}** Souls siphoned to the Soul Vault)*`;
+    }
+  } else {
+    outputText += `The coin spins... ${displayResult} and you lost it all...`;
+  }
+
+  if (isInteraction) {
+    return await replyTarget.editReply({ content: outputText });
+  } else {
+    return await replyTarget.reply({ content: outputText });
+  }
+}
+
+async function startCrashGame(userId, serverId, bet, replyTarget, user, currencyIcon, currencyName) {
+  const isInteraction = typeof replyTarget.editReply === 'function';
+
+  // Prevent multiple simultaneous crash games per user
+  const gameKey = `${userId}_${serverId}`;
+  if (activeCrashGames.has(gameKey)) {
+    const errMsg = '❌ You already have an active crash game! Finish it first.';
+    if (isInteraction) {
+      return await replyTarget.editReply({ content: errMsg, embeds: [], components: [] }).catch(() => {});
+    } else {
+      return sendTempMessage(replyTarget.channel, errMsg);
+    }
+  }
+
+  // Deduct bet upfront (recorded as a loss)
+  const deductResult = await recordCasinoGame(userId, serverId, bet, false);
+  if (!deductResult.success) {
+    if (deductResult.reason === 'insufficient_funds') {
+      const errorEmbed = new EmbedBuilder()
+        .setColor('#ff3366')
+        .setTitle('❌ Insufficient Coins')
+        .setDescription(`You don't have enough coins to place that bet!`)
+        .addFields(
+          { name: 'Your Balance', value: `**${deductResult.currentBalance}** ${currencyIcon} ${currencyName}`, inline: true },
+          { name: 'Attempted Bet', value: `**${bet}** ${currencyIcon} ${currencyName}`, inline: true }
+        )
+        .setTimestamp();
+      if (isInteraction) {
+        return await replyTarget.editReply({ embeds: [errorEmbed], components: [] }).catch(() => {});
+      } else {
+        return await replyTarget.reply({ embeds: [errorEmbed] }).catch(() => {});
+      }
+    }
+    throw new Error('Database transaction failed');
+  }
+
+  // Mark game as active
+  activeCrashGames.add(gameKey);
+
+  // Generate crash point with house edge
+  const r = Math.random();
+  let crashPoint;
+  if (r < 0.03) {
+    crashPoint = 1.00; // 3% instant crash
+  } else {
+    crashPoint = Math.min(10.0, 1 / (1 - r));
+    crashPoint = Math.floor(crashPoint * 100) / 100;
+  }
+
+  let currentMultiplier = 1.00;
+  const barLength = 15;
+
+  // Build initial embed
+  function buildCrashEmbed(multiplier, state, winnings, taxAmount = 0) {
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: `${user.username}'s Crash Game`,
+        iconURL: user.displayAvatarURL({ dynamic: true })
+      })
+      .setTimestamp();
+
+    const filled = Math.min(barLength, Math.round((multiplier / 10) * barLength));
+    const progressBar = '🟩'.repeat(filled) + '⬛'.repeat(barLength - filled);
+
+    if (state === 'rising') {
+      embed.setColor('#ffaa00')
+        .setTitle('🚀 Crash — Multiplier Rising!')
+        .setDescription(
+          `The multiplier is climbing...\n\n` +
+          `### 💰 Current: \`${multiplier.toFixed(2)}x\`\n\n` +
+          `${progressBar}\n\n` +
+          `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
+          `**Potential Win:** ${Math.floor(bet * multiplier)} ${currencyIcon} ${currencyName}\n\n` +
+          `⚠️ *Hit **Cash Out** before it crashes!*`
+        );
+    } else if (state === 'cashed_out') {
+      const profit = winnings - bet;
+      const netProfit = profit - taxAmount;
+      const netPayout = winnings - taxAmount;
+      embed.setColor('#00ffaa')
+        .setTitle('💰 Crash — CASHED OUT!')
+        .setDescription(
+          `You cashed out just in time!\n\n` +
+          `### ✅ Cashed Out At: \`${multiplier.toFixed(2)}x\`\n\n` +
+          `${progressBar}\n\n` +
+          `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
+          `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
+          `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
+          (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n\n` : '') +
+          `*The rocket crashed at \`${crashPoint.toFixed(2)}x\`*`
+        );
+    } else if (state === 'crashed') {
+      embed.setColor('#ff3366')
+        .setTitle('💥 Crash — CRASHED!')
+        .setDescription(
+          `The rocket exploded!\n\n` +
+          `### 💥 Crashed At: \`${crashPoint.toFixed(2)}x\`\n\n` +
+          `${'🟥'.repeat(barLength)}\n\n` +
+          `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n\n` +
+          `*You didn't cash out in time...*`
+        );
+    } else if (state === 'timeout') {
+      embed.setColor('#ff3366')
+        .setTitle('⏰ Crash — TIMED OUT!')
+        .setDescription(
+          `You didn't press Cash Out in time!\n\n` +
+          `### 💥 Crashed At: \`${crashPoint.toFixed(2)}x\`\n\n` +
+          `${'🟥'.repeat(barLength)}\n\n` +
+          `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n\n` +
+          `*The game auto-crashed after 15 seconds.*`
+        );
+    }
+    return embed;
+  }
+
+  // Create Cash Out button
+  const buttonId = `crash_cashout_${userId}_${Date.now()}`;
+  const cashOutButton = new ButtonBuilder()
+    .setCustomId(buttonId)
+    .setLabel(`Cash Out (${bet} coins)`)
+    .setStyle(ButtonStyle.Success)
+    .setEmoji('💰');
+
+  const row = new ActionRowBuilder().addComponents(cashOutButton);
+  const initialEmbed = buildCrashEmbed(currentMultiplier, 'rising', 0);
+
+  const gameMessage = isInteraction
+    ? await replyTarget.editReply({ embeds: [initialEmbed], components: [row] })
+    : await replyTarget.reply({ embeds: [initialEmbed], components: [row] });
+
+  // Game state
+  let gameEnded = false;
+  let tickCount = 0;
+  const maxTicks = 10;
+  const tickInterval = 1500;
+
+  function getNextMultiplier(current, tick) {
+    const increment = 0.10 + (tick * 0.08);
+    return Math.round((current + increment) * 100) / 100;
+  }
+
+  // Start multiplier ticker
+  const ticker = setInterval(async () => {
+    if (gameEnded) {
+      clearInterval(ticker);
+      return;
+    }
+
+    tickCount++;
+    currentMultiplier = getNextMultiplier(currentMultiplier, tickCount);
+
+    if (currentMultiplier >= crashPoint || tickCount >= maxTicks) {
+      gameEnded = true;
+      clearInterval(ticker);
+      activeCrashGames.delete(gameKey);
+
+      const disabledButton = new ButtonBuilder()
+        .setCustomId(buttonId)
+        .setLabel('Crashed!')
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(true);
+      const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
+
+      const crashEmbed = buildCrashEmbed(currentMultiplier, 'crashed', 0);
+      await gameMessage.edit({ embeds: [crashEmbed], components: [disabledRow] }).catch(() => {});
+      return;
+    }
+
+    // Update embed with rising multiplier
+    const updatedButton = new ButtonBuilder()
+      .setCustomId(buttonId)
+      .setLabel(`Cash Out (${Math.floor(bet * currentMultiplier)} coins)`)
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('💰');
+    const updatedRow = new ActionRowBuilder().addComponents(updatedButton);
+    const updatedEmbed = buildCrashEmbed(currentMultiplier, 'rising', 0);
+    await gameMessage.edit({ embeds: [updatedEmbed], components: [updatedRow] }).catch(() => {});
+  }, tickInterval);
+
+  // Listen for Cash Out button
+  const collector = gameMessage.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 16000,
+    filter: (i) => i.user.id === userId
+  });
+
+  collector.on('collect', async (buttonInteraction) => {
+    if (gameEnded) return;
+
+    gameEnded = true;
+    clearInterval(ticker);
+    activeCrashGames.delete(gameKey);
+
+    const winnings = Math.floor(bet * currentMultiplier);
+    const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
+
+    const disabledButton = new ButtonBuilder()
+      .setCustomId(buttonId)
+      .setLabel(`Cashed Out at ${currentMultiplier.toFixed(2)}x`)
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(true);
+    const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
+
+    const winEmbed = buildCrashEmbed(currentMultiplier, 'cashed_out', winnings, result.taxAmount || 0);
+    await buttonInteraction.update({ embeds: [winEmbed], components: [disabledRow] }).catch(() => {});
+  });
+
+  collector.on('end', async () => {
+    if (!gameEnded) {
+      gameEnded = true;
+      clearInterval(ticker);
+      activeCrashGames.delete(gameKey);
+
+      const disabledButton = new ButtonBuilder()
+        .setCustomId(buttonId)
+        .setLabel('Timed Out!')
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(true);
+      const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
+
+      const timeoutEmbed = buildCrashEmbed(currentMultiplier, 'timeout', 0);
+      await gameMessage.edit({ embeds: [timeoutEmbed], components: [disabledRow] }).catch(() => {});
+    }
+  });
+}
+
+async function startMinesGame(userId, serverId, bet, mineCount, replyTarget, user, currencyIcon, currencyName) {
+  const isInteraction = typeof replyTarget.editReply === 'function';
+
+  // Prevent multiple simultaneous mines games
+  const gameKey = `${userId}_${serverId}`;
+  if (activeMinesGames.has(gameKey)) {
+    const errMsg = '❌ You already have an active mines game! Finish it first.';
+    if (isInteraction) {
+      return await replyTarget.editReply({ content: errMsg, embeds: [], components: [] }).catch(() => {});
+    } else {
+      return sendTempMessage(replyTarget.channel, errMsg);
+    }
+  }
+
+  // Deduct bet upfront
+  const deductResult = await recordCasinoGame(userId, serverId, bet, false);
+  if (!deductResult.success) {
+    if (deductResult.reason === 'insufficient_funds') {
+      const errorEmbed = new EmbedBuilder()
+        .setColor('#ff3366')
+        .setTitle('❌ Insufficient Coins')
+        .setDescription(`You don't have enough coins to place that bet!`)
+        .addFields(
+          { name: 'Your Balance', value: `**${deductResult.currentBalance}** ${currencyIcon} ${currencyName}`, inline: true },
+          { name: 'Attempted Bet', value: `**${bet}** ${currencyIcon} ${currencyName}`, inline: true }
+        )
+        .setTimestamp();
+      if (isInteraction) {
+        return await replyTarget.editReply({ embeds: [errorEmbed], components: [] }).catch(() => {});
+      } else {
+        return await replyTarget.reply({ embeds: [errorEmbed] }).catch(() => {});
+      }
+    }
+    throw new Error('Database transaction failed');
+  }
+
+  // Generate board
+  const boardSize = 25;
+  const board = Array(boardSize).fill('safe'); // 'safe' or 'mine'
+  
+  // Randomly place mines
+  let placedMines = 0;
+  while (placedMines < mineCount) {
+    const idx = Math.floor(Math.random() * boardSize);
+    if (board[idx] !== 'mine') {
+      board[idx] = 'mine';
+      placedMines++;
+    }
+  }
+
+  const revealed = Array(boardSize).fill(false);
+  let safeTiles = 0;
+  const totalSafeTiles = boardSize - mineCount;
+  let winnings = bet;
+  
+  // Multiplier formulas for Mines
+  function getNextPayout(revealedCount) {
+    if (revealedCount === 0) return bet;
+    let multiplier = 1.0;
+    for (let i = 0; i < revealedCount; i++) {
+      multiplier *= (25 - i) / (25 - i - mineCount);
+    }
+    multiplier *= Math.pow(0.98, revealedCount);
+    return Math.floor(bet * multiplier);
+  }
+
+  const gameTimestamp = Date.now();
+
+  function buildGridComponents(disabledState = false, showAll = false) {
+    const rows = [];
+    for (let r = 0; r < 5; r++) {
+      const row = new ActionRowBuilder();
+      for (let c = 0; c < 5; c++) {
+        const idx = r * 5 + c;
+        const button = new ButtonBuilder();
+        
+        if (revealed[idx]) {
+          if (board[idx] === 'mine') {
+            button.setEmoji('💣').setStyle(ButtonStyle.Danger);
+          } else {
+            button.setEmoji('💎').setStyle(ButtonStyle.Primary);
+          }
+        } else {
+          if (showAll && board[idx] === 'mine') {
+            button.setEmoji('💣').setStyle(ButtonStyle.Danger);
+          } else {
+            button.setLabel(`${idx + 1}`).setStyle(ButtonStyle.Secondary);
+          }
+        }
+        
+        button.setCustomId(`mines_tile_${idx}_${userId}_${gameTimestamp}`)
+          .setDisabled(disabledState);
+        row.addComponents(button);
+      }
+      rows.push(row);
+    }
+
+    if (!disabledState && safeTiles > 0) {
+      const nextPayout = getNextPayout(safeTiles);
+      const cashOutButton = new ButtonBuilder()
+        .setCustomId(`mines_cashout_${userId}_${gameTimestamp}`)
+        .setLabel(`Cash Out (${nextPayout} coins)`)
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('💰');
+      
+      const controlRow = new ActionRowBuilder().addComponents(cashOutButton);
+      rows.push(controlRow);
+    }
+
+    return rows;
+  }
+
+  function buildMinesEmbed(state, winningsValue, taxAmount = 0) {
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: `${user.username}'s Mines Game`,
+        iconURL: user.displayAvatarURL({ dynamic: true })
+      })
+      .setTimestamp();
+
+    if (state === 'playing') {
+      const nextPay = getNextPayout(safeTiles + 1);
+      embed.setColor('#ffaa00')
+        .setTitle('💣 Mines — Choose a Tile!')
+        .setDescription(
+          `**Mines:** ${mineCount} 💣 | **Safe Tiles:** ${safeTiles} 💎\n` +
+          `**Current Value:** ${winnings} ${currencyIcon} ${currencyName}\n` +
+          `**Next Tile Value:** ${nextPay} ${currencyIcon} ${currencyName}\n\n` +
+          `Click a numbered tile to reveal it. Avoid the mines!`
+        );
+    } else if (state === 'cashed_out' || state === 'auto_cashout') {
+      const profit = winningsValue - bet;
+      const netProfit = profit - taxAmount;
+      const netPayout = winningsValue - taxAmount;
+      embed.setColor('#00ffaa')
+        .setTitle('💰 Mines — CASHED OUT!')
+        .setDescription(
+          `You successfully cashed out!\n\n` +
+          `**Mines:** ${mineCount} 💣 | **Safe Tiles:** ${safeTiles} 💎\n` +
+          `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
+          `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
+          `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
+          (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n\n` : '') +
+          `*All mine positions have been revealed below.*`
+        );
+    } else if (state === 'mine_hit') {
+      embed.setColor('#ff3366')
+        .setTitle('💥 Mines — BOOM!')
+        .setDescription(
+          `You hit a mine!\n\n` +
+          `**Mines:** ${mineCount} 💣\n` +
+          `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n\n` +
+          `*All mine positions have been revealed below.*`
+        );
+    } else if (state === 'timeout') {
+      embed.setColor('#ff3366')
+        .setTitle('⏰ Mines — TIMED OUT!')
+        .setDescription(
+          `You were inactive for too long!\n\n` +
+          `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n\n` +
+          `*The game auto-ended due to inactivity.*`
+        );
+    } else if (state === 'all_cleared') {
+      const profit = winningsValue - bet;
+      const netProfit = profit - taxAmount;
+      const netPayout = winningsValue - taxAmount;
+      embed.setColor('#fbbf24')
+        .setTitle('🏆 Mines — ALL TILES CLEARED!')
+        .setDescription(
+          `Incredible! You cleared all safe tiles!\n\n` +
+          `**Mines:** ${mineCount} 💣 | **Safe Tiles:** ${safeTiles} 💎\n` +
+          `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
+          `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
+          `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
+          (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n\n` : '')
+        );
+    }
+
+    return embed;
+  }
+
+  // Send initial game message
+  const initialEmbed = buildMinesEmbed('playing', 0);
+  const initialComponents = buildGridComponents(false, false);
+
+  const gameMessage = isInteraction
+    ? await replyTarget.editReply({ embeds: [initialEmbed], components: initialComponents })
+    : await replyTarget.reply({ embeds: [initialEmbed], components: initialComponents });
+
+  // Store game state
+  let gameEnded = false;
+  activeMinesGames.set(gameKey, { gameTimestamp });
+
+  // Collector for button interactions
+  const collector = gameMessage.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 60000,
+    filter: (i) => i.user.id === userId && i.customId.includes(`_${userId}_${gameTimestamp}`)
+  });
+
+  collector.on('collect', async (buttonInteraction) => {
+    if (gameEnded) return;
+
+    const customId = buttonInteraction.customId;
+
+    if (customId.startsWith('mines_cashout_')) {
+      gameEnded = true;
+      collector.stop('cashed_out');
+      activeMinesGames.delete(gameKey);
+
+      const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
+
+      const winEmbed = buildMinesEmbed('cashed_out', winnings, result.taxAmount || 0);
+      const endComponents = buildGridComponents(true, true);
+      await buttonInteraction.update({ embeds: [winEmbed], components: endComponents }).catch(() => {});
+      return;
+    }
+
+    if (customId.startsWith('mines_tile_')) {
+      const parts = customId.split('_');
+      const tileIndex = parseInt(parts[2], 10);
+
+      if (revealed[tileIndex]) {
+        return await buttonInteraction.reply({ content: '❌ This tile is already revealed!', ephemeral: true }).catch(() => {});
+      }
+
+      revealed[tileIndex] = true;
+
+      if (board[tileIndex] === 'mine') {
+        gameEnded = true;
+        collector.stop('mine_hit');
+        activeMinesGames.delete(gameKey);
+
+        const lossEmbed = buildMinesEmbed('mine_hit', 0);
+        const endComponents = buildGridComponents(true, true);
+        await buttonInteraction.update({ embeds: [lossEmbed], components: endComponents }).catch(() => {});
+        return;
+      } else {
+        safeTiles++;
+        winnings = getNextPayout(safeTiles);
+
+        if (safeTiles === totalSafeTiles) {
+          gameEnded = true;
+          collector.stop('all_cleared');
+          activeMinesGames.delete(gameKey);
+
+          const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
+          const winEmbed = buildMinesEmbed('all_cleared', winnings, result.taxAmount || 0);
+          const endComponents = buildGridComponents(true, true);
+          await buttonInteraction.update({ embeds: [winEmbed], components: endComponents }).catch(() => {});
+          return;
+        }
+
+        const updatedEmbed = buildMinesEmbed('playing', 0);
+        const updatedComponents = buildGridComponents(false, false);
+        await buttonInteraction.update({ embeds: [updatedEmbed], components: updatedComponents }).catch(() => {});
+      }
+    }
+  });
+
+  collector.on('end', async (collected, reason) => {
+    if (!gameEnded) {
+      gameEnded = true;
+      activeMinesGames.delete(gameKey);
+
+      const timeoutEmbed = buildMinesEmbed('timeout', 0);
+      const endComponents = buildGridComponents(true, false);
+      await gameMessage.edit({ embeds: [timeoutEmbed], components: endComponents }).catch(() => {});
+    }
+  });
+}
 
 module.exports = {
   name: 'messageCreate',
@@ -1391,6 +1923,259 @@ module.exports = {
           }
 
           if (['flip', 'casino', 'bet'].includes(commandName)) {
+            const isDashboard = commandName === 'casino' && args.length === 0;
+
+            if (isDashboard) {
+              try {
+                const balanceInfo = await getUserBalance(userId, serverId);
+
+                // Build casino banner attachment
+                const bannerPath = path.join(__dirname, '..', 'assets', 'casino_banner.png');
+                let files = [];
+                if (fs.existsSync(bannerPath)) {
+                  files.push(new AttachmentBuilder(bannerPath, { name: 'casino_banner.png' }));
+                }
+
+                const embed = new EmbedBuilder()
+                  .setAuthor({
+                    name: `${message.author.username}'s Casino Lobby`,
+                    iconURL: message.author.displayAvatarURL({ dynamic: true })
+                  })
+                  .setColor('#7d00ff') // Cyberpunk purple
+                  .setTitle('🎰   THE GRAND SOUL CASINO   🎰')
+                  .setDescription(
+                    `Welcome to the VIP Casino Lounge, **${message.author.username}**!\n\n` +
+                    `💼 **Your Balance:** **${balanceInfo.balance}** ${currencyIcon} ${currencyName}\n\n` +
+                    `Choose an interactive game terminal below to place your bets:`
+                  )
+                  .addFields(
+                    {
+                      name: '🪙   Coin Flip   [Payout: 2x]',
+                      value: `> Predict heads or tails. A simple 50/50 test of luck (30% win chance).`
+                    },
+                    {
+                      name: '🚀   Rocket Crash   [Payout: Up to 10x]',
+                      value: `> Watch the multiplier climb. Cash out before the rocket explodes to 0!`
+                    },
+                    {
+                      name: '💣   Grid Mines   [Payout: High Scaling]',
+                      value: `> Uncover safe tiles on a 5x5 grid. Avoid the hidden mines. More mines = higher risk & reward!`
+                    }
+                  )
+                  .setImage('attachment://casino_banner.png')
+                  .setFooter({ text: 'Gamble responsibly • Powered by the Reaper\'s Treasury' })
+                  .setTimestamp();
+
+                const buttonFlip = new ButtonBuilder()
+                  .setCustomId(`casino_flip_${userId}`)
+                  .setLabel('Coin Flip')
+                  .setStyle(ButtonStyle.Primary)
+                  .setEmoji('🪙');
+
+                const buttonCrash = new ButtonBuilder()
+                  .setCustomId(`casino_crash_${userId}`)
+                  .setLabel('Crash')
+                  .setStyle(ButtonStyle.Success)
+                  .setEmoji('🚀');
+
+                const buttonMines = new ButtonBuilder()
+                  .setCustomId(`casino_mines_${userId}`)
+                  .setLabel('Mines')
+                  .setStyle(ButtonStyle.Danger)
+                  .setEmoji('💣');
+
+                const row = new ActionRowBuilder().addComponents(buttonFlip, buttonCrash, buttonMines);
+
+                const dashboardMsg = await message.reply({
+                  embeds: [embed],
+                  components: [row],
+                  files
+                });
+
+                // Create component collector
+                const filter = (i) => i.user.id === userId && i.customId.startsWith('casino_');
+                const collector = dashboardMsg.createMessageComponentCollector({
+                  filter,
+                  time: 60000
+                });
+
+                collector.on('collect', async (i) => {
+                  const action = i.customId.split('_')[1]; // flip, crash, mines
+
+                  if (action === 'flip') {
+                    const modal = new ModalBuilder()
+                      .setCustomId(`modal_flip_${userId}_${Date.now()}`)
+                      .setTitle('🪙 Coin Flip Bet');
+
+                    const betInput = new TextInputBuilder()
+                      .setCustomId('bet')
+                      .setLabel('Bet Amount (Souls)')
+                      .setPlaceholder('e.g., 50')
+                      .setStyle(TextInputStyle.Short)
+                      .setRequired(true);
+
+                    const choiceInput = new TextInputBuilder()
+                      .setCustomId('choice')
+                      .setLabel('Prediction (heads or tails)')
+                      .setPlaceholder('heads')
+                      .setValue('heads')
+                      .setStyle(TextInputStyle.Short)
+                      .setRequired(false);
+
+                    const row1 = new ActionRowBuilder().addComponents(betInput);
+                    const row2 = new ActionRowBuilder().addComponents(choiceInput);
+                    modal.addComponents(row1, row2);
+
+                    await i.showModal(modal);
+
+                    try {
+                      const submit = await i.awaitModalSubmit({
+                        filter: (sub) => sub.customId === modal.data.custom_id,
+                        time: 60000
+                      });
+
+                      await submit.deferReply();
+
+                      const betVal = parseInt(submit.fields.getTextInputValue('bet'));
+                      let choiceVal = submit.fields.getTextInputValue('choice').toLowerCase().trim();
+                      if (choiceVal === 'h' || choiceVal === 'heads') choiceVal = 'heads';
+                      else if (choiceVal === 't' || choiceVal === 'tails') choiceVal = 'tails';
+                      else {
+                        return await submit.editReply('❌ **Invalid Choice**: Please enter either `heads` (or `h`) or `tails` (or `t`).').catch(() => {});
+                      }
+
+                      if (isNaN(betVal) || betVal <= 0) {
+                        return await submit.editReply('❌ **Invalid Bet**: Please enter a positive number of coins.').catch(() => {});
+                      }
+
+                      // Check balance again before launching
+                      const activeBal = await getUserBalance(userId, serverId);
+                      if (activeBal.balance < betVal) {
+                        return await submit.editReply(`❌ **Insufficient Coins**: You only have **${activeBal.balance}** ${currencyIcon} ${currencyName}.`).catch(() => {});
+                      }
+
+                      // Start flip game
+                      await startFlipGame(userId, serverId, betVal, choiceVal, submit, message.author, currencyIcon, currencyName);
+                    } catch (submitErr) {
+                      console.error('Modal submit error or timeout for flip:', submitErr);
+                    }
+                  } else if (action === 'crash') {
+                    const modal = new ModalBuilder()
+                      .setCustomId(`modal_crash_${userId}_${Date.now()}`)
+                      .setTitle('🚀 Crash Bet');
+
+                    const betInput = new TextInputBuilder()
+                      .setCustomId('bet')
+                      .setLabel('Bet Amount (Souls)')
+                      .setPlaceholder('e.g., 50')
+                      .setStyle(TextInputStyle.Short)
+                      .setRequired(true);
+
+                    const row1 = new ActionRowBuilder().addComponents(betInput);
+                    modal.addComponents(row1);
+
+                    await i.showModal(modal);
+
+                    try {
+                      const submit = await i.awaitModalSubmit({
+                        filter: (sub) => sub.customId === modal.data.custom_id,
+                        time: 60000
+                      });
+
+                      await submit.deferReply();
+
+                      const betVal = parseInt(submit.fields.getTextInputValue('bet'));
+                      if (isNaN(betVal) || betVal <= 0) {
+                        return await submit.editReply('❌ **Invalid Bet**: Please enter a positive number of coins.').catch(() => {});
+                      }
+
+                      // Check balance
+                      const activeBal = await getUserBalance(userId, serverId);
+                      if (activeBal.balance < betVal) {
+                        return await submit.editReply(`❌ **Insufficient Coins**: You only have **${activeBal.balance}** ${currencyIcon} ${currencyName}.`).catch(() => {});
+                      }
+
+                      // Start crash game
+                      await startCrashGame(userId, serverId, betVal, submit, message.author, currencyIcon, currencyName);
+                    } catch (submitErr) {
+                      console.error('Modal submit error or timeout for crash:', submitErr);
+                    }
+                  } else if (action === 'mines') {
+                    const modal = new ModalBuilder()
+                      .setCustomId(`modal_mines_${userId}_${Date.now()}`)
+                      .setTitle('💣 Mines Bet');
+
+                    const betInput = new TextInputBuilder()
+                      .setCustomId('bet')
+                      .setLabel('Bet Amount (Souls)')
+                      .setPlaceholder('e.g., 50')
+                      .setStyle(TextInputStyle.Short)
+                      .setRequired(true);
+
+                    const minesInput = new TextInputBuilder()
+                      .setCustomId('mines')
+                      .setLabel('Number of Mines (1-19)')
+                      .setPlaceholder('3')
+                      .setValue('3')
+                      .setStyle(TextInputStyle.Short)
+                      .setRequired(false);
+
+                    const row1 = new ActionRowBuilder().addComponents(betInput);
+                    const row2 = new ActionRowBuilder().addComponents(minesInput);
+                    modal.addComponents(row1, row2);
+
+                    await i.showModal(modal);
+
+                    try {
+                      const submit = await i.awaitModalSubmit({
+                        filter: (sub) => sub.customId === modal.data.custom_id,
+                        time: 60000
+                      });
+
+                      await submit.deferReply();
+
+                      const betVal = parseInt(submit.fields.getTextInputValue('bet'));
+                      let minesVal = parseInt(submit.fields.getTextInputValue('mines'));
+                      if (isNaN(minesVal)) minesVal = 3;
+
+                      if (isNaN(betVal) || betVal <= 0) {
+                        return await submit.editReply('❌ **Invalid Bet**: Please enter a positive number of coins.').catch(() => {});
+                      }
+
+                      if (minesVal < 1 || minesVal > 19) {
+                        return await submit.editReply('❌ **Invalid Mines**: Number of mines must be between **1** and **19**.').catch(() => {});
+                      }
+
+                      // Check balance
+                      const activeBal = await getUserBalance(userId, serverId);
+                      if (activeBal.balance < betVal) {
+                        return await submit.editReply(`❌ **Insufficient Coins**: You only have **${activeBal.balance}** ${currencyIcon} ${currencyName}.`).catch(() => {});
+                      }
+
+                      // Start mines game
+                      await startMinesGame(userId, serverId, betVal, minesVal, submit, message.author, currencyIcon, currencyName);
+                    } catch (submitErr) {
+                      console.error('Modal submit error or timeout for mines:', submitErr);
+                    }
+                  }
+                });
+
+                collector.on('end', async () => {
+                  // Disable buttons when dashboard expires
+                  const disabledFlip = ButtonBuilder.from(buttonFlip).setDisabled(true);
+                  const disabledCrash = ButtonBuilder.from(buttonCrash).setDisabled(true);
+                  const disabledMines = ButtonBuilder.from(buttonMines).setDisabled(true);
+                  const endRow = new ActionRowBuilder().addComponents(disabledFlip, disabledCrash, disabledMines);
+                  await dashboardMsg.edit({ components: [endRow] }).catch(() => {});
+                });
+
+              } catch (dashboardErr) {
+                console.error('Error launching casino dashboard:', dashboardErr);
+              }
+              return;
+            }
+
+            // Otherwise, process normal flip direct command
             let bet = 0;
             let choice = 'heads'; // default
 
@@ -1430,30 +2215,9 @@ module.exports = {
               return await message.reply({ embeds: [errorEmbed] }).catch(() => { });
             }
 
-            // Rig the flip to a 30% win chance
-            const isWin = Math.random() < 0.30;
-            const flipResult = isWin ? choice : (choice === 'heads' ? 'tails' : 'heads');
-
-            const result = await recordCasinoGame(userId, serverId, bet, isWin);
-
-            const capitalizedChoice = choice.charAt(0).toUpperCase() + choice.slice(1);
-            const capitalizedResult = flipResult.charAt(0).toUpperCase() + flipResult.slice(1);
-
-            const displayChoice = choice === 'heads' ? '<:Soul_Head:1523605643158618214>' : '<:Soul_Tail:1523605605787373610>';
-            const displayResult = flipResult === 'heads' ? '<:Soul_Head:1523605643158618214>' : '<:Soul_Tail:1523605605787373610>';
-
-            let outputText = `**${message.author.username}** spent <:Soul_Head:1523605643158618214> **${bet}** and chose **${choice}**\n`;
-            if (isWin) {
-              const payout = bet * 2 - (result.taxAmount || 0);
-              outputText += `The coin spins... ${displayResult} and you won <:Soul_Head:1523605643158618214> **${payout}**!!`;
-              if (result.taxAmount > 0) {
-                outputText += ` *(Reaper's Cut: **${result.taxAmount}** Souls siphoned to the Soul Vault)*`;
-              }
-            } else {
-              outputText += `The coin spins... ${displayResult} and you lost it all...`;
-            }
-
-            return await message.reply({ content: outputText }).catch(() => { });
+            // Run standalone coin flip
+            await startFlipGame(userId, serverId, bet, choice, message, message.author, currencyIcon, currencyName);
+            return;
           }
 
           if (['stats', 'profile'].includes(commandName)) {
@@ -1901,220 +2665,7 @@ module.exports = {
               return await message.reply('❌ **Usage**: `s crash <bet_amount>`').catch(() => { });
             }
 
-            // Prevent multiple simultaneous crash games per user
-            const gameKey = `${userId}_${serverId}`;
-            if (activeCrashGames.has(gameKey)) {
-              return sendTempMessage(message.channel, '❌ You already have an active crash game! Finish it first.');
-            }
-
-            // Deduct bet upfront (recorded as a loss)
-            const deductResult = await recordCasinoGame(userId, serverId, bet, false);
-            if (!deductResult.success) {
-              if (deductResult.reason === 'insufficient_funds') {
-                const errorEmbed = new EmbedBuilder()
-                  .setColor('#ff3366')
-                  .setTitle('❌ Insufficient Coins')
-                  .setDescription(`You don't have enough coins to place that bet!`)
-                  .addFields(
-                    { name: 'Your Balance', value: `**${deductResult.currentBalance}** ${currencyIcon} ${currencyName}`, inline: true },
-                    { name: 'Attempted Bet', value: `**${bet}** ${currencyIcon} ${currencyName}`, inline: true }
-                  )
-                  .setTimestamp();
-                return await message.reply({ embeds: [errorEmbed] }).catch(() => { });
-              }
-              throw new Error('Database transaction failed');
-            }
-
-            // Mark game as active
-            activeCrashGames.add(gameKey);
-
-            // Generate crash point with house edge
-            const r = Math.random();
-            let crashPoint;
-            if (r < 0.03) {
-              crashPoint = 1.00; // 3% instant crash
-            } else {
-              crashPoint = Math.min(10.0, 1 / (1 - r));
-              crashPoint = Math.floor(crashPoint * 100) / 100;
-            }
-
-            let currentMultiplier = 1.00;
-            const barLength = 15;
-
-            // Build initial embed
-            function buildCrashEmbed(multiplier, state, winnings, taxAmount = 0) {
-              const embed = new EmbedBuilder()
-                .setAuthor({
-                  name: `${message.author.username}'s Crash Game`,
-                  iconURL: message.author.displayAvatarURL({ dynamic: true })
-                })
-                .setTimestamp();
-
-              const filled = Math.min(barLength, Math.round((multiplier / 10) * barLength));
-              const progressBar = '🟩'.repeat(filled) + '⬛'.repeat(barLength - filled);
-
-              if (state === 'rising') {
-                embed.setColor('#ffaa00')
-                  .setTitle('🚀 Crash — Multiplier Rising!')
-                  .setDescription(
-                    `The multiplier is climbing...\n\n` +
-                    `### 💰 Current: \`${multiplier.toFixed(2)}x\`\n\n` +
-                    `${progressBar}\n\n` +
-                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
-                    `**Potential Win:** ${Math.floor(bet * multiplier)} ${currencyIcon} ${currencyName}\n\n` +
-                    `⚠️ *Hit **Cash Out** before it crashes!*`
-                  );
-              } else if (state === 'cashed_out') {
-                const profit = winnings - bet;
-                const netProfit = profit - taxAmount;
-                const netPayout = winnings - taxAmount;
-                embed.setColor('#00ffaa')
-                  .setTitle('💰 Crash — CASHED OUT!')
-                  .setDescription(
-                    `You cashed out just in time!\n\n` +
-                    `### ✅ Cashed Out At: \`${multiplier.toFixed(2)}x\`\n\n` +
-                    `${progressBar}\n\n` +
-                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
-                    `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
-                    `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
-                    (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n\n` : '') +
-                    `*The rocket crashed at \`${crashPoint.toFixed(2)}x\`*`
-                  );
-              } else if (state === 'crashed') {
-                embed.setColor('#ff3366')
-                  .setTitle('💥 Crash — CRASHED!')
-                  .setDescription(
-                    `The rocket exploded!\n\n` +
-                    `### 💥 Crashed At: \`${crashPoint.toFixed(2)}x\`\n\n` +
-                    `${'🟥'.repeat(barLength)}\n\n` +
-                    `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n\n` +
-                    `*You didn't cash out in time...*`
-                  );
-              } else if (state === 'timeout') {
-                embed.setColor('#ff3366')
-                  .setTitle('⏰ Crash — TIMED OUT!')
-                  .setDescription(
-                    `You didn't press Cash Out in time!\n\n` +
-                    `### 💥 Crashed At: \`${crashPoint.toFixed(2)}x\`\n\n` +
-                    `${'🟥'.repeat(barLength)}\n\n` +
-                    `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n\n` +
-                    `*The game auto-crashed after 15 seconds.*`
-                  );
-              }
-              return embed;
-            }
-
-            // Create Cash Out button
-            const buttonId = `crash_cashout_${userId}_${Date.now()}`;
-            const cashOutButton = new ButtonBuilder()
-              .setCustomId(buttonId)
-              .setLabel(`Cash Out (${bet} coins)`)
-              .setStyle(ButtonStyle.Success)
-              .setEmoji('💰');
-
-            const row = new ActionRowBuilder().addComponents(cashOutButton);
-            const initialEmbed = buildCrashEmbed(currentMultiplier, 'rising', 0);
-
-            const gameMessage = await message.reply({
-              embeds: [initialEmbed],
-              components: [row]
-            });
-
-            // Game state
-            let gameEnded = false;
-            let tickCount = 0;
-            const maxTicks = 10;
-            const tickInterval = 1500;
-
-            function getNextMultiplier(current, tick) {
-              const increment = 0.10 + (tick * 0.08);
-              return Math.round((current + increment) * 100) / 100;
-            }
-
-            // Start multiplier ticker
-            const ticker = setInterval(async () => {
-              if (gameEnded) {
-                clearInterval(ticker);
-                return;
-              }
-
-              tickCount++;
-              currentMultiplier = getNextMultiplier(currentMultiplier, tickCount);
-
-              if (currentMultiplier >= crashPoint || tickCount >= maxTicks) {
-                gameEnded = true;
-                clearInterval(ticker);
-                activeCrashGames.delete(gameKey);
-
-                const disabledButton = new ButtonBuilder()
-                  .setCustomId(buttonId)
-                  .setLabel('Crashed!')
-                  .setStyle(ButtonStyle.Danger)
-                  .setDisabled(true);
-                const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
-
-                const crashEmbed = buildCrashEmbed(currentMultiplier, 'crashed', 0);
-                await gameMessage.edit({ embeds: [crashEmbed], components: [disabledRow] }).catch(() => {});
-                return;
-              }
-
-              // Update embed with rising multiplier
-              const updatedButton = new ButtonBuilder()
-                .setCustomId(buttonId)
-                .setLabel(`Cash Out (${Math.floor(bet * currentMultiplier)} coins)`)
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('💰');
-              const updatedRow = new ActionRowBuilder().addComponents(updatedButton);
-              const updatedEmbed = buildCrashEmbed(currentMultiplier, 'rising', 0);
-              await gameMessage.edit({ embeds: [updatedEmbed], components: [updatedRow] }).catch(() => {});
-            }, tickInterval);
-
-            // Listen for Cash Out button
-            const collector = gameMessage.createMessageComponentCollector({
-              componentType: ComponentType.Button,
-              time: 16000,
-              filter: (i) => i.user.id === userId
-            });
-
-            collector.on('collect', async (buttonInteraction) => {
-              if (gameEnded) return;
-
-              gameEnded = true;
-              clearInterval(ticker);
-              activeCrashGames.delete(gameKey);
-
-              const winnings = Math.floor(bet * currentMultiplier);
-              const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
-
-              const disabledButton = new ButtonBuilder()
-                .setCustomId(buttonId)
-                .setLabel(`Cashed Out at ${currentMultiplier.toFixed(2)}x`)
-                .setStyle(ButtonStyle.Success)
-                .setDisabled(true);
-              const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
-
-              const winEmbed = buildCrashEmbed(currentMultiplier, 'cashed_out', winnings, result.taxAmount || 0);
-              await buttonInteraction.update({ embeds: [winEmbed], components: [disabledRow] }).catch(() => {});
-            });
-
-            collector.on('end', async () => {
-              if (!gameEnded) {
-                gameEnded = true;
-                clearInterval(ticker);
-                activeCrashGames.delete(gameKey);
-
-                const disabledButton = new ButtonBuilder()
-                  .setCustomId(buttonId)
-                  .setLabel('Timed Out!')
-                  .setStyle(ButtonStyle.Danger)
-                  .setDisabled(true);
-                const disabledRow = new ActionRowBuilder().addComponents(disabledButton);
-
-                const timeoutEmbed = buildCrashEmbed(currentMultiplier, 'timeout', 0);
-                await gameMessage.edit({ embeds: [timeoutEmbed], components: [disabledRow] }).catch(() => {});
-              }
-            });
-
+            await startCrashGame(userId, serverId, bet, message, message.author, currencyIcon, currencyName);
             return;
           }
 
@@ -2133,278 +2684,7 @@ module.exports = {
               return sendTempMessage(message.channel, '❌ Mine count must be between **1** and **19**.');
             }
 
-            // Prevent multiple simultaneous mines games
-            const gameKey = `${userId}_${serverId}`;
-            if (activeMinesGames.has(gameKey)) {
-              return sendTempMessage(message.channel, '❌ You already have an active mines game! Finish it first.');
-            }
-
-            // Deduct bet upfront
-            const deductResult = await recordCasinoGame(userId, serverId, bet, false);
-            if (!deductResult.success) {
-              if (deductResult.reason === 'insufficient_funds') {
-                const errorEmbed = new EmbedBuilder()
-                  .setColor('#ff3366')
-                  .setTitle('❌ Insufficient Coins')
-                  .setDescription(`You don't have enough coins to place that bet!`)
-                  .addFields(
-                    { name: 'Your Balance', value: `**${deductResult.currentBalance}** ${currencyIcon} ${currencyName}`, inline: true },
-                    { name: 'Attempted Bet', value: `**${bet}** ${currencyIcon} ${currencyName}`, inline: true }
-                  )
-                  .setTimestamp();
-                return await message.reply({ embeds: [errorEmbed] }).catch(() => { });
-              }
-              throw new Error('Database transaction failed');
-            }
-
-            // Generate mine positions
-            const totalTiles = 20;
-            const minePositions = new Set();
-            while (minePositions.size < mineCount) {
-              minePositions.add(Math.floor(Math.random() * totalTiles));
-            }
-
-            const safeTiles = totalTiles - mineCount;
-            const revealedPositions = new Set();
-            let currentMultiplier = 0;
-            const gameTimestamp = Date.now();
-
-            // Calculate multiplier after k reveals
-            function calcMultiplier(reveals) {
-              if (reveals === 0) return 0;
-              let mult = 0.97;
-              for (let i = 0; i < reveals; i++) {
-                mult *= (totalTiles - i) / (safeTiles - i);
-              }
-              return Math.floor(mult * 100) / 100;
-            }
-
-            // Build the grid components
-            function buildGridComponents(gameOver, hitMine) {
-              const rows = [];
-
-              // 4 rows of 5 tile buttons
-              for (let row = 0; row < 4; row++) {
-                const actionRow = new ActionRowBuilder();
-                for (let col = 0; col < 5; col++) {
-                  const tileIndex = row * 5 + col;
-                  const btn = new ButtonBuilder()
-                    .setCustomId(`mines_tile_${tileIndex}_${userId}_${gameTimestamp}`);
-
-                  if (revealedPositions.has(tileIndex)) {
-                    // Already revealed safe tile
-                    btn.setEmoji('💎').setStyle(ButtonStyle.Success).setDisabled(true);
-                  } else if (gameOver && minePositions.has(tileIndex)) {
-                    // Game over — reveal mines
-                    btn.setEmoji('💣').setStyle(ButtonStyle.Danger).setDisabled(true);
-                  } else if (gameOver) {
-                    // Game over — unrevealed safe tile
-                    btn.setEmoji('⬜').setStyle(ButtonStyle.Secondary).setDisabled(true);
-                  } else {
-                    // Active unrevealed tile
-                    btn.setEmoji('⬜').setStyle(ButtonStyle.Secondary);
-                  }
-
-                  // Use label for position hint
-                  btn.setLabel(`${tileIndex + 1}`);
-                  actionRow.addComponents(btn);
-                }
-                rows.push(actionRow);
-              }
-
-              // Row 5: Cash Out button
-              const cashOutRow = new ActionRowBuilder();
-              const cashOutBtn = new ButtonBuilder()
-                .setCustomId(`mines_cashout_${userId}_${gameTimestamp}`);
-
-              if (gameOver) {
-                cashOutBtn.setLabel('Game Over').setStyle(ButtonStyle.Danger).setDisabled(true);
-              } else if (revealedPositions.size === 0) {
-                const nextMult = calcMultiplier(1);
-                cashOutBtn.setLabel(`💰 Cash Out (Next safe: ${nextMult.toFixed(2)}x / ${nextMult.toFixed(2)} times bet)`).setStyle(ButtonStyle.Secondary).setDisabled(true);
-              } else {
-                const winAmount = Math.floor(bet * currentMultiplier);
-                cashOutBtn.setLabel(`💰 Cash Out — ${currentMultiplier.toFixed(2)}x (${winAmount} coins / ${currentMultiplier.toFixed(2)} times bet)`).setStyle(ButtonStyle.Success);
-              }
-              cashOutRow.addComponents(cashOutBtn);
-              rows.push(cashOutRow);
-
-              return rows;
-            }
-
-            // Build game embed
-            function buildMinesEmbed(state, winnings, taxAmount = 0) {
-              const embed = new EmbedBuilder()
-                .setAuthor({
-                  name: `${message.author.username}'s Mines Game`,
-                  iconURL: message.author.displayAvatarURL({ dynamic: true })
-                })
-                .setTimestamp();
-
-              if (state === 'playing') {
-                const nextMult = calcMultiplier(revealedPositions.size + 1);
-                embed.setColor('#ffaa00')
-                  .setTitle('💣 Mines — Choose a Tile!')
-                  .setDescription(
-                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
-                    `**Mines:** ${mineCount} 💣 | **Safe Tiles:** ${safeTiles} 💎\n` +
-                    `**Revealed:** ${revealedPositions.size}/${safeTiles}\n` +
-                    `**Current Multiplier:** \`${currentMultiplier.toFixed(2)}x\` (${currentMultiplier.toFixed(2)} times bet)\n` +
-                    `**Next Safe Click:** \`${nextMult.toFixed(2)}x\` (${nextMult.toFixed(2)} times bet)\n\n` +
-                    `Click a numbered tile to reveal it. Avoid the mines!`
-                  );
-              } else if (state === 'cashed_out') {
-                const profit = winnings - bet;
-                const netProfit = profit - taxAmount;
-                const netPayout = winnings - taxAmount;
-                embed.setColor('#00ffaa')
-                  .setTitle('💰 Mines — CASHED OUT!')
-                  .setDescription(
-                    `You escaped with your winnings!\n\n` +
-                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
-                    `**Tiles Revealed:** ${revealedPositions.size} 💎\n` +
-                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\` (${currentMultiplier.toFixed(2)} times bet)\n` +
-                    `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
-                    `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
-                    (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n` : '')
-                  );
-              } else if (state === 'mine_hit') {
-                embed.setColor('#ff3366')
-                  .setTitle('💥 Mines — BOOM!')
-                  .setDescription(
-                    `You hit a mine and lost your bet!\n\n` +
-                    `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n` +
-                    `**Tiles Revealed Before Hit:** ${revealedPositions.size} 💎\n` +
-                    `**Mines:** ${mineCount} 💣`
-                  );
-              } else if (state === 'timeout') {
-                embed.setColor('#ff3366')
-                  .setTitle('⏰ Mines — TIMED OUT!')
-                  .setDescription(
-                    `You didn't act in time and lost your bet!\n\n` +
-                    `**Bet Lost:** -${bet} ${currencyIcon} ${currencyName}\n` +
-                    `*The game auto-ended after 60 seconds of inactivity.*`
-                  );
-              } else if (state === 'auto_cashout') {
-                const profit = winnings - bet;
-                const netProfit = profit - taxAmount;
-                const netPayout = winnings - taxAmount;
-                embed.setColor('#00ffaa')
-                  .setTitle('🏆 Mines — ALL TILES CLEARED!')
-                  .setDescription(
-                    `You revealed every safe tile! Maximum payout!\n\n` +
-                    `**Bet:** ${bet} ${currencyIcon} ${currencyName}\n` +
-                    `**All ${safeTiles} Safe Tiles Revealed** 💎\n` +
-                    `**Multiplier:** \`${currentMultiplier.toFixed(2)}x\` (${currentMultiplier.toFixed(2)} times bet)\n` +
-                    `**Winnings (Payout):** +${netPayout} ${currencyIcon} ${currencyName}\n` +
-                    `**Net Profit:** +${netProfit} ${currencyIcon} ${currencyName}\n` +
-                    (taxAmount > 0 ? `*Reaper's Cut: **${taxAmount}** Souls siphoned to the Soul Vault.*\n` : '')
-                  );
-              }
-
-              return embed;
-            }
-
-            // Send initial game message
-            const initialEmbed = buildMinesEmbed('playing', 0);
-            const initialComponents = buildGridComponents(false, false);
-
-            const gameMessage = await message.reply({
-              embeds: [initialEmbed],
-              components: initialComponents
-            });
-
-            // Store game state
-            let gameEnded = false;
-            activeMinesGames.set(gameKey, { gameTimestamp });
-
-            // Collector for button interactions
-            const collector = gameMessage.createMessageComponentCollector({
-              componentType: ComponentType.Button,
-              time: 60000, // 60 second timeout
-              filter: (i) => i.user.id === userId && i.customId.includes(`_${userId}_${gameTimestamp}`)
-            });
-
-            collector.on('collect', async (buttonInteraction) => {
-              if (gameEnded) return;
-
-              const customId = buttonInteraction.customId;
-
-              // Cash Out
-              if (customId.startsWith('mines_cashout_')) {
-                if (revealedPositions.size === 0) return; // Safety check
-
-                gameEnded = true;
-                activeMinesGames.delete(gameKey);
-                collector.stop('cashed_out');
-
-                const winnings = Math.floor(bet * currentMultiplier);
-                const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
-
-                const winEmbed = buildMinesEmbed('cashed_out', winnings, result.taxAmount || 0);
-                const endComponents = buildGridComponents(true, false);
-                await buttonInteraction.update({ embeds: [winEmbed], components: endComponents }).catch(() => {});
-                return;
-              }
-
-              // Tile click
-              if (customId.startsWith('mines_tile_')) {
-                const tileIndex = parseInt(customId.split('_')[2]);
-
-                if (revealedPositions.has(tileIndex)) return; // Already revealed
-
-                // Check if mine
-                if (minePositions.has(tileIndex)) {
-                  gameEnded = true;
-                  activeMinesGames.delete(gameKey);
-                  collector.stop('mine_hit');
-
-                  // Add to revealed so it shows as a bomb
-                  revealedPositions.add(tileIndex);
-
-                  const lossEmbed = buildMinesEmbed('mine_hit', 0);
-                  const endComponents = buildGridComponents(true, true);
-                  await buttonInteraction.update({ embeds: [lossEmbed], components: endComponents }).catch(() => {});
-                  return;
-                }
-
-                // Safe tile
-                revealedPositions.add(tileIndex);
-                currentMultiplier = calcMultiplier(revealedPositions.size);
-
-                // Check if all safe tiles revealed
-                if (revealedPositions.size >= safeTiles) {
-                  gameEnded = true;
-                  activeMinesGames.delete(gameKey);
-                  collector.stop('all_cleared');
-
-                  const winnings = Math.floor(bet * currentMultiplier);
-                  const result = await recordCasinoGame(userId, serverId, winnings, true, true, bet);
-
-                  const winEmbed = buildMinesEmbed('auto_cashout', winnings, result.taxAmount || 0);
-                  const endComponents = buildGridComponents(true, false);
-                  await buttonInteraction.update({ embeds: [winEmbed], components: endComponents }).catch(() => {});
-                  return;
-                }
-
-                // Update game display
-                const updatedEmbed = buildMinesEmbed('playing', 0);
-                const updatedComponents = buildGridComponents(false, false);
-                await buttonInteraction.update({ embeds: [updatedEmbed], components: updatedComponents }).catch(() => {});
-              }
-            });
-
-            collector.on('end', async (collected, reason) => {
-              if (!gameEnded) {
-                gameEnded = true;
-                activeMinesGames.delete(gameKey);
-
-                const timeoutEmbed = buildMinesEmbed('timeout', 0);
-                const endComponents = buildGridComponents(true, false);
-                await gameMessage.edit({ embeds: [timeoutEmbed], components: endComponents }).catch(() => {});
-              }
-            });
-
+            await startMinesGame(userId, serverId, bet, mineCount, message, message.author, currencyIcon, currencyName);
             return;
           }
 

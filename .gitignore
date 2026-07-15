@@ -9,6 +9,7 @@ logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
+crash_logs.json
 yarn-error.log*
 
 # Editor & System Files
