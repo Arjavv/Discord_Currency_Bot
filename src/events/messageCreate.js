@@ -2438,6 +2438,10 @@ module.exports = {
                     {
                       name: '💣   Grid Mines   [Payout: High Scaling]',
                       value: `> Uncover safe tiles on a 4x5 grid. Avoid the hidden mines. More mines = higher risk & reward!`
+                    },
+                    {
+                      name: '🃏   Blackjack   [Payout: 2x / 2.5x]',
+                      value: `> Play a classic hand of Blackjack. Beat the dealer's hand without busting. Natural 21 pays 3:2!`
                     }
                   )
                   .setImage('attachment://casino_banner.png')
@@ -2462,7 +2466,13 @@ module.exports = {
                   .setStyle(ButtonStyle.Danger)
                   .setEmoji('💣');
 
-                const row = new ActionRowBuilder().addComponents(buttonFlip, buttonCrash, buttonMines);
+                const buttonBlackjack = new ButtonBuilder()
+                  .setCustomId(`casino_blackjack_${userId}`)
+                  .setLabel('Blackjack')
+                  .setStyle(ButtonStyle.Success)
+                  .setEmoji('🃏');
+
+                const row = new ActionRowBuilder().addComponents(buttonFlip, buttonCrash, buttonMines, buttonBlackjack);
 
                 const dashboardMsg = await message.reply({
                   embeds: [embed],
@@ -2635,6 +2645,47 @@ module.exports = {
                     } catch (submitErr) {
                       console.error('Modal submit error or timeout for mines:', submitErr);
                     }
+                  } else if (action === 'blackjack') {
+                    const modal = new ModalBuilder()
+                      .setCustomId(`modal_blackjack_${userId}_${Date.now()}`)
+                      .setTitle('🃏 Blackjack Bet');
+
+                    const betInput = new TextInputBuilder()
+                      .setCustomId('bet')
+                      .setLabel('Bet Amount (Souls)')
+                      .setPlaceholder('e.g., 50')
+                      .setStyle(TextInputStyle.Short)
+                      .setRequired(true);
+
+                    const row1 = new ActionRowBuilder().addComponents(betInput);
+                    modal.addComponents(row1);
+
+                    await i.showModal(modal);
+
+                    try {
+                      const submit = await i.awaitModalSubmit({
+                        filter: (sub) => sub.customId === modal.data.custom_id,
+                        time: 60000
+                      });
+
+                      await submit.deferReply();
+
+                      const betVal = parseInt(submit.fields.getTextInputValue('bet'));
+                      if (isNaN(betVal) || betVal <= 0) {
+                        return await submit.editReply('❌ **Invalid Bet**: Please enter a positive number of coins.').catch(() => {});
+                      }
+
+                      // Check balance
+                      const activeBal = await getUserBalance(userId, serverId);
+                      if (activeBal.balance < betVal) {
+                        return await submit.editReply(`❌ **Insufficient Coins**: You only have **${activeBal.balance}** ${currencyIcon} ${currencyName}.`).catch(() => {});
+                      }
+
+                      // Start blackjack game
+                      await startBlackjackGame(userId, serverId, betVal, submit, message.author, currencyIcon, currencyName);
+                    } catch (submitErr) {
+                      console.error('Modal submit error or timeout for blackjack:', submitErr);
+                    }
                   }
                 });
 
@@ -2643,7 +2694,8 @@ module.exports = {
                   const disabledFlip = ButtonBuilder.from(buttonFlip).setDisabled(true);
                   const disabledCrash = ButtonBuilder.from(buttonCrash).setDisabled(true);
                   const disabledMines = ButtonBuilder.from(buttonMines).setDisabled(true);
-                  const endRow = new ActionRowBuilder().addComponents(disabledFlip, disabledCrash, disabledMines);
+                  const disabledBlackjack = ButtonBuilder.from(buttonBlackjack).setDisabled(true);
+                  const endRow = new ActionRowBuilder().addComponents(disabledFlip, disabledCrash, disabledMines, disabledBlackjack);
                   await dashboardMsg.edit({ components: [endRow] }).catch(() => {});
                 });
 
