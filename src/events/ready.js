@@ -29,21 +29,25 @@ module.exports = {
 
       console.log(`Started refreshing ${commands.length} application (/) commands.`);
 
-      if (guildId && guildId !== 'your_testing_guild_id_here' && guildId.trim() !== '') {
-        // Register commands to a specific guild (instant update)
-        console.log(`Registering guild-specific commands for guild: ${guildId}`);
+      // Register commands to all guilds dynamically (instant update for all guilds the bot is in)
+      client.guilds.cache.forEach(async (guild) => {
+        console.log(`Registering guild-specific commands for: ${guild.name} (${guild.id})`);
         await rest.put(
-          Routes.applicationGuildCommands(clientId, guildId),
+          Routes.applicationGuildCommands(clientId, guild.id),
           { body: commands }
-        );
-      } else {
-        // Register commands globally (takes up to 1 hour, but works everywhere)
-        console.log('Registering commands globally (no GUILD_ID provided)...');
-        await rest.put(
-          Routes.applicationCommands(clientId),
-          { body: commands }
-        );
-      }
+        ).catch(err => {
+          console.error(`Failed to register commands for guild ${guild.name}:`, err.message);
+        });
+      });
+
+      // Register globally as well to cover any future guilds (takes up to 1 hour to sync)
+      console.log('Registering commands globally (sync background)...');
+      await rest.put(
+        Routes.applicationCommands(clientId),
+        { body: commands }
+      ).catch(err => {
+        console.error('Failed to register global commands:', err.message);
+      });
 
       console.log('Successfully reloaded application (/) commands.');
 
