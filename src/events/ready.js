@@ -53,9 +53,21 @@ module.exports = {
       // Send startup notifications to all servers inside #soul-logs channel
       client.guilds.cache.forEach(async (guild) => {
         try {
-          const adminLogsChannel = guild.channels.cache.find(
-            c => c.name.toLowerCase() .includes('soul-logs') && c.isTextBased()
-          );
+          const { getServerSettings } = require('../database/queries');
+          const settings = await getServerSettings(guild.id);
+          let adminLogsChannel = null;
+
+          if (settings.log_channel_id) {
+            adminLogsChannel = guild.channels.cache.get(settings.log_channel_id) ||
+                               await guild.channels.fetch(settings.log_channel_id).catch(() => null);
+          }
+
+          if (!adminLogsChannel) {
+            adminLogsChannel = guild.channels.cache.find(
+              c => c.name.toLowerCase().includes('soul-logs') && c.isTextBased()
+            );
+          }
+
           if (adminLogsChannel) {
             const startupEmbed = new EmbedBuilder()
               .setColor('#00ffaa')

@@ -6,18 +6,20 @@ const { pool } = require('./db');
 async function getServerSettings(serverId) {
   const globalSettings = await getGlobalSettings();
   const query = `
-    SELECT drop_channel_id, auto_drops_enabled 
+    SELECT drop_channel_id, auto_drops_enabled, bot_channel_id, log_channel_id 
     FROM server_settings 
     WHERE server_id = $1
   `;
   try {
     const res = await pool.query(query, [serverId]);
-    const settings = res.rows[0] || { drop_channel_id: null, auto_drops_enabled: false };
+    const settings = res.rows[0] || { drop_channel_id: null, auto_drops_enabled: false, bot_channel_id: null, log_channel_id: null };
     return {
       currency_name: globalSettings.currency_name || 'Souls',
       currency_icon_url: globalSettings.currency_icon_url || '🪙',
       drop_channel_id: settings.drop_channel_id,
-      auto_drops_enabled: settings.auto_drops_enabled
+      auto_drops_enabled: settings.auto_drops_enabled,
+      bot_channel_id: settings.bot_channel_id,
+      log_channel_id: settings.log_channel_id
     };
   } catch (error) {
     console.error(`Error in getServerSettings for server ${serverId}:`, error);
@@ -25,8 +27,32 @@ async function getServerSettings(serverId) {
       currency_name: globalSettings.currency_name || 'Souls',
       currency_icon_url: globalSettings.currency_icon_url || '🪙',
       drop_channel_id: null,
-      auto_drops_enabled: false
+      auto_drops_enabled: false,
+      bot_channel_id: null,
+      log_channel_id: null
     };
+  }
+}
+
+/**
+ * Updates the bot channel and log channel configuration for a server.
+ */
+async function updateServerChannels(serverId, botChannelId, logChannelId) {
+  const query = `
+    INSERT INTO server_settings (server_id, bot_channel_id, log_channel_id)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (server_id) 
+    DO UPDATE SET 
+      bot_channel_id = COALESCE($2, server_settings.bot_channel_id),
+      log_channel_id = COALESCE($3, server_settings.log_channel_id)
+    RETURNING *
+  `;
+  try {
+    const res = await pool.query(query, [serverId, botChannelId, logChannelId]);
+    return res.rows[0];
+  } catch (error) {
+    console.error(`Error in updateServerChannels for server ${serverId}:`, error);
+    throw error;
   }
 }
 
@@ -1920,6 +1946,7 @@ async function getSoulsLeaderboard(serverId, tier = 'ALL', limit = 10) {
 
 module.exports = {
   getServerSettings,
+  updateServerChannels,
   updateServerSetting,
   checkInUser,
   getSoulsLeaderboard,

@@ -162,3 +162,7 @@ CREATE TABLE IF NOT EXISTS user_daily_tax (
     FOREIGN KEY (discord_id, server_id) REFERENCES users (discord_id, server_id) ON DELETE CASCADE
 );
 
+-- Migration: Add bot_channel_id and log_channel_id to server_settings
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS bot_channel_id VARCHAR(64);
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS log_channel_id VARCHAR(64);
+

@@ -12,6 +12,7 @@ const {
   resetCycle,
   recordCasinoGame,
   updateDropChannel,
+  updateServerChannels,
   awardDropCoins,
   transferCoins,
   attemptRob,
@@ -1195,16 +1196,24 @@ module.exports = {
         }
 
         // --- 1. ADMIN COMMANDS ---
-        if (['setup', 'reset-cycle', 'set-drop-channel', 'force-drop'].includes(commandName)) {
+        if (['setup', 'reset-cycle', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop'].includes(commandName)) {
           // Check administrator permission
           if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => { });
           }
 
-          // setup, set-drop-channel, and force-drop can be run anywhere; other admin commands are restricted to #soul-logs
-          if (!['setup', 'set-drop-channel', 'force-drop'].includes(commandName)) {
-            if (!message.channel.name.toLowerCase().includes('soul-logs')) {
-              return sendTempMessage(message.channel, '❌ This administrative command can only be used in the **#soul-logs** channel.');
+          // setup, set-drop-channel, set-bot-channel, set-log-channel, and force-drop can be run anywhere; other admin commands are restricted to #soul-logs
+          if (!['setup', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop'].includes(commandName)) {
+            const settings = await getServerSettings(serverId);
+            const customLogChannelId = settings.log_channel_id;
+            if (customLogChannelId) {
+              if (message.channel.id !== customLogChannelId) {
+                return sendTempMessage(message.channel, `❌ This administrative command can only be used in the <#${customLogChannelId}> channel.`);
+              }
+            } else {
+              if (!message.channel.name.toLowerCase().includes('soul-logs')) {
+                return sendTempMessage(message.channel, '❌ This administrative command can only be used in the **#soul-logs** channel.');
+              }
             }
           }
 
@@ -1335,6 +1344,96 @@ module.exports = {
             return await message.reply({ embeds: [embed] }).catch(() => { });
           }
 
+          if (commandName === 'set-bot-channel') {
+            const channelMention = args[0];
+            let targetChannelId = null;
+
+            if (channelMention) {
+              const match = channelMention.match(/^<#(\d+)>$/);
+              if (match) {
+                targetChannelId = match[1];
+              } else if (!isNaN(channelMention)) {
+                targetChannelId = channelMention;
+              } else {
+                const currentChannels = await message.guild.channels.fetch().catch(() => message.guild.channels.cache);
+                const channelByName = currentChannels.find(
+                  c => c.name.toLowerCase() === channelMention.toLowerCase() && c.type === ChannelType.GuildText
+                );
+                if (channelByName) {
+                  targetChannelId = channelByName.id;
+                }
+              }
+            } else {
+              targetChannelId = message.channel.id;
+            }
+
+            if (!targetChannelId) {
+              return message.reply('❌ **Error**: Channel not found in this server. Usage: `s set-bot-channel [channel_name/mention/id]`').catch(() => { });
+            }
+
+            const channelExists = message.guild.channels.cache.get(targetChannelId) ||
+              await message.guild.channels.fetch(targetChannelId).catch(() => null);
+
+            if (!channelExists || channelExists.type !== ChannelType.GuildText) {
+              return message.reply('❌ **Error**: Channel not found or is not a text channel.').catch(() => { });
+            }
+
+            await updateServerChannels(serverId, targetChannelId, null);
+
+            const embed = new EmbedBuilder()
+              .setColor('#00ffaa')
+              .setTitle('⚙️ Bot Channel Configured')
+              .setDescription(`Members can now run currency commands in the channel: <#${targetChannelId}>.`)
+              .setTimestamp();
+
+            return await message.reply({ embeds: [embed] }).catch(() => { });
+          }
+
+          if (commandName === 'set-log-channel') {
+            const channelMention = args[0];
+            let targetChannelId = null;
+
+            if (channelMention) {
+              const match = channelMention.match(/^<#(\d+)>$/);
+              if (match) {
+                targetChannelId = match[1];
+              } else if (!isNaN(channelMention)) {
+                targetChannelId = channelMention;
+              } else {
+                const currentChannels = await message.guild.channels.fetch().catch(() => message.guild.channels.cache);
+                const channelByName = currentChannels.find(
+                  c => c.name.toLowerCase() === channelMention.toLowerCase() && c.type === ChannelType.GuildText
+                );
+                if (channelByName) {
+                  targetChannelId = channelByName.id;
+                }
+              }
+            } else {
+              targetChannelId = message.channel.id;
+            }
+
+            if (!targetChannelId) {
+              return message.reply('❌ **Error**: Channel not found in this server. Usage: `s set-log-channel [channel_name/mention/id]`').catch(() => { });
+            }
+
+            const channelExists = message.guild.channels.cache.get(targetChannelId) ||
+              await message.guild.channels.fetch(targetChannelId).catch(() => null);
+
+            if (!channelExists || channelExists.type !== ChannelType.GuildText) {
+              return message.reply('❌ **Error**: Channel not found or is not a text channel.').catch(() => { });
+            }
+
+            await updateServerChannels(serverId, null, targetChannelId);
+
+            const embed = new EmbedBuilder()
+              .setColor('#00ffaa')
+              .setTitle('⚙️ Log Channel Configured')
+              .setDescription(`Administrative logs and commands are now restricted to the channel: <#${targetChannelId}>.`)
+              .setTimestamp();
+
+            return await message.reply({ embeds: [embed] }).catch(() => { });
+          }
+
           if (commandName === 'force-drop') {
             const settings = await getServerSettings(serverId);
             let dropChannel = null;
@@ -1368,8 +1467,18 @@ module.exports = {
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
           const isSoulLbRequest = commandName === 'soul' && args[0] && args[0].toLowerCase() === 'lb';
           const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'flex'].includes(commandName);
-          if (!isAdminHelpRequest && !isSoulLbRequest && !isInventoryCommand && !message.channel.name.toLowerCase().includes('soul-bot')) {
-            return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
+          if (!isAdminHelpRequest && !isSoulLbRequest && !isInventoryCommand) {
+            const settings = await getServerSettings(serverId);
+            const customBotChannelId = settings.bot_channel_id;
+            if (customBotChannelId) {
+              if (message.channel.id !== customBotChannelId) {
+                return sendTempMessage(message.channel, `❌ This command can only be used in the <#${customBotChannelId}> channel.`);
+              }
+            } else {
+              if (!message.channel.name.toLowerCase().includes('soul-bot')) {
+                return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
+              }
+            }
           }
 
           if (['help'].includes(commandName)) {

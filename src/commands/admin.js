@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = require('discord.js');
-const { updateServerSetting, getServerSettings, updateDropChannel, toggleAutoDrops } = require('../database/queries');
+const { updateServerSetting, getServerSettings, updateDropChannel, toggleAutoDrops, updateServerChannels } = require('../database/queries');
 const { triggerDrop, nextDropTimers, scheduleNextDrop } = require('../utils/drops');
 
 module.exports = {
@@ -40,6 +40,28 @@ module.exports = {
               { name: 'Start', value: 'start' },
               { name: 'Stop', value: 'stop' }
             )
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('set-bot-channel')
+        .setDescription('Set the custom channel where members can use currency commands')
+        .addChannelOption(option =>
+          option.setName('channel')
+            .setDescription('Select the text channel for bot commands (defaults to current channel)')
+            .addChannelTypes(ChannelType.GuildText)
+            .setRequired(false)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('set-log-channel')
+        .setDescription('Set the custom channel where admin logs and commands are restricted')
+        .addChannelOption(option =>
+          option.setName('channel')
+            .setDescription('Select the text channel for admin logs (defaults to current channel)')
+            .addChannelTypes(ChannelType.GuildText)
+            .setRequired(false)
         )
     ),
 
@@ -154,6 +176,34 @@ module.exports = {
           .setColor('#00ffaa')
           .setTitle('⚙️ Drop Channel Configured')
           .setDescription(`Random Soul Coin drops will now occur in the channel: <#${targetChannelId}>.`)
+          .setTimestamp();
+
+        return await interaction.editReply({ embeds: [embed] });
+      }
+
+      if (subcommand === 'set-bot-channel') {
+        const channelOption = interaction.options.getChannel('channel');
+        const targetChannelId = channelOption?.id || interaction.channelId;
+        await updateServerChannels(serverId, targetChannelId, null);
+
+        const embed = new EmbedBuilder()
+          .setColor('#00ffaa')
+          .setTitle('⚙️ Bot Channel Configured')
+          .setDescription(`Members can now run currency commands in the channel: <#${targetChannelId}>.`)
+          .setTimestamp();
+
+        return await interaction.editReply({ embeds: [embed] });
+      }
+
+      if (subcommand === 'set-log-channel') {
+        const channelOption = interaction.options.getChannel('channel');
+        const targetChannelId = channelOption?.id || interaction.channelId;
+        await updateServerChannels(serverId, null, targetChannelId);
+
+        const embed = new EmbedBuilder()
+          .setColor('#00ffaa')
+          .setTitle('⚙️ Log Channel Configured')
+          .setDescription(`Administrative logs and commands are now restricted to the channel: <#${targetChannelId}>.`)
           .setTimestamp();
 
         return await interaction.editReply({ embeds: [embed] });
