@@ -1072,9 +1072,9 @@ module.exports = {
       console.log(`[Command Trigger] prefix: "s", command: "${commandName}", args:`, args);
 
       const VALID_PREFIX_COMMANDS = [
-        'setup', 'reset-cycle', 'set-drop-channel', 'force-drop', 'auto-drops', 'help',
+        'setup', 'reset-cycle', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop', 'auto-drops', 'help',
         'daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb',
-        'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy',
+        'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'blackjack', 'bj', 'stats', 'profile', 'shop', 'buy',
         'fight', 'gift', 'give', 'send', 'transfer', 'rob', 'steal', 'heist', 'inv', 'inventory',
         'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul', 'ship', 'flex'
       ];
@@ -1462,7 +1462,7 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul', 'ship', 'flex'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'blackjack', 'bj', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul', 'ship', 'flex'].includes(commandName)) {
           // Lock user commands to #soul-bot — EXCEPT 's help admin', 's soul lb', inventory/gifting, and treasury commands which can be run anywhere
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
           const isSoulLbRequest = commandName === 'soul' && args[0] && args[0].toLowerCase() === 'lb';

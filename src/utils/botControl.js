@@ -1,6 +1,6 @@
 const { getGlobalSettings, getServerFeatureOverrides } = require('../database/queries');
 
-const ADMIN_PREFIX_COMMANDS = ['setup', 'set-drop-channel', 'force-drop', 'auto-drops', 'help'];
+const ADMIN_PREFIX_COMMANDS = ['setup', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop', 'auto-drops', 'help'];
 
 
 const READONLY_PREFIX_COMMANDS = ['cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'stats', 'profile', 'help', 'soul', 'ship', 'flex'];
@@ -8,7 +8,7 @@ const READONLY_SLASH_COMMANDS = ['balance', 'leaderboard', 'stats'];
 
 const FEATURE_COMMAND_MAP = {
   checkin: ['daily', 'checkin', 'claim'],
-  casino: ['flip', 'casino', 'bet', 'crash', 'mines'],
+  casino: ['flip', 'casino', 'bet', 'crash', 'mines', 'blackjack', 'bj'],
   shop: ['shop', 'buy'],
   duels: ['fight'],
   rob: ['rob', 'steal', 'heist'],
