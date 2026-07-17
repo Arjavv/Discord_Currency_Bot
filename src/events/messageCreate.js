@@ -1058,10 +1058,32 @@ module.exports = {
 
       return; // Exit early to prevent catching from counting as milestone activity
     } else if (isSoulCatch) {
-      // React with a troll/laugh emoji if they type 'soul' or 's soul' when no drop is active
-      const trollEmojis = ['🤡', '😂', '💀', '🤣', '🤫'];
-      const randomEmoji = trollEmojis[Math.floor(Math.random() * trollEmojis.length)];
-      await message.react(randomEmoji).catch(() => {});
+      // React with our custom 'soul_react' emoji, or create it if it doesn't exist in the guild
+      let reactEmoji = null;
+      if (message.guild) {
+        try {
+          reactEmoji = message.guild.emojis.cache.find(e => e.name === 'soul_react');
+          if (!reactEmoji) {
+            const imgPath = path.join(__dirname, '../../docs/assets/soul_react.jpg');
+            if (fs.existsSync(imgPath)) {
+              reactEmoji = await message.guild.emojis.create({ attachment: imgPath, name: 'soul_react' });
+              console.log(`[EMOJI] Created custom emoji soul_react in guild ${message.guild.name}`);
+            }
+          }
+        } catch (err) {
+          // Log error but proceed to fallback
+          console.warn(`[EMOJI] Could not resolve/create custom emoji 'soul_react' in guild:`, err.message);
+        }
+      }
+
+      if (reactEmoji) {
+        await message.react(reactEmoji).catch(() => {});
+      } else {
+        // Fallback to random troll emoji if custom emoji creation is blocked
+        const trollEmojis = ['🤡', '😂', '💀', '🤣', '🤫'];
+        const randomEmoji = trollEmojis[Math.floor(Math.random() * trollEmojis.length)];
+        await message.react(randomEmoji).catch(() => {});
+      }
       return;
     }
 
