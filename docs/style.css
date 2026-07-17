@@ -108,7 +108,7 @@ nav.scrolled {
   display: flex; align-items: center; justify-content: space-between;
 }
 .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-.nav-logo { height: 34px; filter: drop-shadow(0 0 12px rgba(255,96,144,.8)); transition: filter .3s; }
+.nav-logo { height: 34px; width: 34px; border-radius: 50%; aspect-ratio: 1; object-fit: cover; filter: drop-shadow(0 0 12px rgba(255,96,144,.8)); transition: filter .3s; }
 .nav-logo:hover { filter: drop-shadow(0 0 24px rgba(255,96,144,1)); }
 .nav-brand-text {
   font-family: 'Bebas Neue', sans-serif;
