@@ -3,676 +3,354 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Soul Currency | Official Server Economy & Portal</title>
-  
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="Official home of the Soul Currency System. Claim Souls daily, compete on server leaderboards, play interactive casino games, and buy/redeem Souls for server customizations and premium perks.">
-  <meta name="keywords" content="Discord, Currency Bot, Souls, Casino, Leaderboard, Games, Marketplace, Buy Souls">
-  
-  <!-- Google Fonts -->
+  <title>SOUL ECONOMY — The Ultimate Discord Power System</title>
+  <meta name="description" content="The most elite Discord economy bot. Claim Souls, summon legendary characters, rule your server.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700;850;900&family=Noto+Serif+JP:wght@300;400;700;900&family=Shippori+Mincho:wght@400;700;800&display=swap" rel="stylesheet">
-  
-  <!-- FontAwesome Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;700&family=Noto+Serif+JP:wght@300;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Stylesheets -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Custom Cursor -->
+  <div id="cursor"></div>
+  <div id="cursor-ring"></div>
 
-  <!-- Sakura Particle Canvas -->
+  <!-- Canvas Layers -->
+  <canvas id="matrix-canvas"></canvas>
   <canvas id="sakura-canvas"></canvas>
 
-  <!-- Floating Kanji Background -->
-  <div class="kanji-bg" aria-hidden="true">
-    <span class="kanji-char" style="--x:5%;--y:10%;--size:5rem;--delay:0s">魂</span>
-    <span class="kanji-char" style="--x:88%;--y:20%;--size:4rem;--delay:2s">霊</span>
-    <span class="kanji-char" style="--x:15%;--y:70%;--size:6rem;--delay:1s">道</span>
-    <span class="kanji-char" style="--x:75%;--y:55%;--size:3.5rem;--delay:3s">龍</span>
-    <span class="kanji-char" style="--x:45%;--y:85%;--size:5rem;--delay:0.5s">力</span>
-    <span class="kanji-char" style="--x:92%;--y:80%;--size:4.5rem;--delay:4s">神</span>
-    <span class="kanji-char" style="--x:30%;--y:35%;--size:3rem;--delay:2.5s">炎</span>
-    <span class="kanji-char" style="--x:60%;--y:15%;--size:4rem;--delay:1.5s">命</span>
-  </div>
-
-  <!-- Navigation Bar -->
-  <nav class="navbar" id="navbar">
-    <div class="nav-container">
-      <div class="brand">
-        <img src="assets/logo.png" alt="Soul Logo" class="brand-logo">
-        <span class="brand-name">SOUL ECONOMY</span>
-      </div>
-      
-      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle Navigation">
-        <i class="fa-solid fa-bars"></i>
-      </button>
-      
-      <div class="nav-menu" id="nav-menu">
-        <a href="#hero" class="nav-link active">Home</a>
-        <a href="shop.html" class="nav-link">Shop</a>
-        <a href="#setup-guide" class="nav-link">Setup Guide</a>
-        <a href="#leaderboard" class="nav-link">Standings</a>
-        <a href="#commands" class="nav-link">Commands</a>
-        <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands" target="_blank" class="nav-btn"><i class="fa-solid fa-robot"></i> Add to Server</a>
-      </div>
+  <!-- NAV -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="nav-brand">
+        <img src="assets/logo.png" alt="Soul" class="nav-logo">
+        <span class="nav-brand-text">SOUL ECONOMY</span>
+      </a>
+      <button class="nav-toggle" id="navToggle"><i class="fa-solid fa-bars"></i></button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#hero">Home</a></li>
+        <li><a href="shop.html">Shop</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#characters">Characters</a></li>
+        <li><a href="#commands">Commands</a></li>
+        <li>
+          <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands"
+             target="_blank" class="nav-cta">
+            <i class="fa-solid fa-plus"></i> Add Bot
+          </a>
+        </li>
+      </ul>
     </div>
   </nav>
 
-  <!-- Hero Section -->
+  <!-- HERO -->
   <header class="hero" id="hero">
-    <div class="hero-glow"></div>
-    <div class="hero-container">
-      <div class="hero-content">
-        <div class="badge purple-badge"><i class="fa-solid fa-sparkles"></i> SOUL ECONOMY SYSTEM</div>
-        <h1 class="hero-title">Wield the Power of <span class="purple-text">Souls</span></h1>
-        <p class="hero-subtitle">Chat, claim, and compete in the ultimate server economy. Earn Souls for active engagement, challenge your luck in the casino, and trade Souls for real customizations.</p>
+    <div class="hero-inner">
+      <div class="hero-left">
+        <div class="hero-eyebrow">
+          <span class="hero-eyebrow-dot"></span>
+          SOUL ECONOMY SYSTEM &middot; DISCORD
+        </div>
+        <h1 class="hero-title">
+          <span class="line1">WIELD THE</span>
+          <span class="line2 glitch-wrap" data-text="POWER OF SOULS">POWER OF SOULS</span>
+        </h1>
+        <p class="hero-desc">Chat. Claim. Conquer. Earn Souls through active engagement, summon legendary characters, and dominate your server's economy. The most elite Discord bot ever built.</p>
         <div class="hero-actions">
-          <a href="shop.html" class="btn btn-primary" style="background: var(--color-purple-gradient); box-shadow: 0 4px 20px rgba(139, 92, 246, 0.25);">Visit Shop <i class="fa-solid fa-store"></i></a>
-          <a href="#setup-guide" class="btn btn-secondary">Setup Guide <i class="fa-solid fa-book"></i></a>
+          <a href="shop.html" class="btn-hero-primary">
+            <i class="fa-solid fa-store"></i> Enter The Shop
+          </a>
+          <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands" target="_blank" class="btn-hero-ghost">
+            <i class="fa-brands fa-discord"></i> Add to Server
+          </a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-item">
+            <div class="stat-num">100K+</div>
+            <div class="stat-label">Souls Claimed</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">20+</div>
+            <div class="stat-label">Characters</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">5</div>
+            <div class="stat-label">Rarity Tiers</div>
+          </div>
         </div>
       </div>
-      <div class="hero-visual">
-        <div class="holo-frame-container">
-          <div class="holo-card">
-            <div class="holo-glow-layer"></div>
-            <img src="assets/portrait_catgirl.jpg" alt="Divine Soul Mascot" class="holo-image">
-            <div class="holo-overlay">
-              <span class="holo-rarity">DIVINE SOUL</span>
-              <span class="holo-name">Genesis Prime</span>
-            </div>
+
+      <div class="hero-cards" id="heroCards">
+        <div class="char-card">
+          <img src="assets/makima_csm.png" alt="Makima">
+          <div class="char-card-body">
+            <div class="char-rarity rarity-epic">Epic Soul</div>
+            <div class="char-name">Makima</div>
+            <div class="char-value">Value: <span class="val">12,000</span></div>
           </div>
-          <div class="holo-shadow"></div>
+        </div>
+        <div class="char-card" id="mainCard">
+          <img src="assets/portrait_catgirl.jpg" alt="Genesis Prime">
+          <div class="char-card-body">
+            <div class="char-rarity rarity-divine">Divine Soul</div>
+            <div class="char-name">Genesis Prime</div>
+            <div class="char-value">Value: <span class="val">100,000</span></div>
+          </div>
+        </div>
+        <div class="char-card">
+          <img src="assets/raiden_shogun.png" alt="Raiden Shogun">
+          <div class="char-card-body">
+            <div class="char-rarity rarity-mythic">Mythic Soul</div>
+            <div class="char-name">Raiden Shogun</div>
+            <div class="char-value">Value: <span class="val">35,000</span></div>
+          </div>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- Beginner Documentation & Setup Section -->
-  <section class="docs-section" id="setup-guide">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title">Beginner & Setup <span class="gold-text">Guide</span></h2>
-        <p class="section-subtitle">A simple step-by-step documentation to configure the bot and start claiming your souls.</p>
-      </div>
+  <div class="section-divider"></div>
 
-      <div class="docs-grid">
-        <div class="step-card">
-          <div class="step-number">01</div>
-          <div class="step-icon"><i class="fa-solid fa-wrench"></i></div>
-          <h3 class="step-title">Invite & Setup</h3>
-          <p class="step-desc">Add the bot using the link in the nav bar. As an Admin, execute <code>s setup</code> (prefix) or <code>/admin setup</code> (slash). This automatically configures the category containing <code>#soul-bot</code> (for gameplay/commands) and <code>#soul-logs</code> (private logs).</p>
-        </div>
+  <!-- FEATURES BENTO -->
+  <section class="features-section" id="features">
+    <div class="section-inner">
+      <div class="section-label">Features</div>
+      <h2 class="section-h2 reveal">THE MOST <span class="gradient-text">POWERFUL</span> BOT</h2>
+      <p class="section-sub reveal reveal-delay-1">Everything you need to run a thriving server economy — drops, casinos, characters, and more.</p>
 
-        <div class="step-card">
-          <div class="step-number">02</div>
-          <div class="step-icon"><i class="fa-solid fa-bell"></i></div>
-          <h3 class="step-title">Milestones & Drops</h3>
-          <p class="step-desc">Chatting actively in your channels builds progress milestones (10 messages = 100 Souls). Every 10 minutes, a random Soul Coin drops in the server drop channel. Players must type <code>soul</code> quickly in chat to claim the coin before it fades away!</p>
-        </div>
-
-        <div class="step-card">
-          <div class="step-number">03</div>
-          <div class="step-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
-          <h3 class="step-title">Taxes & Upkeeps</h3>
-          <p class="step-desc">A portion of all casino bets, flips, and user-to-user transfers are taxed and collected into the <strong>Server Bank</strong>. This bank fund is used to maintain your server’s premium bot services. Keep your server bank funded to avoid service decay.</p>
-        </div>
-      </div>
-
-      <div class="docs-footer">
-        <div class="docs-footer-text">
-          <h4>Looking for the full manual?</h4>
-          <p>Read all parameters, rates, cooldown caps, and administration controls in detail below.</p>
-        </div>
-        <a href="#commands" class="btn btn-secondary">Commands list <i class="fa-solid fa-chevron-right"></i></a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Top Servers Leaderboard Section -->
-  <section class="leaderboard-section" id="leaderboard">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title">Top <span class="gold-text">Servers Leaderboard</span></h2>
-        <p class="section-subtitle">Real-time standings of the top Discord guilds ranked by the total circulating amount of Souls.</p>
-      </div>
-      
-      <div class="leaderboard-wrap">
-        <div id="public-leaderboard-container">
-          <div class="loading-state">
-            <i class="fa-solid fa-spinner fa-spin"></i> Loading server standings...
+      <div class="bento-grid">
+        <div class="bento-card bento-1 reveal">
+          <div class="bento-1-text">
+            <div class="bento-tag tag-red">Core Feature</div>
+            <div class="bento-title">SOUL DROPS<br>SYSTEM</div>
+            <div class="bento-desc">Every 10 minutes a mysterious Soul Coin appears in your server. Type <code>soul</code> to claim it before it vanishes. Rare mythic drops grant legendary characters worth 30,000+ Souls.</div>
+          </div>
+          <div class="bento-1-img">
+            <img src="assets/divine_soul_purple.png" alt="Divine Soul">
+            <div class="bento-img-tag">
+              <strong>100,000</strong>
+              Divine Soul Value
+            </div>
           </div>
         </div>
-        <div class="leaderboard-footer-info">
-          <i class="fa-solid fa-clock-rotate-left"></i> Standings are updated automatically every 1 hour.
+
+        <div class="bento-card bento-2 reveal reveal-delay-1">
+          <div class="bento-tag tag-pink">Casino</div>
+          <div class="bento-icon" style="color:var(--gold)">&#127920;</div>
+          <div class="bento-title">HIGH-STAKES<br>CASINO</div>
+          <div class="bento-desc">Blackjack, Roulette, Coin Flip & Dice. Server taxes on every bet fund the Server Bank. House always takes a cut.</div>
+        </div>
+
+        <div class="bento-card bento-3 reveal">
+          <div class="bento-tag tag-gold">Economy</div>
+          <div class="bento-icon" style="color:var(--gold)">&#9889;</div>
+          <div class="bento-title">LIVE<br>LEADERBOARD</div>
+          <div class="bento-desc">Real-time server rankings. Climb the charts by claiming Souls daily.</div>
+        </div>
+
+        <div class="bento-card bento-4 reveal reveal-delay-1">
+          <div class="bento-tag tag-purple">Collect</div>
+          <div class="bento-icon" style="color:#c084fc">&#127924;</div>
+          <div class="bento-title">CHARACTER<br>COLLECTION</div>
+          <div class="bento-desc">20+ collectable character cards from anime, gaming & mythology. Trade and flex your deck.</div>
+        </div>
+
+        <div class="bento-card bento-5 reveal reveal-delay-2">
+          <div class="bento-tag tag-red">Premium</div>
+          <div class="bento-icon" style="color:var(--pink)">&#128081;</div>
+          <div class="bento-title">SERVER<br>PERKS</div>
+          <div class="bento-desc">Spend Souls on custom nicknames, bot skins, partnership ads & XP multipliers for your whole server.</div>
+        </div>
+
+        <div class="bento-card bento-6 reveal">
+          <div class="bento-6-col">
+            <div class="bento-col-num">20+</div>
+            <div class="bento-desc">Collectable Characters from Anime & Gaming</div>
+          </div>
+          <div class="bento-6-col">
+            <div class="bento-col-num">5</div>
+            <div class="bento-desc">Soul Rarity Tiers from Common to Divine</div>
+          </div>
+          <div class="bento-6-col">
+            <div class="bento-col-num">10x</div>
+            <div class="bento-desc">Max XP Multiplier from Bought Boosters</div>
+          </div>
+          <div class="bento-6-col">
+            <div class="bento-col-num">&#8734;</div>
+            <div class="bento-desc">Souls to Earn Across All Participating Servers</div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Commands Reference Section -->
+  <div class="section-divider"></div>
+
+  <!-- CHARACTER MARQUEE -->
+  <section class="chars-section" id="characters">
+    <div class="chars-section-hdr section-inner">
+      <div class="section-label">Characters</div>
+      <h2 class="section-h2 reveal">SUMMON YOUR <span class="gradient-text">LEGENDS</span></h2>
+      <p class="section-sub reveal reveal-delay-1">20+ characters across 5 rarity tiers. Each drop is random. Each pull is a gamble.</p>
+    </div>
+    <div style="overflow:hidden;padding:8px 0;">
+      <div class="marquee-track" id="marqueeTrack">
+        <div class="marquee-card"><img src="assets/divine_soul_purple.png" alt="Divine Soul"><div class="marquee-card-info"><div class="mc-rarity rarity-divine">Divine</div><div class="mc-name">Genesis Prime</div></div></div>
+        <div class="marquee-card"><img src="assets/dbz_goku.png" alt="Goku"><div class="marquee-card-info"><div class="mc-rarity rarity-divine">Divine</div><div class="mc-name">Son Goku</div></div></div>
+        <div class="marquee-card"><img src="assets/raiden_shogun.png" alt="Raiden"><div class="marquee-card-info"><div class="mc-rarity rarity-mythic">Mythic</div><div class="mc-name">Raiden Shogun</div></div></div>
+        <div class="marquee-card"><img src="assets/makima_csm.png" alt="Makima"><div class="marquee-card-info"><div class="mc-rarity rarity-mythic">Mythic</div><div class="mc-name">Makima</div></div></div>
+        <div class="marquee-card"><img src="assets/op_luffy.png" alt="Luffy"><div class="marquee-card-info"><div class="mc-rarity rarity-mythic">Mythic</div><div class="mc-name">Monkey D. Luffy</div></div></div>
+        <div class="marquee-card"><img src="assets/ryomen_sukuna.png" alt="Sukuna"><div class="marquee-card-info"><div class="mc-rarity rarity-mythic">Mythic</div><div class="mc-name">Sukuna</div></div></div>
+        <div class="marquee-card"><img src="assets/gow_kratos.png" alt="Kratos"><div class="marquee-card-info"><div class="mc-rarity rarity-epic">Epic</div><div class="mc-name">Kratos</div></div></div>
+        <div class="marquee-card"><img src="assets/guts_berserk.png" alt="Guts"><div class="marquee-card-info"><div class="mc-rarity rarity-epic">Epic</div><div class="mc-name">Guts</div></div></div>
+        <div class="marquee-card"><img src="assets/rangiku_matsumoto.png" alt="Rangiku"><div class="marquee-card-info"><div class="mc-rarity rarity-rare">Rare</div><div class="mc-name">Rangiku</div></div></div>
+        <div class="marquee-card"><img src="assets/pk_pikachu.png" alt="Pikachu"><div class="marquee-card-info"><div class="mc-rarity" style="color:#facc15">Common</div><div class="mc-name">Pikachu</div></div></div>
+        <!-- Duplicated for seamless loop -->
+        <div class="marquee-card"><img src="assets/divine_soul_purple.png" alt="Divine Soul"><div class="marquee-card-info"><div class="mc-rarity rarity-divine">Divine</div><div class="mc-name">Genesis Prime</div></div></div>
+        <div class="marquee-card"><img src="assets/dbz_goku.png" alt="Goku"><div class="marquee-card-info"><div class="mc-rarity rarity-divine">Divine</div><div class="mc-name">Son Goku</div></div></div>
+        <div class="marquee-card"><img src="assets/raiden_shogun.png" alt="Raiden"><div class="marquee-card-info"><div class="mc-rarity rarity-mythic">Mythic</div><div class="mc-name">Raiden Shogun</div></div></div>
+        <div class="marquee-card"><img src="assets/makima_csm.png" alt="Makima"><div class="marquee-card-info"><div class="mc-rarity rarity-mythic">Mythic</div><div class="mc-name">Makima</div></div></div>
+        <div class="marquee-card"><img src="assets/op_luffy.png" alt="Luffy"><div class="marquee-card-info"><div class="mc-rarity rarity-mythic">Mythic</div><div class="mc-name">Monkey D. Luffy</div></div></div>
+        <div class="marquee-card"><img src="assets/ryomen_sukuna.png" alt="Sukuna"><div class="marquee-card-info"><div class="mc-rarity rarity-mythic">Mythic</div><div class="mc-name">Sukuna</div></div></div>
+        <div class="marquee-card"><img src="assets/gow_kratos.png" alt="Kratos"><div class="marquee-card-info"><div class="mc-rarity rarity-epic">Epic</div><div class="mc-name">Kratos</div></div></div>
+        <div class="marquee-card"><img src="assets/guts_berserk.png" alt="Guts"><div class="marquee-card-info"><div class="mc-rarity rarity-epic">Epic</div><div class="mc-name">Guts</div></div></div>
+        <div class="marquee-card"><img src="assets/rangiku_matsumoto.png" alt="Rangiku"><div class="marquee-card-info"><div class="mc-rarity rarity-rare">Rare</div><div class="mc-name">Rangiku</div></div></div>
+        <div class="marquee-card"><img src="assets/pk_pikachu.png" alt="Pikachu"><div class="marquee-card-info"><div class="mc-rarity" style="color:#facc15">Common</div><div class="mc-name">Pikachu</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- MASCOT / SANCTUARY -->
+  <section class="mascot-section">
+    <div class="mascot-img-wrap">
+      <img src="assets/banner_catgirl.png" alt="Soul Sanctuary">
+      <div class="mascot-overlay"></div>
+      <div class="mascot-content">
+        <p class="section-label" style="margin-bottom:12px;justify-content:flex-start">Soul Sanctuary</p>
+        <h2 class="mascot-title">THE GENESIS<br><span style="color:var(--pink)">PRIME AWAITS</span></h2>
+        <p class="mascot-desc">The rarest soul in the system. Only found at the top of divine probability chains. One drop. One chance. One legend.</p>
+        <div class="mascot-stats">
+          <div>
+            <div class="ms-val">0.1%</div>
+            <div class="ms-label">Divine Drop Rate</div>
+          </div>
+          <div>
+            <div class="ms-val">100K</div>
+            <div class="ms-label">Soul Value</div>
+          </div>
+          <div>
+            <div class="ms-val">&#8734;</div>
+            <div class="ms-label">Prestige</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMMANDS -->
   <section class="commands-section" id="commands">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title">Slash & Prefix <span class="gold-text">Commands</span></h2>
-        <p class="section-subtitle">A comprehensive list of bot commands to interact with the Soul Currency system.</p>
-      </div>
+    <div class="section-inner">
+      <div class="section-label">Commands</div>
+      <h2 class="section-h2 reveal">MASTER THE <span class="gradient-text">SYSTEM</span></h2>
+      <p class="section-sub reveal reveal-delay-1">All commands work as slash commands (/) or prefix (s). Use them to dominate your server economy.</p>
 
-      <div class="commands-layout">
-        <!-- Search and Filters -->
-        <div class="commands-filter-bar">
-          <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="command-search" placeholder="Search commands (e.g. checkin, flip)...">
-          </div>
-          <div class="tab-filters">
-            <button class="filter-tab active" data-filter="all">All</button>
-            <button class="filter-tab" data-filter="user">User</button>
-            <button class="filter-tab" data-filter="casino">Casino</button>
-            <button class="filter-tab" data-filter="admin">Admin</button>
-          </div>
+      <div class="cmd-terminal reveal">
+        <div class="cmd-terminal-bar">
+          <div class="dot dot-r"></div>
+          <div class="dot dot-y"></div>
+          <div class="dot dot-g"></div>
+          <span class="cmd-terminal-title">SOUL ECONOMY &mdash; COMMAND REFERENCE</span>
         </div>
-
-        <!-- Commands List -->
-        <div class="commands-list" id="commands-list">
-          
-          <!-- Command 1: s daily & /checkin -->
-          <div class="command-item" data-category="user" id="cmd-checkin">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s daily / /checkin</span>
-                <span class="command-tag user-tag">User</span>
-              </div>
-              <span class="command-short-desc">Claim your daily allowance reward.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Triggers the 24-hour daily allowance checkin. Using the prefix command <code>s daily</code> (or aliases: <code>s checkin</code>, <code>s claim</code>) awards a random amount between <strong>500 and 1,000 Souls</strong>. Using the slash command <code>/checkin</code> awards a fixed amount (default: <strong>20 Souls</strong>). If run while on cooldown, displays a relative unlock timer embed.</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s daily</code> or <code>/checkin</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
+        <div class="cmd-grid">
+          <div class="cmd-group">
+            <div class="cmd-group-title"><i class="fa-solid fa-coins"></i> Economy</div>
+            <div class="cmd-item"><code>s balance</code><span class="cmd-item-desc">Check your Soul balance</span></div>
+            <div class="cmd-item"><code>s daily</code><span class="cmd-item-desc">Claim daily Soul reward</span></div>
+            <div class="cmd-item"><code>s transfer</code><span class="cmd-item-desc">Send Souls to another user</span></div>
+            <div class="cmd-item"><code>s leaderboard</code><span class="cmd-item-desc">View server rankings</span></div>
+            <div class="cmd-item"><code>s bank</code><span class="cmd-item-desc">Check Server Bank balance</span></div>
           </div>
-
-          <!-- Command 2: s cash -->
-          <div class="command-item" data-category="user" id="cmd-balance">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s cash <span class="optional-param">[@username]</span></span>
-                <span class="command-tag user-tag">User</span>
-              </div>
-              <span class="command-short-desc">Check your wallet balance or search for another user's balance.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Fetches the balance of Souls. You can optionally check another user's wallet balance by tagging/mentioning them. (Aliases: <code>s cash</code>, <code>s balance</code>, <code>s bal</code>, <code>s money</code>).</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s cash [@username]</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
+          <div class="cmd-group">
+            <div class="cmd-group-title"><i class="fa-solid fa-dice"></i> Casino</div>
+            <div class="cmd-item"><code>s blackjack</code><span class="cmd-item-desc">Play Blackjack</span></div>
+            <div class="cmd-item"><code>s roulette</code><span class="cmd-item-desc">Spin the roulette wheel</span></div>
+            <div class="cmd-item"><code>s coinflip</code><span class="cmd-item-desc">Flip for double or nothing</span></div>
+            <div class="cmd-item"><code>s dice</code><span class="cmd-item-desc">Roll the dice</span></div>
+            <div class="cmd-item"><code>s slots</code><span class="cmd-item-desc">Pull the slot machine</span></div>
           </div>
-
-          <!-- Command 3: s lb -->
-          <div class="command-item" data-category="user" id="cmd-leaderboard">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s lb</span>
-                <span class="command-tag user-tag">User</span>
-              </div>
-              <span class="command-short-desc">View the top 10 richest users in the current cycle.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Displays an embed listing the top 10 richest users ranked in descending order of their current active Soul balances. (Aliases: <code>s lb</code>, <code>s leaderboard</code>, <code>s rich</code>).</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s lb</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
+          <div class="cmd-group">
+            <div class="cmd-group-title"><i class="fa-solid fa-star"></i> Collect</div>
+            <div class="cmd-item"><code>s inventory</code><span class="cmd-item-desc">View your character cards</span></div>
+            <div class="cmd-item"><code>s cards</code><span class="cmd-item-desc">Browse all available souls</span></div>
+            <div class="cmd-item"><code>s drop</code><span class="cmd-item-desc">Force a drop (admin)</span></div>
+            <div class="cmd-item"><code>s sell</code><span class="cmd-item-desc">Sell a character for Souls</span></div>
+            <div class="cmd-item"><code>s gift</code><span class="cmd-item-desc">Gift a card to a user</span></div>
           </div>
-
-          <!-- Command 4: s gift -->
-          <div class="command-item" data-category="user" id="cmd-gift">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s gift <span class="required-param">@user</span> <span class="required-param">&lt;amount&gt;</span></span>
-                <span class="command-tag user-tag">User</span>
-              </div>
-              <span class="command-short-desc">Send Souls to another user.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Transfers a specific amount of Souls from your wallet to another user's wallet. (Aliases: <code>s gift</code>, <code>s give</code>, <code>s send</code>, <code>s transfer</code>).</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s gift @username 100</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
+          <div class="cmd-group">
+            <div class="cmd-group-title"><i class="fa-solid fa-store"></i> Shop</div>
+            <div class="cmd-item"><code>s shop</code><span class="cmd-item-desc">Open the item shop</span></div>
+            <div class="cmd-item"><code>s buy</code><span class="cmd-item-desc">Purchase an item</span></div>
+            <div class="cmd-item"><code>s redeem</code><span class="cmd-item-desc">Redeem a purchased perk</span></div>
+            <div class="cmd-item"><code>s booster</code><span class="cmd-item-desc">View active XP boosters</span></div>
           </div>
-
-          <!-- Command 5: s rob -->
-          <div class="command-item" data-category="casino" id="cmd-rob">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s rob <span class="required-param">@user</span></span>
-                <span class="command-tag casino-tag">Casino</span>
-              </div>
-              <span class="command-short-desc">Attempt a bank heist on another user.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Try to steal 10% of another user's wallet! There is a 30% chance of success. If you get caught (70% chance), you pay them a fine equal to 5% of your wallet. Both users must have at least 20 Souls. (Aliases: <code>s rob</code>, <code>s steal</code>, <code>s heist</code>).</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s rob @username</code>
-              </div>
-              <div class="detail-row">
-                <strong>Cooldown:</strong> 1 hour per robbery attempt.
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
+          <div class="cmd-group">
+            <div class="cmd-group-title"><i class="fa-solid fa-shield"></i> Admin</div>
+            <div class="cmd-item"><code>s setup</code><span class="cmd-item-desc">Initial bot configuration</span></div>
+            <div class="cmd-item"><code>s setdrop</code><span class="cmd-item-desc">Set the drop channel</span></div>
+            <div class="cmd-item"><code>s grant</code><span class="cmd-item-desc">Grant Souls to a user</span></div>
+            <div class="cmd-item"><code>s config</code><span class="cmd-item-desc">View / change bot config</span></div>
           </div>
-
-          <!-- Command 6: s flip -->
-          <div class="command-item" data-category="casino" id="cmd-casino">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s flip <span class="optional-param">&lt;heads/tails&gt;</span> <span class="required-param">&lt;bet&gt;</span></span>
-                <span class="command-tag casino-tag">Casino</span>
-              </div>
-              <span class="command-short-desc">Flip a coin for double or nothing.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Bets a specific positive amount of Souls on a coin toss outcome. Correct guesses award twice the bet amount (wins net your bet amount). Wrong guesses deduct the bet amount. <strong>Note: The coin flip is currently rigged to a 30% win chance.</strong> Defaults to heads if no choice is provided. Checks for balance sufficiency before running. (Aliases: <code>s flip</code>, <code>s casino</code>, <code>s bet</code>).</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s flip 100</code> (defaults to heads) or <code>s flip tails 100</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
-          </div>
-
-          <!-- Command 7: s crash -->
-          <div class="command-item" data-category="casino" id="cmd-crash">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s crash <span class="required-param">&lt;bet&gt;</span></span>
-                <span class="command-tag casino-tag">Casino</span>
-              </div>
-              <span class="command-short-desc">Watch the multiplier climb and cash out before it crashes.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Place a bet and watch the multiplier tick up in real-time from <code>1.00x</code>. Hit the <strong>Cash Out</strong> button to secure your winnings before the game randomly crashes! <strong>Note: Game auto-crashes if you do not cash out within 15 seconds.</strong> Uses a house-edged probability curve capped at 10x multiplier.</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s crash 100</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
-          </div>
-
-          <!-- Command 8: s mines -->
-          <div class="command-item" data-category="casino" id="cmd-mines">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s mines <span class="required-param">&lt;bet&gt;</span> <span class="optional-param">[mines_count]</span></span>
-                <span class="command-tag casino-tag">Casino</span>
-              </div>
-              <span class="command-short-desc">Interactive grid-based Mines game.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Stake-style mines game. Reveal tiles on a 4x5 button grid. Safe tiles (💎) increase your multiplier, while hitting a mine (💣) instantly crashes the game and loses your bet. You can cash out at any time after revealing at least one safe tile. <strong>Note: Auto-times out after 60 seconds of inactivity.</strong></p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s mines 100</code> (defaults to 3 mines) or <code>s mines 100 5</code> (5 mines, range: 1-19)
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
-          </div>
-
-          <!-- Command 9: stats & profile -->
-          <div class="command-item" data-category="user" id="cmd-stats">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">/stats &amp; s stats</span>
-                <span class="command-tag user-tag">User</span>
-              </div>
-              <span class="command-short-desc">Privately check your Strength, Defense, Speed, and Magic stats.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Fetches your Strength ⚔️, Defense 🛡️, Speed ⚡, and Magic 🔮 stats. Upgrades reset every Sunday midnight. To maintain complete privacy:</p>
-              <ul>
-                <li><code>/stats</code>: Ephemeral slash command reply (transparent background visible ONLY to you).</li>
-                <li><code>s stats</code>: Silently deletes your message in the group and delivers your profile card via Direct Message (DM) with no group notifications.</li>
-              </ul>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>/stats</code> or <code>s stats</code> / <code>s profile</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
-          </div>
-
-          <!-- Command 10: s shop -->
-          <div class="command-item" data-category="user" id="cmd-shop">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s shop</span>
-                <span class="command-tag user-tag">User</span>
-              </div>
-              <span class="command-short-desc">Browse training upgrades, elixirs, and Divine Shields.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Lists available boosts and item costs for your server. Weekly upgrades (+5) reset every Sunday midnight. Potion elixirs (+15) last for 24 hours. Includes an interactive dropdown list below the embed for quick direct purchases.</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s shop</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
-          </div>
-
-          <!-- Command 11: s buy -->
-          <div class="command-item" data-category="user" id="cmd-buy">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s buy <span class="required-param">&lt;item_id&gt;</span></span>
-                <span class="command-tag user-tag">User</span>
-              </div>
-              <span class="command-short-desc">Purchase a training upgrade or shield from the shop.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Directly purchase an item by specifying its ID (e.g., <code>dumbbell</code>, <code>vest</code>, <code>shoes</code>, <code>tome</code>, <code>rage</code>, <code>aegis</code>, <code>adrenaline</code>, <code>mana</code>, <code>shield</code>). (Note: Purchases can also be completed using the select menu dropdown in <code>s shop</code>).</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s buy dumbbell</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
-          </div>
-
-          <!-- Command 12: s fight -->
-          <div class="command-item" data-category="casino" id="cmd-fight">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s fight <span class="required-param">@user</span> <span class="required-param">&lt;bet&gt;</span></span>
-                <span class="command-tag casino-tag">Casino</span>
-              </div>
-              <span class="command-short-desc">Challenge another player to a mystery stat clash showdown.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Initiate a wager duel against another player. The defender has 30 seconds to click Accept. The bot randomly selects a stat (Strength, Defense, Speed, or Magic) to compare. The player with the higher total stat wins the pot. Winner takes all, exact values for the clashed stat are revealed post-fight, and a death trigger automatically runs <code>!kill &lt;@loser&gt;</code> in the channel.</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>s fight @username 500</code>
-              </div>
-              <div class="detail-row">
-                <strong>Channel restriction:</strong> Runs ONLY in channels with <code>soul-bot</code> in their name.
-              </div>
-            </div>
-          </div>
-
-          <!-- Admin Prefix Commands -->
-          <div class="command-item" data-category="admin" id="cmd-admin-prefix">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">s <span class="required-param">&lt;admin-command&gt;</span></span>
-                <span class="command-tag admin-tag">Admin</span>
-              </div>
-              <span class="command-short-desc">Prefix commands for server setup and drop management.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>These prefix commands are restricted to members with the <strong>Administrator</strong> permission on the server. They can be run in any channel unless noted.</p>
-              <ul class="admin-subcommands">
-                <li><code>s setup</code>: Automatically creates the "Soul" category with <code>#soul-bot</code> (public) and <code>#soul-logs</code> (private admin) channels.</li>
-                <li><code>s set-drop-channel [#channel]</code>: Configures which channel random Soul Coin drops will spawn in. Defaults to the current channel if no argument is given.</li>
-                <li><code>s force-drop</code>: Instantly forces a Soul Coin drop in the configured drop channel.</li>
-                <li><code>s reset-cycle</code>: Archives current standings and resets all balances to 0. <strong>Restricted to <code>#soul-logs</code>. Disabled in Global Economy mode.</strong></li>
-              </ul>
-              <div class="detail-row">
-                <strong>Permission:</strong> Server Administrators only.
-              </div>
-            </div>
-          </div>
-
-          <!-- Slash Admin Commands -->
-          <div class="command-item" data-category="admin" id="cmd-admin-slash">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">/admin <span class="required-param">&lt;subcommand&gt;</span></span>
-                <span class="command-tag admin-tag">Admin</span>
-              </div>
-              <span class="command-short-desc">Slash commands for server setup, drops, and cycle management.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>All <code>/admin</code> slash subcommands require the <strong>Administrator</strong> permission. These are the officially registered Discord slash commands.</p>
-              <ul class="admin-subcommands">
-                <li><code>/admin setup</code>: Creates the Soul category and both bot channels if they don't already exist. Can be run anywhere.</li>
-                <li><code>/admin set-drop-channel [channel]</code>: Sets the Soul Coin drop target channel. Defaults to current channel. Can be run anywhere.</li>
-                <li><code>/admin force-drop</code>: Immediately triggers a Soul Coin drop in the drop channel. Can be run anywhere.</li>
-                <li><code>/admin auto-drops &lt;start/stop&gt;</code>: Starts or stops the automated 10-minute drop cycle in the configured drop channel. Can be run anywhere.</li>
-                <li><code>/admin reset-cycle</code>: Closes the current cycle, archives rankings, and resets all balances to 0. <strong>Restricted to <code>#soul-logs</code>. Disabled in Global Economy mode.</strong></li>
-              </ul>
-              <div class="detail-row">
-                <strong>Permission:</strong> Server Administrators only.
-              </div>
-              <div class="detail-row">
-                <strong>Note:</strong> <code>/admin reset-cycle</code> must be run in <code>#soul-logs</code>. All other subcommands can be run from any channel.
-              </div>
-            </div>
-          </div>
-
-          <!-- Command 6: soul (Catch) -->
-          <div class="command-item" data-category="user" id="cmd-catch">
-            <div class="command-trigger">
-              <div class="command-name-wrapper">
-                <span class="command-name">soul</span>
-                <span class="command-tag user-tag">User</span>
-              </div>
-              <span class="command-short-desc">Catch a Soul Coin drop.</span>
-              <i class="fa-solid fa-chevron-down arrow-icon"></i>
-            </div>
-            <div class="command-details">
-              <p>Type exactly <code>soul</code> (case-insensitive) in the designated drop channel when a Soul Coin appears to claim its value. Be quick, drops expire after 5 minutes!</p>
-              <div class="detail-row">
-                <strong>Syntax:</strong> <code>soul</code>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Mascot Banner Feature Section -->
-  <section class="banner-feature-section" style="background-image: linear-gradient(rgba(3, 3, 6, 0.85), rgba(7, 7, 15, 0.9)), url('assets/banner_catgirl.png');">
-    <div class="container">
-      <div class="banner-feature-content">
-        <div class="badge purple-badge"><i class="fa-solid fa-sparkles"></i> SOUL SHRINE</div>
-        <h2 class="section-title">Step Into the <span class="purple-text">Soul Sanctuary</span></h2>
-        <p class="section-subtitle" style="text-align: left; margin-left: 0;">Meet the Genesis Prime. High-rollers and active chatters are graced by the ultimate Divine Soul. Boost your luck, secure your daily upkeep, and reign supreme.</p>
-        <div class="banner-stats">
-          <div class="b-stat">
-            <strong>100,000</strong>
-            <span>Maximum Value</span>
-          </div>
-          <div class="b-stat">
-            <strong>0.1%</strong>
-            <span>Spawn Probability</span>
-          </div>
-          <div class="b-stat">
-            <strong>+50%</strong>
-            <span>Active Luck Boost</span>
+          <div class="cmd-group">
+            <div class="cmd-group-title"><i class="fa-solid fa-chart-bar"></i> Stats</div>
+            <div class="cmd-item"><code>s profile</code><span class="cmd-item-desc">View your full profile</span></div>
+            <div class="cmd-item"><code>s history</code><span class="cmd-item-desc">View recent transactions</span></div>
+            <div class="cmd-item"><code>s server</code><span class="cmd-item-desc">Server economy overview</span></div>
+            <div class="cmd-item"><code>s rank</code><span class="cmd-item-desc">Your current rank</span></div>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Cycle Reset Information Banner -->
-  <section class="banner-section">
-    <div class="container">
-      <div class="banner-card">
-        <div class="banner-badge">Cycle Archival System</div>
-        <h3 class="banner-title">Manual Monthly Reset Wipes</h3>
-        <p class="banner-desc">To keep server standings competitive and fresh, currency balances and chat counters do not persist forever. Administrators manually archive standings into snapshots at the end of each month before wiping active balances to 0 for a new cycle.</p>
+  <!-- CTA -->
+  <section class="cta-section" id="cta">
+    <div class="section-inner">
+      <p class="cta-jp">&#39746;&#12398;&#32076;&#28168; &mdash; Begin Your Journey</p>
+      <h2 class="cta-title reveal">
+        YOUR SERVER<br>
+        <span class="gradient-text">DESERVES POWER</span>
+      </h2>
+      <p class="cta-sub reveal reveal-delay-1">Join servers already running Soul Economy. Free to add. Infinite power within.</p>
+      <div class="cta-buttons reveal reveal-delay-2">
+        <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands"
+           target="_blank" class="btn-cta btn-cta-primary">
+          <i class="fa-brands fa-discord"></i> Add to Server &mdash; Free
+        </a>
+        <a href="shop.html" class="btn-cta btn-cta-ghost">
+          <i class="fa-solid fa-store"></i> Visit Shop
+        </a>
       </div>
     </div>
   </section>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-top">
-        <div class="footer-brand">
-          <img src="assets/logo.png" alt="Soul Brand" class="footer-logo">
-          <span class="footer-brand-name">SOUL CURRENCY</span>
-        </div>
-        <div class="footer-links">
-          <a href="#hero">Home</a>
-          <a href="shop.html">Shop</a>
-          <a href="#setup-guide">Setup Guide</a>
-          <a href="#leaderboard">Standings</a>
-          <a href="#commands">Commands</a>
-        </div>
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <div class="footer-brand">SOUL ECONOMY</div>
+        <div class="footer-jp">&#39746;&#12398;&#32076;&#28168;&#12471;&#12473;&#12486;&#12512;</div>
       </div>
-      <hr class="footer-divider">
-      <div class="footer-bottom">
-        <p class="copyright">&copy; 2026 Soul Currency System. All rights reserved. Game assets powered by Supabase.</p>
-        <div class="social-links">
-          <a href="https://discord.gg" target="_blank" aria-label="Discord Guild"><i class="fa-brands fa-discord"></i></a>
-          <a href="https://github.com" target="_blank" aria-label="Github Repo"><i class="fa-brands fa-github"></i></a>
-        </div>
+      <div class="footer-links">
+        <a href="shop.html">Shop</a>
+        <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands" target="_blank">Add Bot</a>
+        <a href="#commands">Commands</a>
       </div>
     </div>
   </footer>
 
-  <!-- Scripts -->
-  <script src="app.js"></script>
-  <script>
-    /* ===== SAKURA PARTICLE SYSTEM ===== */
-    (function() {
-      const canvas = document.getElementById('sakura-canvas');
-      const ctx = canvas.getContext('2d');
-      let petals = [];
-      const PETAL_COUNT = 35;
-
-      function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-      }
-      resize();
-      window.addEventListener('resize', resize);
-
-      function randomBetween(a, b) { return a + Math.random() * (b - a); }
-
-      function createPetal() {
-        return {
-          x: randomBetween(0, canvas.width),
-          y: randomBetween(-80, -10),
-          size: randomBetween(6, 14),
-          speedY: randomBetween(0.6, 1.8),
-          speedX: randomBetween(-0.6, 0.6),
-          rotation: randomBetween(0, Math.PI * 2),
-          rotationSpeed: randomBetween(-0.02, 0.02),
-          opacity: randomBetween(0.3, 0.75),
-          sway: randomBetween(0.3, 0.9),
-          swayOffset: randomBetween(0, Math.PI * 2),
-        };
-      }
-
-      for (let i = 0; i < PETAL_COUNT; i++) {
-        const p = createPetal();
-        p.y = randomBetween(0, canvas.height);
-        petals.push(p);
-      }
-
-      function drawPetal(p) {
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rotation);
-        ctx.globalAlpha = p.opacity;
-        ctx.beginPath();
-        ctx.moveTo(0, -p.size);
-        ctx.bezierCurveTo(p.size * 0.8, -p.size * 0.5, p.size * 0.8, p.size * 0.5, 0, p.size * 0.3);
-        ctx.bezierCurveTo(-p.size * 0.8, p.size * 0.5, -p.size * 0.8, -p.size * 0.5, 0, -p.size);
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
-        grad.addColorStop(0, 'rgba(255, 182, 193, 0.9)');
-        grad.addColorStop(0.5, 'rgba(220, 100, 140, 0.7)');
-        grad.addColorStop(1, 'rgba(180, 60, 100, 0.2)');
-        ctx.fillStyle = grad;
-        ctx.fill();
-        ctx.restore();
-      }
-
-      let frame = 0;
-      function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        frame++;
-        petals.forEach(p => {
-          p.y += p.speedY;
-          p.x += p.speedX + Math.sin(frame * 0.01 + p.swayOffset) * p.sway;
-          p.rotation += p.rotationSpeed;
-          if (p.y > canvas.height + 20 || p.x < -40 || p.x > canvas.width + 40) {
-            Object.assign(p, createPetal());
-          }
-          drawPetal(p);
-        });
-        requestAnimationFrame(animate);
-      }
-      animate();
-    })();
-
-    /* ===== SCROLL REVEAL SYSTEM ===== */
-    (function() {
-      const targets = document.querySelectorAll('.step-card, .command-item, .market-card, .rule-card, .section-header, .leaderboard-wrap, .calc-wrapper, .holo-frame-container, .banner-feature-content, .b-stat');
-      targets.forEach(el => el.classList.add('reveal-el'));
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach(e => {
-          if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); }
-        });
-      }, { threshold: 0.1 });
-      targets.forEach(el => io.observe(el));
-    })();
-
-    /* ===== MOUSE TRACKING BLOOM on CARDS ===== */
-    document.querySelectorAll('.step-card, .command-item, .market-card').forEach(card => {
-      card.addEventListener('mousemove', (e) => {
-        const rect = card.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width  * 100).toFixed(1) + '%';
-        const y = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1) + '%';
-        card.style.setProperty('--mx', x);
-        card.style.setProperty('--my', y);
-      });
-    });
-
-  </script>
+  <script src="main.js"></script>
 </body>
 </html>
