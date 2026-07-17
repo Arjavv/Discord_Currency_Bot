@@ -542,70 +542,81 @@
         <p>Manage automated giveaways, edit announcement message templates, and run manual draws</p>
       </div>
 
-      <!-- Section: Timers and Trigger Controls -->
-      <div class="section">
-        <div class="section-title"><i class="fa-solid fa-clock"></i> Sweepstakes Status & Manual Draws</div>
-        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:18px">See the countdown timers to the next automated drawings and trigger them manually if needed.</p>
-        
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:16px;">
-          <!-- Daily -->
-          <div style="background:rgba(255,255,255,0.02); border:1px solid var(--card-border); border-radius:10px; padding:20px; text-align:center;">
-            <div style="font-size:0.75rem; text-transform:uppercase; font-weight:600; color:var(--muted); letter-spacing:1px; margin-bottom:8px;">Daily Sweepstakes (1,000 Souls)</div>
-            <div id="giveaway-timer-daily" style="font-family:'Orbitron',monospace; font-size:1.6rem; font-weight:700; color:var(--violet); margin-bottom:14px;">--:--:--</div>
-            <button class="btn-primary" style="padding:10px 16px; font-size:0.8rem; font-family:inherit; text-transform:uppercase; letter-spacing:0.5px;" onclick="triggerGiveawayDraw('daily')"><i class="fa-solid fa-wand-magic-sparkles"></i> Draw Daily Now</button>
-          </div>
-          <!-- Weekly -->
-          <div style="background:rgba(255,255,255,0.02); border:1px solid var(--card-border); border-radius:10px; padding:20px; text-align:center;">
-            <div style="font-size:0.75rem; text-transform:uppercase; font-weight:600; color:var(--muted); letter-spacing:1px; margin-bottom:8px;">Weekly Sweepstakes (5,000 Souls)</div>
-            <div id="giveaway-timer-weekly" style="font-family:'Orbitron',monospace; font-size:1.6rem; font-weight:700; color:var(--cyan); margin-bottom:14px;">--:--:--</div>
-            <button class="btn-primary" style="padding:10px 16px; font-size:0.8rem; font-family:inherit; text-transform:uppercase; letter-spacing:0.5px; background:linear-gradient(135deg, var(--cyan), #0891b2)" onclick="triggerGiveawayDraw('weekly')"><i class="fa-solid fa-wand-magic-sparkles"></i> Draw Weekly Now</button>
-          </div>
-          <!-- Monthly -->
-          <div style="background:rgba(255,255,255,0.02); border:1px solid var(--card-border); border-radius:10px; padding:20px; text-align:center;">
-            <div style="font-size:0.75rem; text-transform:uppercase; font-weight:600; color:var(--muted); letter-spacing:1px; margin-bottom:8px;">Monthly Sweepstakes (50,000 Souls)</div>
-            <div id="giveaway-timer-monthly" style="font-family:'Orbitron',monospace; font-size:1.6rem; font-weight:700; color:var(--amber); margin-bottom:14px;">--:--:--</div>
-            <button class="btn-primary" style="padding:10px 16px; font-size:0.8rem; font-family:inherit; text-transform:uppercase; letter-spacing:0.5px; background:linear-gradient(135deg, var(--amber), #b45309)" onclick="triggerGiveawayDraw('monthly')"><i class="fa-solid fa-wand-magic-sparkles"></i> Draw Monthly Now</button>
-          </div>
-        </div>
+      <!-- Server selector for giveaways -->
+      <div class="server-selector-row">
+        <label for="giveaway-server-select" style="font-size:0.75rem; text-transform:uppercase; font-weight:600; color:var(--muted); letter-spacing:0.8px;">Target Server</label>
+        <select id="giveaway-server-select" style="flex:1; min-width:220px; max-width:400px; padding:10px 14px; background:var(--bg2); border:1px solid var(--card-border); border-radius:9px; color:var(--text); font-size:0.88rem; outline:none; cursor:pointer;">
+          <option value="">-- Select a Server --</option>
+        </select>
+        <button class="btn-search" id="refresh-giveaway-btn" style="padding: 10px 20px;"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
       </div>
 
-      <!-- Section: Templates Configuration -->
-      <div class="section">
-        <div class="section-title"><i class="fa-solid fa-comment-dots"></i> Announcement Message Customization</div>
-        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Customize the text ping and descriptive body templates. Use the following placeholders: <code>{mention}</code> (user mention), <code>{tag}</code> (winner's tag/username), <code>{type}</code> (giveaway type), <code>{amount}</code> (prize souls).</p>
-        
-        <div style="display:flex; flex-direction:column; gap:16px;">
-          <div class="input-group" style="margin:0;">
-            <label>Announcement Ping Message (Triggers Notification)</label>
-            <input type="text" id="g-ping-template" style="font-family:inherit;" placeholder="🎉 CONGRATULATIONS {mention}! You won the {type} giveaway draw! 🎉">
-          </div>
-          <div class="maint-msg-wrap" style="margin:0;">
-            <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Embed Description Text</label>
-            <textarea id="g-desc-template" style="min-height:100px; line-height:1.65;" placeholder="A lucky server member has been chosen by the cosmic scales for the {type} sweepstakes..."></textarea>
+      <div id="giveaway-controls-wrapper" style="display:none; margin-top:20px;">
+        <!-- Section: Timers and Trigger Controls -->
+        <div class="section">
+          <div class="section-title"><i class="fa-solid fa-clock"></i> Sweepstakes Status & Manual Draws</div>
+          <p style="font-size:0.78rem;color:var(--muted);margin-bottom:18px">See the countdown timers to the next automated drawings and trigger them manually if needed.</p>
+          
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:16px;">
+            <!-- Daily -->
+            <div style="background:rgba(255,255,255,0.02); border:1px solid var(--card-border); border-radius:10px; padding:20px; text-align:center;">
+              <div style="font-size:0.75rem; text-transform:uppercase; font-weight:600; color:var(--muted); letter-spacing:1px; margin-bottom:8px;">Daily Sweepstakes (1,000 Souls)</div>
+              <div id="giveaway-timer-daily" style="font-family:'Orbitron',monospace; font-size:1.6rem; font-weight:700; color:var(--violet); margin-bottom:14px;">--:--:--</div>
+              <button class="btn-primary" style="padding:10px 16px; font-size:0.8rem; font-family:inherit; text-transform:uppercase; letter-spacing:0.5px;" onclick="triggerGiveawayDraw('daily')"><i class="fa-solid fa-wand-magic-sparkles"></i> Draw Daily Now</button>
+            </div>
+            <!-- Weekly -->
+            <div style="background:rgba(255,255,255,0.02); border:1px solid var(--card-border); border-radius:10px; padding:20px; text-align:center;">
+              <div style="font-size:0.75rem; text-transform:uppercase; font-weight:600; color:var(--muted); letter-spacing:1px; margin-bottom:8px;">Weekly Sweepstakes (5,000 Souls)</div>
+              <div id="giveaway-timer-weekly" style="font-family:'Orbitron',monospace; font-size:1.6rem; font-weight:700; color:var(--cyan); margin-bottom:14px;">--:--:--</div>
+              <button class="btn-primary" style="padding:10px 16px; font-size:0.8rem; font-family:inherit; text-transform:uppercase; letter-spacing:0.5px; background:linear-gradient(135deg, var(--cyan), #0891b2)" onclick="triggerGiveawayDraw('weekly')"><i class="fa-solid fa-wand-magic-sparkles"></i> Draw Weekly Now</button>
+            </div>
+            <!-- Monthly -->
+            <div style="background:rgba(255,255,255,0.02); border:1px solid var(--card-border); border-radius:10px; padding:20px; text-align:center;">
+              <div style="font-size:0.75rem; text-transform:uppercase; font-weight:600; color:var(--muted); letter-spacing:1px; margin-bottom:8px;">Monthly Sweepstakes (50,000 Souls)</div>
+              <div id="giveaway-timer-monthly" style="font-family:'Orbitron',monospace; font-size:1.6rem; font-weight:700; color:var(--amber); margin-bottom:14px;">--:--:--</div>
+              <button class="btn-primary" style="padding:10px 16px; font-size:0.8rem; font-family:inherit; text-transform:uppercase; letter-spacing:0.5px; background:linear-gradient(135deg, var(--amber), #b45309)" onclick="triggerGiveawayDraw('monthly')"><i class="fa-solid fa-wand-magic-sparkles"></i> Draw Monthly Now</button>
+            </div>
           </div>
         </div>
-        
-        <button class="save-btn" id="save-giveaway-templates-btn" style="margin-top:16px"><i class="fa-solid fa-floppy-disk"></i> Save Message Templates</button>
-      </div>
 
-      <!-- Section: Previous Winners Logs -->
-      <div class="section">
-        <div class="section-title"><i class="fa-solid fa-list-check"></i> Previous Draw Winners</div>
-        <div style="overflow-x:auto;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Winner Avatar</th>
-                <th>Winner Name</th>
-                <th>Souls Awarded</th>
-                <th>Draw Date</th>
-              </tr>
-            </thead>
-            <tbody id="giveaway-winners-list">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
+        <!-- Section: Templates Configuration -->
+        <div class="section">
+          <div class="section-title"><i class="fa-solid fa-comment-dots"></i> Announcement Message Customization</div>
+          <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Customize the text ping and descriptive body templates. Use the following placeholders: <code>{mention}</code> (user mention), <code>{tag}</code> (winner's tag/username), <code>{type}</code> (giveaway type), <code>{amount}</code> (prize souls).</p>
+          
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <div class="input-group" style="margin:0;">
+              <label>Announcement Ping Message (Triggers Notification)</label>
+              <input type="text" id="g-ping-template" style="font-family:inherit;" placeholder="🎉 CONGRATULATIONS {mention}! You won the {type} giveaway draw! 🎉">
+            </div>
+            <div class="maint-msg-wrap" style="margin:0;">
+              <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Embed Description Text</label>
+              <textarea id="g-desc-template" style="min-height:100px; line-height:1.65;" placeholder="A lucky server member has been chosen by the cosmic scales for the {type} sweepstakes..."></textarea>
+            </div>
+          </div>
+          
+          <button class="save-btn" id="save-giveaway-templates-btn" style="margin-top:16px"><i class="fa-solid fa-floppy-disk"></i> Save Message Templates</button>
+        </div>
+
+        <!-- Section: Previous Winners Logs -->
+        <div class="section">
+          <div class="section-title"><i class="fa-solid fa-list-check"></i> Previous Draw Winners</div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Winner Avatar</th>
+                  <th>Winner Name</th>
+                  <th>Souls Awarded</th>
+                  <th>Draw Date</th>
+                </tr>
+              </thead>
+              <tbody id="giveaway-winners-list">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -931,12 +942,16 @@ async function loadServers() {
   try {
     serversData = await api('/api/servers-info');
     const sel = $('server-select');
+    const gSel = $('giveaway-server-select');
     sel.innerHTML = '<option value="">-- Select a Server --</option>';
+    gSel.innerHTML = '<option value="">-- Select a Server --</option>';
+    
     serversData.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id;
       opt.textContent = `${s.name} (${fmt(s.totalCoins)} Souls · ${s.membersCount} users)`;
-      sel.appendChild(opt);
+      sel.appendChild(opt.cloneNode(true));
+      gSel.appendChild(opt);
     });
   } catch (e) { console.error('Servers error:', e); }
 }
@@ -1340,8 +1355,16 @@ $('save-collectibles-btn').onclick = () => saveBtn($('save-collectibles-btn'), (
 let giveawayTimerInterval = null;
 
 async function loadGiveawaysManager() {
+  const serverId = $('giveaway-server-select').value;
+  if (!serverId) {
+    $('giveaway-controls-wrapper').style.display = 'none';
+    if (giveawayTimerInterval) clearInterval(giveawayTimerInterval);
+    return;
+  }
+  
   try {
-    const data = await api('/api/giveaway/status');
+    const data = await api(`/api/giveaway/status?serverId=${serverId}`);
+    $('giveaway-controls-wrapper').style.display = 'block';
     
     // Populate templates
     $('g-ping-template').value = data.templates.ping || '';
@@ -1389,7 +1412,7 @@ async function loadGiveawaysManager() {
     winners.sort((a,b) => b.timestamp - a.timestamp);
     
     if (winners.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fa-solid fa-trophy"></i>No giveaway winners drawn yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fa-solid fa-trophy"></i>No giveaway winners drawn yet for this server.</td></tr>';
       return;
     }
     
@@ -1412,13 +1435,16 @@ async function loadGiveawaysManager() {
 }
 
 async function triggerGiveawayDraw(type) {
-  if (!confirm(`Are you sure you want to trigger a manual sweepstakes draw for the ${type} giveaway now? This will award the prize and broadcast the announcement to Discord.`)) {
+  const serverId = $('giveaway-server-select').value;
+  if (!serverId) return toast('Please select a target server first.', 'err');
+
+  if (!confirm(`Are you sure you want to trigger a manual draw for the ${type} giveaway now? This will award the prize and broadcast the announcement to Discord.`)) {
     return;
   }
   
   toast(`⚙️ Triggering manual draw for ${type}...`, 'ok');
   try {
-    const result = await api('/api/giveaway/trigger', 'POST', { type });
+    const result = await api('/api/giveaway/trigger', 'POST', { type, serverId });
     toast(`🎉 Draw finished! Winner: ${result.winner}`, 'ok');
     await loadGiveawaysManager();
   } catch (e) {
@@ -1426,11 +1452,24 @@ async function triggerGiveawayDraw(type) {
   }
 }
 
+// Bind change and refresh listeners
+$('giveaway-server-select').onchange = () => loadGiveawaysManager();
+$('refresh-giveaway-btn').onclick = async () => {
+  const id = $('giveaway-server-select').value;
+  await loadServers();
+  if (id) {
+    $('giveaway-server-select').value = id;
+    loadGiveawaysManager();
+  }
+};
+
 // Bind templates save button
 $('save-giveaway-templates-btn').onclick = () => saveBtn($('save-giveaway-templates-btn'), () => {
-  return api('/api/settings', 'POST', {
-    giveaway_ping_template: $('g-ping-template').value.trim(),
-    giveaway_desc_template: $('g-desc-template').value.trim()
+  const serverId = $('giveaway-server-select').value;
+  return api('/api/giveaway/settings', 'POST', {
+    serverId,
+    pingTemplate: $('g-ping-template').value.trim(),
+    descTemplate: $('g-desc-template').value.trim()
   });
 });
 

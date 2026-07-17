@@ -166,3 +166,17 @@ CREATE TABLE IF NOT EXISTS user_daily_tax (
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS bot_channel_id VARCHAR(64);
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS log_channel_id VARCHAR(64);
 
+-- 15. Server-specific giveaway settings and history
+CREATE TABLE IF NOT EXISTS server_giveaways (
+    server_id VARCHAR(64) PRIMARY KEY,
+    last_giveaway_daily BIGINT DEFAULT 0,
+    last_giveaway_weekly BIGINT DEFAULT 0,
+    last_giveaway_monthly BIGINT DEFAULT 0,
+    last_winner_daily TEXT,
+    last_winner_weekly TEXT,
+    last_winner_monthly TEXT,
+    giveaway_ping_template VARCHAR(512),
+    giveaway_desc_template TEXT,
+    FOREIGN KEY (server_id) REFERENCES server_settings(server_id) ON DELETE CASCADE
+);
+

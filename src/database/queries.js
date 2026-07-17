@@ -1948,6 +1948,79 @@ async function getSoulsLeaderboard(serverId, tier = 'ALL', limit = 10) {
   }
 }
 
+/**
+ * Ensures a server giveaways settings record exists.
+ */
+async function ensureServerGiveawayExists(client, serverId) {
+  // Ensure the server settings parent record exists first
+  await client.query(
+    'INSERT INTO server_settings (server_id) VALUES ($1) ON CONFLICT (server_id) DO NOTHING',
+    [serverId]
+  );
+  
+  const query = `
+    INSERT INTO server_giveaways (server_id, giveaway_ping_template, giveaway_desc_template)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (server_id) DO NOTHING
+  `;
+  const defaultPing = '🎉 CONGRATULATIONS {mention}! You won the {type} giveaway draw! 🎉';
+  const defaultDesc = 'A lucky server member has been chosen by the cosmic scales for the **{type}** sweepstakes!\n\n👤 **Winner:** {tag} ({mention})\n💰 **Prize:** **{amount}** Souls\n\nCongratulations to the winner! Keep chatting and claiming drops to stand a chance in the next draw!';
+  await client.query(query, [serverId, defaultPing, defaultDesc]);
+}
+
+/**
+ * Gets server giveaway settings and previous winners.
+ */
+async function getServerGiveawaySettings(serverId) {
+  const client = await pool.connect();
+  try {
+    await ensureServerGiveawayExists(client, serverId);
+    const res = await client.query('SELECT * FROM server_giveaways WHERE server_id = $1', [serverId]);
+    return res.rows[0];
+  } catch (error) {
+    console.error(`Error in getServerGiveawaySettings for server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Updates server giveaway settings.
+ */
+async function setServerGiveawaySettings(serverId, updates) {
+  const client = await pool.connect();
+  try {
+    await ensureServerGiveawayExists(client, serverId);
+    
+    const fields = [];
+    const values = [serverId];
+    let paramIndex = 2;
+    
+    for (const [key, val] of Object.entries(updates)) {
+      fields.push(`${key} = $${paramIndex}`);
+      values.push(val);
+      paramIndex++;
+    }
+    
+    if (fields.length === 0) return null;
+    
+    const query = `
+      UPDATE server_giveaways 
+      SET ${fields.join(', ')} 
+      WHERE server_id = $1 
+      RETURNING *
+    `;
+    const res = await client.query(query, values);
+    return res.rows[0];
+  } catch (error) {
+    console.error(`Error in setServerGiveawaySettings for server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerChannels,
@@ -1986,6 +2059,8 @@ module.exports = {
   ensureTreasuryExists,
   getTreasury,
   updateTreasuryRates,
-  applyDailyTaxIfDue
+  applyDailyTaxIfDue,
+  getServerGiveawaySettings,
+  setServerGiveawaySettings
 };
 

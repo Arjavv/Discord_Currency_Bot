@@ -365,8 +365,14 @@ app.post('/api/settings', requireLogin, async (req, res) => {
 
 // Giveaway sweepstakes endpoints (Protected)
 app.get('/api/giveaway/status', requireLogin, async (req, res) => {
+  const { serverId } = req.query;
+  if (!serverId) {
+    return res.status(400).json({ error: 'Missing serverId parameter.' });
+  }
+
   try {
-    const settings = await getGlobalSettings();
+    const { getServerGiveawaySettings } = require('./database/queries');
+    const settings = await getServerGiveawaySettings(serverId);
     const now = Date.now();
     const dailyCooldown = 24 * 60 * 60 * 1000;
     const weeklyCooldown = 7 * 24 * 60 * 60 * 1000;
@@ -409,23 +415,50 @@ app.get('/api/giveaway/status', requireLogin, async (req, res) => {
   }
 });
 
+app.post('/api/giveaway/settings', requireLogin, async (req, res) => {
+  const { serverId, pingTemplate, descTemplate } = req.body;
+  if (!serverId) {
+    return res.status(400).json({ error: 'Missing serverId parameter.' });
+  }
+
+  try {
+    const { setServerGiveawaySettings } = require('./database/queries');
+    const result = await setServerGiveawaySettings(serverId, {
+      giveaway_ping_template: pingTemplate,
+      giveaway_desc_template: descTemplate
+    });
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error('Error updating server giveaway settings:', err);
+    res.status(500).json({ error: 'Failed to update server giveaway settings' });
+  }
+});
+
 app.post('/api/giveaway/trigger', requireLogin, async (req, res) => {
-  const { type } = req.body;
+  const { type, serverId } = req.body;
+  if (!serverId) {
+    return res.status(400).json({ error: 'Missing serverId parameter.' });
+  }
   if (!['daily', 'weekly', 'monthly'].includes(type)) {
     return res.status(400).json({ error: 'Invalid giveaway type.' });
   }
 
   try {
+    const guild = client.guilds.cache.get(serverId) || await client.guilds.fetch(serverId).catch(() => null);
+    if (!guild) {
+      return res.status(404).json({ error: 'Guild not found or inaccessible by the bot.' });
+    }
+
     const val = type === 'daily' ? 1000 : (type === 'weekly' ? 5000 : 50000);
-    const { runGiveaway } = require('./utils/giveaways');
-    const result = await runGiveaway(client, type, val);
+    const { runServerGiveaway } = require('./utils/giveaways');
+    const result = await runServerGiveaway(guild, type, val);
     if (result) {
       res.json({ success: true, winner: result.winnerUser.tag });
     } else {
-      res.status(500).json({ error: 'Draw failed. No eligible human users exist.' });
+      res.status(500).json({ error: 'Draw failed. No candidates found in this server.' });
     }
   } catch (err) {
-    console.error(`Error triggering manual giveaway for ${type}:`, err);
+    console.error(`Error triggering manual giveaway for ${type} in server ${serverId}:`, err);
     res.status(500).json({ error: err.message || 'Failed to trigger giveaway draw.' });
   }
 });
