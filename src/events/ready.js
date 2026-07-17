@@ -98,6 +98,18 @@ module.exports = {
         console.error('Failed to load auto-drops state from DB:', dbErr);
       }
 
+      // Start periodic check for daily, weekly, and monthly giveaways
+      try {
+        const { checkAndRunGiveaways } = require('../utils/giveaways');
+        console.log('Initializing automated daily/weekly/monthly giveaways system...');
+        checkAndRunGiveaways(client);
+        setInterval(() => {
+          checkAndRunGiveaways(client);
+        }, 15 * 60 * 1000); // Check every 15 minutes
+      } catch (giveawayErr) {
+        console.error('Failed to initialize giveaways scheduler:', giveawayErr);
+      }
+
     } catch (error) {
       console.error('Error while registering application commands:', error);
     }
