@@ -12,7 +12,7 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700;850;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700;850;900&family=Noto+Serif+JP:wght@300;400;700;900&family=Shippori+Mincho:wght@400;700;800&display=swap" rel="stylesheet">
   
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -21,6 +21,21 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <!-- Sakura Particle Canvas -->
+  <canvas id="sakura-canvas"></canvas>
+
+  <!-- Floating Kanji Background -->
+  <div class="kanji-bg" aria-hidden="true">
+    <span class="kanji-char" style="--x:5%;--y:10%;--size:5rem;--delay:0s">魂</span>
+    <span class="kanji-char" style="--x:88%;--y:20%;--size:4rem;--delay:2s">霊</span>
+    <span class="kanji-char" style="--x:15%;--y:70%;--size:6rem;--delay:1s">道</span>
+    <span class="kanji-char" style="--x:75%;--y:55%;--size:3.5rem;--delay:3s">龍</span>
+    <span class="kanji-char" style="--x:45%;--y:85%;--size:5rem;--delay:0.5s">力</span>
+    <span class="kanji-char" style="--x:92%;--y:80%;--size:4.5rem;--delay:4s">神</span>
+    <span class="kanji-char" style="--x:30%;--y:35%;--size:3rem;--delay:2.5s">炎</span>
+    <span class="kanji-char" style="--x:60%;--y:15%;--size:4rem;--delay:1.5s">命</span>
+  </div>
 
   <!-- Navigation Bar -->
   <nav class="navbar" id="navbar">
@@ -561,5 +576,103 @@
 
   <!-- Scripts -->
   <script src="app.js"></script>
+  <script>
+    /* ===== SAKURA PARTICLE SYSTEM ===== */
+    (function() {
+      const canvas = document.getElementById('sakura-canvas');
+      const ctx = canvas.getContext('2d');
+      let petals = [];
+      const PETAL_COUNT = 35;
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      function randomBetween(a, b) { return a + Math.random() * (b - a); }
+
+      function createPetal() {
+        return {
+          x: randomBetween(0, canvas.width),
+          y: randomBetween(-80, -10),
+          size: randomBetween(6, 14),
+          speedY: randomBetween(0.6, 1.8),
+          speedX: randomBetween(-0.6, 0.6),
+          rotation: randomBetween(0, Math.PI * 2),
+          rotationSpeed: randomBetween(-0.02, 0.02),
+          opacity: randomBetween(0.3, 0.75),
+          sway: randomBetween(0.3, 0.9),
+          swayOffset: randomBetween(0, Math.PI * 2),
+        };
+      }
+
+      for (let i = 0; i < PETAL_COUNT; i++) {
+        const p = createPetal();
+        p.y = randomBetween(0, canvas.height);
+        petals.push(p);
+      }
+
+      function drawPetal(p) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.globalAlpha = p.opacity;
+        ctx.beginPath();
+        ctx.moveTo(0, -p.size);
+        ctx.bezierCurveTo(p.size * 0.8, -p.size * 0.5, p.size * 0.8, p.size * 0.5, 0, p.size * 0.3);
+        ctx.bezierCurveTo(-p.size * 0.8, p.size * 0.5, -p.size * 0.8, -p.size * 0.5, 0, -p.size);
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
+        grad.addColorStop(0, 'rgba(255, 182, 193, 0.9)');
+        grad.addColorStop(0.5, 'rgba(220, 100, 140, 0.7)');
+        grad.addColorStop(1, 'rgba(180, 60, 100, 0.2)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      let frame = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        frame++;
+        petals.forEach(p => {
+          p.y += p.speedY;
+          p.x += p.speedX + Math.sin(frame * 0.01 + p.swayOffset) * p.sway;
+          p.rotation += p.rotationSpeed;
+          if (p.y > canvas.height + 20 || p.x < -40 || p.x > canvas.width + 40) {
+            Object.assign(p, createPetal());
+          }
+          drawPetal(p);
+        });
+        requestAnimationFrame(animate);
+      }
+      animate();
+    })();
+
+    /* ===== SCROLL REVEAL SYSTEM ===== */
+    (function() {
+      const targets = document.querySelectorAll('.step-card, .command-item, .market-card, .rule-card, .section-header, .leaderboard-wrap, .calc-wrapper, .holo-frame-container, .banner-feature-content, .b-stat');
+      targets.forEach(el => el.classList.add('reveal-el'));
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.1 });
+      targets.forEach(el => io.observe(el));
+    })();
+
+    /* ===== MOUSE TRACKING BLOOM on CARDS ===== */
+    document.querySelectorAll('.step-card, .command-item, .market-card').forEach(card => {
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width  * 100).toFixed(1) + '%';
+        const y = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1) + '%';
+        card.style.setProperty('--mx', x);
+        card.style.setProperty('--my', y);
+      });
+    });
+
+  </script>
 </body>
 </html>

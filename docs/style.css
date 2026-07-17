@@ -1,36 +1,48 @@
 /* ==========================================
-   SOUL CURRENCY SYSTEM CORE DESIGN SYSTEM
+   SOUL CURRENCY SYSTEM — JAPANESE SANCTUM
    ========================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&display=swap');
+
 :root {
-  /* Color System */
-  --bg-darkest: #030306;
-  --bg-darker: #07070f;
-  --bg-dark: #0a0a16;
-  --bg-card: rgba(13, 13, 29, 0.65);
-  --bg-card-hover: rgba(22, 22, 48, 0.8);
-  
-  --color-gold: #f59e0b;
-  --color-gold-glow: #fbbf24;
-  --color-gold-gradient: linear-gradient(135deg, #fbbf24, #d97706);
-  --color-flame: #ef4444;
-  --color-flame-gradient: linear-gradient(135deg, #ef4444, #f97316);
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #94a3b8;
-  --color-muted: #475569;
-  --color-border: rgba(245, 158, 11, 0.1);
-  --color-border-hover: rgba(245, 158, 11, 0.35);
-  --border-color: rgba(255, 255, 255, 0.05);
-  --card-bg: rgba(255, 255, 255, 0.02);
+  /* ── Japanese Color Palette ── */
+  --bg-darkest:  #04020a;          /* Deep ink black */
+  --bg-darker:   #08040f;          /* Dark sumi */
+  --bg-dark:     #0e071a;          /* Void purple */
+  --bg-card:     rgba(14, 7, 26, 0.72);
+  --bg-card-hover: rgba(28, 10, 36, 0.88);
 
-  /* Shadows & Blur */
-  --shadow-gold: 0 8px 32px rgba(245, 158, 11, 0.06);
-  --shadow-gold-heavy: 0 16px 48px rgba(245, 158, 11, 0.2);
-  --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.55);
-  --glass-blur: blur(16px);
+  --color-crimson:       #c0392b;  /* 深紅 — Deep Crimson */
+  --color-crimson-light: #e74c3c;
+  --color-sakura:        #e8668a;  /* 桜 — Sakura Pink */
+  --color-sakura-light:  #f5b8d0;
+  --color-sakura-glow:   #ff8fab;
+  --color-gold:          #e8b84b;  /* 金 — Japanese Gold */
+  --color-gold-glow:     #f5d080;
+  --color-indigo:        #6a4bc4;  /* 藍 — Indigo */
 
-  /* Transitions */
-  --transition-smooth: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --color-gold-gradient:   linear-gradient(135deg, #f5d080, #c8920a);
+  --color-sakura-gradient: linear-gradient(135deg, #ff8fab, #c0392b);
+  --color-flame-gradient:  linear-gradient(135deg, #e74c3c, #f39c12);
+
+  --color-text-primary:   #f0e6f0;
+  --color-text-secondary: #b8a8c8;
+  --color-muted:          #6e5880;
+  --color-border:         rgba(232, 102, 138, 0.12);
+  --color-border-hover:   rgba(232, 102, 138, 0.40);
+  --border-color:         rgba(255, 255, 255, 0.04);
+  --card-bg:              rgba(255, 255, 255, 0.02);
+
+  /* ── Shadows & Blur ── */
+  --shadow-sakura:      0 8px 32px rgba(232, 102, 138, 0.08);
+  --shadow-sakura-heavy: 0 16px 48px rgba(192, 57, 43, 0.30);
+  --shadow-gold:        0 8px 32px rgba(232, 184, 75, 0.08);
+  --shadow-gold-heavy:  0 16px 48px rgba(232, 184, 75, 0.25);
+  --shadow-soft:        0 10px 40px rgba(0, 0, 0, 0.65);
+  --glass-blur:         blur(18px);
+
+  /* ── Transitions ── */
+  --transition-smooth: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Reset & Global Base */
@@ -45,15 +57,28 @@ html {
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Serif JP', sans-serif;
   background-color: var(--bg-darkest);
   color: var(--color-text-secondary);
   line-height: 1.6;
   overflow-x: hidden;
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(245, 158, 11, 0.03) 0%, transparent 40%);
+  background-image:
+    /* Corner ink bloom */
+    radial-gradient(ellipse 60% 40% at 5% 5%,   rgba(192,  57,  43, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 35% at 95% 95%,  rgba(106,  75, 196, 0.06) 0%, transparent 60%),
+    /* Sakura accent */
+    radial-gradient(ellipse 40% 30% at 80% 10%,  rgba(232, 102, 138, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 35% 25% at 20% 85%,  rgba(232, 184,  75, 0.04) 0%, transparent 50%),
+    /* Subtle wave texture */
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 60px,
+      rgba(192, 57, 43, 0.008) 60px,
+      rgba(192, 57, 43, 0.008) 61px
+    );
 }
+
 
 /* Scrollbar Customization */
 ::-webkit-scrollbar {
@@ -63,17 +88,31 @@ body {
   background: var(--bg-darkest);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(245, 158, 11, 0.2);
+  background: rgba(192, 57, 43, 0.35);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gold);
+  background: var(--color-sakura);
 }
 
-/* Reusable Components & Typography */
+/* ── Typography ── */
 h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title, .step-number {
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Outfit', 'Noto Serif JP', sans-serif;
   letter-spacing: 0.5px;
+}
+
+/* Japanese accent headings */
+.jp-accent {
+  font-family: 'Shippori Mincho', 'Noto Serif JP', serif;
+  letter-spacing: 0.1em;
+}
+.jp-sub {
+  font-family: 'Noto Serif JP', serif;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  color: var(--color-sakura-light);
+  opacity: 0.7;
+  font-size: 0.78em;
 }
 
 .container {
@@ -87,7 +126,14 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
   background: var(--color-gold-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.2));
+  filter: drop-shadow(0 2px 12px rgba(232, 184, 75, 0.3));
+}
+
+.sakura-text {
+  background: var(--color-sakura-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(232, 102, 138, 0.4));
 }
 
 .white-text {
@@ -109,28 +155,44 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
 }
 
 .btn-primary {
-  background: var(--color-gold-gradient);
-  color: var(--bg-darkest);
+  background: var(--color-sakura-gradient);
+  color: #fff;
   border: none;
-  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 4px 24px rgba(192, 57, 43, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.18) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.btn-primary:hover::after {
+  transform: translateX(100%);
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-gold-heavy);
-  filter: brightness(1.1);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-sakura-heavy);
+  filter: brightness(1.12);
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(232, 102, 138, 0.06);
   color: var(--color-text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(232, 102, 138, 0.18);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: var(--color-text-primary);
+  background: rgba(232, 102, 138, 0.12);
+  border-color: var(--color-sakura);
   transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(232, 102, 138, 0.15);
 }
 
 /* Navigation Bar */
@@ -140,17 +202,18 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
   left: 0;
   width: 100%;
   z-index: 1000;
-  background: rgba(4, 4, 7, 0.7);
+  background: rgba(4, 2, 10, 0.75);
   backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(192, 57, 43, 0.15);
   transition: var(--transition-smooth);
   padding: 20px 0;
 }
 
 .navbar.scrolled {
   padding: 12px 0;
-  background: rgba(3, 3, 6, 0.85);
-  border-bottom: 1px solid var(--color-border);
+  background: rgba(4, 2, 10, 0.92);
+  border-bottom: 1px solid rgba(192, 57, 43, 0.25);
+  box-shadow: 0 4px 24px rgba(192, 57, 43, 0.12);
 }
 
 .nav-container {
@@ -171,7 +234,11 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
 .brand-logo {
   height: 38px;
   width: auto;
-  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.35));
+  filter: drop-shadow(0 0 10px rgba(232, 102, 138, 0.5));
+  transition: filter 0.3s ease;
+}
+.brand-logo:hover {
+  filter: drop-shadow(0 0 18px rgba(232, 102, 138, 0.85));
 }
 
 .brand-name {
@@ -2288,5 +2355,442 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
   }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   JAPANESE SANCTUM — ANIMATIONS & DECORATIVE LAYER
+   ═══════════════════════════════════════════════════════════ */
 
+/* ── Sakura Canvas (fixed background layer) ── */
+#sakura-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
 
+/* ── Floating Kanji Background ── */
+.kanji-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.kanji-char {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  font-family: 'Noto Serif JP', serif;
+  font-size: var(--size, 4rem);
+  font-weight: 900;
+  color: rgba(192, 57, 43, 0.06);
+  animation:
+    kanjiFloat 8s ease-in-out var(--delay, 0s) infinite alternate,
+    kanjiPulse 5s ease-in-out var(--delay, 0s) infinite;
+  user-select: none;
+  letter-spacing: 0;
+  line-height: 1;
+  text-shadow: 0 0 40px rgba(232, 102, 138, 0.08);
+  transform-origin: center;
+}
+
+@keyframes kanjiFloat {
+  0%   { transform: translateY(0)   rotate(-3deg); }
+  50%  { transform: translateY(-18px) rotate(2deg); }
+  100% { transform: translateY(-8px)  rotate(-1deg); }
+}
+
+@keyframes kanjiPulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+/* ── Ink Brush Section Dividers ── */
+.ink-divider {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(192, 57, 43, 0.15) 20%,
+    rgba(232, 102, 138, 0.5) 50%,
+    rgba(192, 57, 43, 0.15) 80%,
+    transparent 100%
+  );
+  margin: 60px auto;
+  position: relative;
+}
+
+.ink-divider::before,
+.ink-divider::after {
+  content: '⊹';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-sakura);
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.ink-divider::before { left: calc(50% - 50px); }
+.ink-divider::after  { left: calc(50% + 36px); }
+
+/* ── Japanese Red Accent Bars ── */
+.torii-accent {
+  display: block;
+  width: 56px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-sakura-gradient);
+  box-shadow: 0 0 12px rgba(232, 102, 138, 0.5);
+  margin: 12px auto 0;
+}
+
+/* ── Section Title Japanese Style ── */
+.section-header .section-title {
+  position: relative;
+  display: inline-block;
+}
+
+.section-header .section-title::before {
+  content: attr(data-jp);
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Noto Serif JP', serif;
+  font-size: 11px;
+  font-weight: 300;
+  letter-spacing: 0.3em;
+  color: var(--color-sakura);
+  opacity: 0.55;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+/* ── Hero Typography Classes ── */
+.hero-jp-title {
+  font-family: 'Noto Serif JP', serif;
+  font-weight: 900;
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  background: linear-gradient(
+    135deg,
+    #f0e6f0 0%,
+    var(--color-sakura-light) 30%,
+    var(--color-sakura) 60%,
+    var(--color-crimson) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 4px 24px rgba(232, 102, 138, 0.35));
+  animation: heroGlow 4s ease-in-out infinite alternate;
+}
+
+@keyframes heroGlow {
+  0%   { filter: drop-shadow(0 4px 24px rgba(232, 102, 138, 0.25)); }
+  100% { filter: drop-shadow(0 4px 40px rgba(192,  57,  43, 0.55)); }
+}
+
+/* ── Crimson Glow Badge ── */
+.jp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 99px;
+  background: rgba(192, 57, 43, 0.12);
+  border: 1px solid rgba(232, 102, 138, 0.3);
+  color: var(--color-sakura-light);
+  font-size: 12px;
+  font-family: 'Noto Serif JP', serif;
+  letter-spacing: 0.08em;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 102, 138, 0); }
+  50%       { box-shadow: 0 0 0 6px rgba(232, 102, 138, 0); }
+}
+
+/* ── Card Hover: Sakura Bloom ── */
+.step-card,
+.command-item,
+.market-card,
+.rule-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.step-card::before,
+.command-item::before,
+.market-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 50%),
+    rgba(232, 102, 138, 0.08) 0%,
+    transparent 65%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.step-card:hover::before,
+.command-item:hover::before,
+.market-card:hover::before {
+  opacity: 1;
+}
+
+/* ── Scroll Reveal System ── */
+.reveal-el {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-el:nth-child(2) { transition-delay: 0.1s; }
+.reveal-el:nth-child(3) { transition-delay: 0.2s; }
+.reveal-el:nth-child(4) { transition-delay: 0.3s; }
+.reveal-el:nth-child(5) { transition-delay: 0.4s; }
+.reveal-el:nth-child(6) { transition-delay: 0.5s; }
+
+.reveal-el.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Glowing Nav Link ── */
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--color-sakura-gradient);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(232, 102, 138, 0.6);
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  width: 100%;
+}
+
+.nav-link:hover {
+  color: var(--color-sakura-light);
+}
+
+/* ── Wave Hero Overlay ── */
+.hero-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.hero-wave svg {
+  display: block;
+  width: 100%;
+  height: 60px;
+}
+
+/* ── Step Number Japanese Style ── */
+.step-number {
+  background: var(--color-sakura-gradient) !important;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 10px rgba(232, 102, 138, 0.4));
+}
+
+/* ── Japanese Card Borders ── */
+.step-card,
+.command-item {
+  border-color: rgba(232, 102, 138, 0.1) !important;
+  transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease;
+}
+
+.step-card:hover,
+.command-item:hover {
+  border-color: rgba(232, 102, 138, 0.3) !important;
+  box-shadow: 0 12px 40px rgba(192, 57, 43, 0.15), inset 0 1px 0 rgba(232, 102, 138, 0.1) !important;
+}
+
+/* ── Torii-Inspired Feature Highlight ── */
+.banner-feature-section {
+  position: relative;
+}
+
+.banner-feature-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 60px;
+  background: var(--color-sakura-gradient);
+  box-shadow: 0 0 20px rgba(232, 102, 138, 0.5);
+}
+
+/* ── Animated Background Scanlines ── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(232, 102, 138, 0.012) 2px,
+    rgba(232, 102, 138, 0.012) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Page Entrance Animation ── */
+@keyframes pageEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0)  scale(1);
+  }
+}
+
+.hero-content,
+.market-hero-content {
+  animation: pageEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Shimmer on Gold Text ── */
+@keyframes goldShimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.gold-text {
+  background-size: 200% auto !important;
+  animation: goldShimmer 4s linear infinite;
+}
+
+/* ── Pulsing Crimson Glow on CTAs ── */
+@keyframes ctaPulse {
+  0%, 100% { box-shadow: 0 4px 24px rgba(192, 57, 43, 0.35); }
+  50%       { box-shadow: 0 8px 40px rgba(232, 102, 138, 0.55); }
+}
+
+.btn-primary {
+  animation: ctaPulse 3s ease-in-out infinite;
+}
+
+/* ── Discord CTA Badge Glow ── */
+.discord-cta-section {
+  position: relative;
+}
+
+.discord-cta-section::before {
+  content: '⛩';
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 28px;
+  opacity: 0.3;
+  animation: kanjiFloat 6s ease-in-out infinite alternate;
+}
+
+/* ── Holographic Frame Japanese Upgrade ── */
+.holo-frame-container {
+  position: relative;
+}
+
+.holo-frame-container::after {
+  content: '魂';
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  font-family: 'Noto Serif JP', serif;
+  font-size: 20px;
+  color: rgba(232, 102, 138, 0.4);
+  animation: kanjiPulse 4s ease-in-out infinite;
+}
+
+/* ── Market / Shop Cards ── */
+.market-card {
+  border-color: rgba(232, 102, 138, 0.1) !important;
+}
+
+.market-card:hover {
+  border-color: rgba(232, 102, 138, 0.35) !important;
+  box-shadow: 0 20px 60px rgba(192, 57, 43, 0.2) !important;
+}
+
+/* ── Gacha Box Sakura Override ── */
+.gacha-box {
+  border-color: rgba(232, 102, 138, 0.2) !important;
+  background: rgba(14, 7, 26, 0.85) !important;
+}
+
+.gacha-box:hover {
+  border-color: rgba(232, 102, 138, 0.45) !important;
+  box-shadow: 0 0 30px rgba(232, 102, 138, 0.2) !important;
+}
+
+/* ── Leaderboard Row Hover ── */
+.lb-row:hover {
+  background: rgba(192, 57, 43, 0.07) !important;
+  border-left: 2px solid var(--color-sakura) !important;
+}
+
+/* ── Stat Cards Japanese ── */
+.b-stat {
+  border-color: rgba(232, 102, 138, 0.15) !important;
+  background: rgba(14, 7, 26, 0.8) !important;
+}
+
+.b-stat:hover {
+  border-color: rgba(232, 102, 138, 0.4) !important;
+  box-shadow: 0 8px 32px rgba(192, 57, 43, 0.18) !important;
+}
+
+/* ── Floating entrance for hero badge ── */
+@keyframes floatIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.status-badge, .jp-badge {
+  animation: floatIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+}
+
+/* ── Main content above canvas ── */
+.navbar,
+.hero-section,
+main,
+section,
+footer {
+  position: relative;
+  z-index: 1;
+}
