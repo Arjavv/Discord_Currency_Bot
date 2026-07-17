@@ -3,382 +3,979 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Soul Marketplace | Buy & Redeem Souls</title>
-  
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="Exchange your earned Souls for custom server bot avatars, nicknames, partnership advertisements, and server XP multipliers, or buy Soul bundles directly.">
-  <meta name="keywords" content="Discord, Currency Bot, Souls, Casino, Marketplace, Buy Souls, Redeem Perks">
-  
-  <!-- Google Fonts -->
+  <title>Soul Marketplace — Spend Your Power</title>
+  <meta name="description" content="Spend your earned Souls on server perks, character pulls, XP boosts, and exclusive rewards. No real money needed.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700;850;900&family=Noto+Serif+JP:wght@300;400;700;900&family=Shippori+Mincho:wght@400;700;800&display=swap" rel="stylesheet">
-  
-  <!-- FontAwesome Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;700&family=Noto+Serif+JP:wght@300;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Stylesheets -->
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── SHOP-SPECIFIC STYLES ── */
+
+    /* Hero */
+    .shop-hero {
+      padding: 160px 0 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .shop-hero::before {
+      content: '';
+      position: absolute; top: -20%; left: 50%; transform: translateX(-50%);
+      width: 120vw; height: 120vw;
+      background: radial-gradient(ellipse at center,
+        rgba(230,0,40,.10) 0%, rgba(139,47,201,.06) 30%, transparent 65%);
+      pointer-events: none;
+    }
+    .shop-hero::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; width: 100%; height: 160px;
+      background: linear-gradient(transparent, var(--ink));
+      pointer-events: none;
+    }
+    .shop-hero-inner { position: relative; z-index: 5; }
+    .shop-hero-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(4rem, 9vw, 9rem);
+      letter-spacing: 2px; line-height: .9;
+      margin-bottom: 20px;
+    }
+    .shop-hero-title .accent {
+      background: linear-gradient(90deg, var(--gold), var(--pink));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .shop-hero-desc {
+      color: rgba(245,232,255,.45); font-size: 15px; line-height: 1.75;
+      font-family: 'Inter', sans-serif; max-width: 520px; margin: 0 auto 40px;
+    }
+    .shop-hero-badges {
+      display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    }
+    .sh-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 18px; border-radius: 3px;
+      font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    }
+    .sh-badge-free { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.25); color: #4ade80; }
+    .sh-badge-souls { background: rgba(245,200,66,.1); border: 1px solid rgba(245,200,66,.25); color: var(--gold); }
+    .sh-badge-instant { background: rgba(255,96,144,.1); border: 1px solid rgba(255,96,144,.25); color: var(--pink); }
+
+    /* Tab Nav */
+    .shop-tabs {
+      display: flex; gap: 0; overflow-x: auto;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      margin-bottom: 56px; padding-bottom: 0;
+      scrollbar-width: none;
+    }
+    .shop-tabs::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      flex-shrink: 0;
+      padding: 16px 28px;
+      background: none; border: none;
+      color: rgba(245,232,255,.4);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase;
+      cursor: none; transition: color .3s;
+      position: relative; white-space: nowrap;
+    }
+    .tab-btn::after {
+      content: '';
+      position: absolute; bottom: -1px; left: 0;
+      width: 0; height: 2px;
+      background: linear-gradient(90deg, var(--red), var(--pink));
+      box-shadow: 0 0 10px var(--pink);
+      transition: width .3s;
+    }
+    .tab-btn.active { color: var(--white); }
+    .tab-btn.active::after { width: 100%; }
+    .tab-btn:hover { color: var(--pink); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Shop Grid */
+    .shop-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .shop-card {
+      background: rgba(12,0,28,.8);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 14px; overflow: hidden;
+      transition: all .4s cubic-bezier(0.16,1,0.3,1);
+      position: relative;
+    }
+    .shop-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(255,96,144,.07) 0%, transparent 60%);
+      opacity: 0; transition: opacity .3s; pointer-events: none;
+    }
+    .shop-card:hover::after { opacity: 1; }
+    .shop-card:hover {
+      border-color: rgba(255,96,144,.25);
+      box-shadow: 0 20px 60px rgba(230,0,40,.14);
+      transform: translateY(-5px);
+    }
+    .shop-card-banner {
+      height: 120px; position: relative; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 3.5rem;
+    }
+    .shop-card-banner.bg-red    { background: linear-gradient(135deg, rgba(230,0,40,.3), rgba(139,0,20,.5)); }
+    .shop-card-banner.bg-gold   { background: linear-gradient(135deg, rgba(180,130,0,.3), rgba(100,70,0,.5)); }
+    .shop-card-banner.bg-purple { background: linear-gradient(135deg, rgba(100,40,180,.3), rgba(60,20,120,.5)); }
+    .shop-card-banner.bg-pink   { background: linear-gradient(135deg, rgba(200,40,100,.3), rgba(120,20,60,.5)); }
+    .shop-card-banner.bg-blue   { background: linear-gradient(135deg, rgba(30,80,200,.3), rgba(20,40,130,.5)); }
+    .shop-card-banner.bg-green  { background: linear-gradient(135deg, rgba(20,160,80,.3), rgba(10,100,50,.5)); }
+    .shop-card-inner { padding: 22px 24px 24px; }
+    .shop-card-tier {
+      font-size: 9px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .tier-free   { color: #4ade80; }
+    .tier-common { color: rgba(245,232,255,.5); }
+    .tier-rare   { color: #60a5fa; }
+    .tier-epic   { color: #d946ef; }
+    .tier-mythic { color: var(--red); }
+    .tier-divine { color: var(--gold); }
+
+    .shop-card-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.7rem; letter-spacing: 1px; margin-bottom: 8px;
+    }
+    .shop-card-desc {
+      color: rgba(245,232,255,.42); font-size: 13px; line-height: 1.65;
+      font-family: 'Inter', sans-serif; margin-bottom: 18px;
+    }
+    .shop-card-perks { margin-bottom: 20px; }
+    .perk {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: rgba(245,232,255,.55);
+      padding: 4px 0;
+      font-family: 'Inter', sans-serif;
+    }
+    .perk i { color: var(--gold); font-size: 10px; flex-shrink: 0; }
+    .shop-card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 16px; border-top: 1px solid rgba(255,255,255,.05);
+    }
+    .shop-price {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem; letter-spacing: 1px;
+    }
+    .price-free { color: #4ade80; }
+    .price-souls { color: var(--gold); }
+    .price-sub { font-size: 10px; color: rgba(245,232,255,.35); letter-spacing: 1px; font-family: 'Space Grotesk', sans-serif; font-weight: 500; }
+
+    .shop-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 20px; border-radius: 4px;
+      font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      text-decoration: none; cursor: none; border: none;
+      transition: all .3s;
+    }
+    .shop-btn-primary {
+      background: linear-gradient(135deg, var(--red), var(--pink));
+      color: #fff; box-shadow: 0 0 20px rgba(230,0,40,.25);
+    }
+    .shop-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 30px rgba(230,0,40,.5); }
+    .shop-btn-ghost {
+      background: transparent; color: var(--white);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .shop-btn-ghost:hover { border-color: var(--pink); color: var(--pink); }
+    .shop-btn-gold {
+      background: linear-gradient(135deg, var(--gold2), var(--gold));
+      color: #000; font-weight: 800; box-shadow: 0 0 20px rgba(245,200,66,.25);
+    }
+    .shop-btn-gold:hover { transform: translateY(-2px); box-shadow: 0 6px 30px rgba(245,200,66,.5); }
+    .shop-btn-disabled {
+      background: rgba(255,255,255,.05); color: rgba(255,255,255,.25);
+      border: 1px solid rgba(255,255,255,.07); pointer-events: none;
+    }
+
+    /* ── GACHA SUMMON ── */
+    .gacha-section { }
+    .gacha-terminal {
+      background: rgba(3,0,13,.97);
+      border: 1px solid rgba(255,96,144,.14);
+      border-radius: 14px; overflow: hidden;
+    }
+    .gacha-header {
+      background: rgba(16,0,32,.9);
+      padding: 18px 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .gacha-header-left { display: flex; align-items: center; gap: 10px; }
+    .gacha-dot { width: 8px; height: 8px; border-radius: 50%; animation: dotBlink .9s ease-in-out infinite; }
+    .gacha-dot-1 { background: var(--red); box-shadow: 0 0 8px var(--red); }
+    .gacha-dot-2 { background: var(--gold); box-shadow: 0 0 8px var(--gold); animation-delay: .3s; }
+    .gacha-header-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem; letter-spacing: 2px;
+    }
+    .gacha-header-sub { font-size: 10px; color: rgba(245,232,255,.35); letter-spacing: 2px; font-family: 'Inter', sans-serif; }
+    .gacha-body {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .gacha-left {
+      padding: 40px 36px;
+      border-right: 1px solid rgba(255,255,255,.04);
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+    }
+    .gacha-card-display {
+      width: 220px; height: 320px;
+      background: rgba(20,0,40,.8);
+      border-radius: 14px; border: 1px solid rgba(255,255,255,.08);
+      margin-bottom: 28px; position: relative; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .5s ease;
+    }
+    .gacha-card-display img {
+      width: 100%; height: 100%; object-fit: cover; object-position: top;
+      display: none;
+    }
+    .gacha-card-display.revealed img { display: block; }
+    .gacha-card-display-placeholder {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .gacha-card-display.revealed .gacha-card-display-placeholder { display: none; }
+    .gacha-placeholder-icon { font-size: 3.5rem; opacity: .35; }
+    .gacha-placeholder-text { font-size: 12px; color: rgba(245,232,255,.3); letter-spacing: 2px; font-family: 'Inter', sans-serif; }
+    .gacha-card-info {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 16px;
+      background: linear-gradient(transparent, rgba(3,0,13,.95));
+      display: none;
+    }
+    .gacha-card-display.revealed .gacha-card-info { display: block; }
+    .gacha-result-rarity { font-size: 9px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 4px; }
+    .gacha-result-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 1px; }
+    .gacha-result-val { font-size: 11px; color: var(--gold); font-weight: 700; }
+
+    .gacha-spark {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle, rgba(255,220,100,.6) 0%, transparent 70%);
+      opacity: 0; pointer-events: none;
+      animation: none;
+    }
+    .gacha-spark.sparking { animation: sparkPop .6s ease-out forwards; }
+    @keyframes sparkPop {
+      0% { opacity: 0; transform: scale(.5); }
+      40% { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 0; transform: scale(1.3); }
+    }
+
+    .gacha-btn-row { display: flex; gap: 12px; }
+    .gacha-pull-btn {
+      flex: 1; padding: 16px 24px;
+      background: linear-gradient(135deg, var(--red), var(--pink));
+      color: #fff; border: none; border-radius: 4px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem; letter-spacing: 2px;
+      cursor: none; transition: all .3s;
+      box-shadow: 0 0 30px rgba(230,0,40,.3);
+    }
+    .gacha-pull-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 40px rgba(230,0,40,.55); }
+    .gacha-pull-btn:disabled { opacity: .4; pointer-events: none; }
+    .gacha-pull-btn.ten {
+      background: linear-gradient(135deg, var(--gold2), var(--gold));
+      color: #000; font-weight: 900;
+      box-shadow: 0 0 30px rgba(245,200,66,.3);
+    }
+    .gacha-pull-btn.ten:hover { box-shadow: 0 8px 40px rgba(245,200,66,.55); }
+
+    .gacha-right { padding: 36px; overflow-y: auto; max-height: 600px; }
+    .gacha-right::-webkit-scrollbar { width: 4px; }
+    .gacha-right::-webkit-scrollbar-thumb { background: rgba(255,96,144,.3); border-radius: 2px; }
+    .gacha-deck-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .gacha-deck-title {
+      font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 2px;
+    }
+    .deck-count {
+      font-size: 10px; color: var(--pink); letter-spacing: 2px;
+      background: rgba(255,96,144,.1); border: 1px solid rgba(255,96,144,.2);
+      padding: 3px 10px; border-radius: 2px;
+    }
+    .deck-clear-btn {
+      background: none; border: 1px solid rgba(255,255,255,.08);
+      color: rgba(245,232,255,.35); font-size: 10px; letter-spacing: 1.5px;
+      text-transform: uppercase; padding: 4px 10px; border-radius: 3px; cursor: none;
+      font-family: 'Space Grotesk', sans-serif; transition: all .3s;
+    }
+    .deck-clear-btn:hover { border-color: var(--red); color: var(--red); }
+
+    .deck-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;
+    }
+    .deck-card {
+      background: rgba(20,0,40,.7);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 8px; overflow: hidden;
+      transition: all .3s; text-align: center;
+    }
+    .deck-card:hover { border-color: rgba(255,96,144,.3); transform: scale(1.04); }
+    .deck-card img { width: 100%; height: 90px; object-fit: cover; object-position: top; display: block; }
+    .deck-card-info { padding: 6px; }
+    .deck-card-rarity { font-size: 7px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+    .deck-card-name { font-size: 10px; font-weight: 700; color: var(--white); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .deck-empty {
+      grid-column: 1/-1; text-align: center;
+      padding: 40px 20px;
+      color: rgba(245,232,255,.25); font-size: 13px;
+      font-family: 'Inter', sans-serif; line-height: 1.7;
+    }
+    .deck-empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: .3; }
+
+    /* Prob Table */
+    .prob-table {
+      margin-top: 24px; border: 1px solid rgba(255,255,255,.05); border-radius: 8px; overflow: hidden;
+    }
+    .prob-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,.04);
+      font-size: 12px; font-family: 'Inter', sans-serif;
+    }
+    .prob-row:last-child { border-bottom: none; }
+    .prob-bar-wrap { flex: 1; height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; }
+    .prob-bar { height: 100%; border-radius: 2px; }
+    .prob-pct { width: 36px; text-align: right; font-weight: 700; font-size: 11px; color: rgba(245,232,255,.5); }
+
+    /* ── EARN IDEAS ── */
+    .earn-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;
+    }
+    .earn-card {
+      background: rgba(12,0,28,.8);
+      border: 1px solid rgba(255,255,255,.055);
+      border-radius: 12px; padding: 28px;
+      transition: all .35s; position: relative; overflow: hidden;
+    }
+    .earn-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(255,96,144,.07) 0%, transparent 65%);
+      opacity: 0; transition: opacity .3s; pointer-events: none;
+    }
+    .earn-card:hover::after { opacity: 1; }
+    .earn-card:hover { border-color: rgba(255,96,144,.2); transform: translateY(-4px); box-shadow: 0 16px 50px rgba(230,0,40,.1); }
+    .earn-icon { font-size: 2.2rem; margin-bottom: 16px; display: inline-block; filter: drop-shadow(0 0 12px currentColor); }
+    .earn-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 1px; margin-bottom: 8px; }
+    .earn-desc { font-size: 13px; line-height: 1.7; color: rgba(245,232,255,.42); font-family: 'Inter', sans-serif; margin-bottom: 14px; }
+    .earn-reward {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(245,200,66,.08); border: 1px solid rgba(245,200,66,.2);
+      color: var(--gold); font-size: 11px; font-weight: 700;
+      padding: 4px 12px; border-radius: 3px; letter-spacing: 1px;
+    }
+    .earn-cmd {
+      display: block; margin-top: 10px;
+      background: rgba(230,0,40,.1); border: 1px solid rgba(230,0,40,.2);
+      color: #ff8fab; font-size: 11px; padding: 3px 10px; border-radius: 3px;
+      font-family: 'Courier New', monospace; width: fit-content;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 760px) {
+      .gacha-body { grid-template-columns: 1fr; }
+      .gacha-left { border-right: none; border-bottom: 1px solid rgba(255,255,255,.04); }
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Sakura Particle Canvas -->
+  <!-- Custom Cursor -->
+  <div id="cursor"></div>
+  <div id="cursor-ring"></div>
+
+  <!-- Canvas Layers -->
+  <canvas id="matrix-canvas"></canvas>
   <canvas id="sakura-canvas"></canvas>
 
-  <!-- Floating Kanji Background -->
-  <div class="kanji-bg" aria-hidden="true">
-    <span class="kanji-char" style="--x:8%;--y:15%;--size:5.5rem;--delay:0s">市</span>
-    <span class="kanji-char" style="--x:85%;--y:25%;--size:4rem;--delay:2s">魂</span>
-    <span class="kanji-char" style="--x:20%;--y:75%;--size:5rem;--delay:1s">宝</span>
-    <span class="kanji-char" style="--x:70%;--y:60%;--size:3.5rem;--delay:3s">縁</span>
-    <span class="kanji-char" style="--x:50%;--y:90%;--size:4.5rem;--delay:0.7s">富</span>
-    <span class="kanji-char" style="--x:90%;--y:85%;--size:4rem;--delay:4s">運</span>
-  </div>
-
-  <!-- Navigation Bar -->
-  <nav class="navbar" id="navbar">
-    <div class="nav-container">
-      <div class="brand">
-        <img src="assets/logo.png" alt="Soul Logo" class="brand-logo">
-        <span class="brand-name">SOUL ECONOMY</span>
-      </div>
-      
-      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle Navigation">
-        <i class="fa-solid fa-bars"></i>
-      </button>
-      
-      <div class="nav-menu" id="nav-menu">
-        <a href="index.html" class="nav-link">Home</a>
-        <a href="shop.html" class="nav-link active">Shop</a>
-        <a href="index.html#setup-guide" class="nav-link">Setup Guide</a>
-        <a href="index.html#leaderboard" class="nav-link">Standings</a>
-        <a href="index.html#commands" class="nav-link">Commands</a>
-        <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands" target="_blank" class="nav-btn"><i class="fa-solid fa-robot"></i> Add to Server</a>
-      </div>
+  <!-- NAV -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-brand">
+        <img src="assets/logo.png" alt="Soul" class="nav-logo">
+        <span class="nav-brand-text">SOUL ECONOMY</span>
+      </a>
+      <button class="nav-toggle" id="navToggle"><i class="fa-solid fa-bars"></i></button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="shop.html">Shop</a></li>
+        <li><a href="index.html#features">Features</a></li>
+        <li><a href="index.html#characters">Characters</a></li>
+        <li><a href="index.html#commands">Commands</a></li>
+        <li>
+          <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands"
+             target="_blank" class="nav-cta">
+            <i class="fa-solid fa-plus"></i> Add Bot
+          </a>
+        </li>
+      </ul>
     </div>
   </nav>
 
-  <!-- Hero Marketplace Header -->
-  <header class="hero" id="hero" style="min-height: 40vh; padding: 140px 0 60px 0; background: linear-gradient(180deg, var(--bg-darker) 0%, var(--bg-darkest) 100%);">
-    <div class="hero-glow" style="background: radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%);"></div>
-    <div class="container" style="position: relative; z-index: 2; text-align: center;">
-      <div class="badge purple-badge"><i class="fa-solid fa-store"></i> SOUL EXCHANGE</div>
-      <h1 class="hero-title" style="font-size: 48px; margin-bottom: 12px;">The <span class="purple-text">Soul Marketplace</span></h1>
-      <p class="hero-subtitle" style="margin: 0 auto; max-width: 600px;">Trade your hard-earned in-game Souls for premium Discord perks, or support us via Discord subscription to unlock bundles instantly.</p>
+  <!-- SHOP HERO -->
+  <section class="shop-hero" id="hero">
+    <div class="section-inner shop-hero-inner">
+      <div class="section-label">Soul Marketplace</div>
+      <h1 class="shop-hero-title">
+        SPEND YOUR<br>
+        <span class="accent">SOUL POWER</span>
+      </h1>
+      <p class="shop-hero-desc">Use Souls earned in-game to unlock perks, pull characters, and flex your dominance. Everything here costs only your time — no wallet needed.</p>
+      <div class="shop-hero-badges">
+        <span class="sh-badge sh-badge-free"><i class="fa-solid fa-circle-check"></i> 100% Free</span>
+        <span class="sh-badge sh-badge-souls"><i class="fa-solid fa-coins"></i> Spend Earned Souls</span>
+        <span class="sh-badge sh-badge-instant"><i class="fa-solid fa-bolt"></i> Instant Redemption</span>
+      </div>
     </div>
-  </header>
+  </section>
 
-  <!-- Soul Marketplace Section -->
-  <section class="marketplace-section" style="padding-top: 20px;">
-    <div class="container">
-      
-      <!-- Part A: Buy Souls -->
-      <h3 class="market-group-title"><i class="fa-solid fa-credit-card"></i> Buy Soul Packs</h3>
-      <div class="market-grid">
-        <div class="market-card">
-          <div class="market-header">
-            <h4 class="market-title">Fledgling Pack</h4>
-            <p class="market-desc">Start your journey and get a basic boost to your server balance.</p>
-            <div class="market-price">$1.99 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">/ One-time</span></div>
+  <!-- SHOP CONTENT -->
+  <section style="padding: 0 0 120px;">
+    <div class="section-inner">
+
+      <!-- TABS -->
+      <div class="shop-tabs" id="shopTabs">
+        <button class="tab-btn active" data-tab="perks">
+          <i class="fa-solid fa-star" style="color:var(--gold);margin-right:6px"></i>Server Perks
+        </button>
+        <button class="tab-btn" data-tab="gacha">
+          <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--pink);margin-right:6px"></i>Soul Summon
+        </button>
+        <button class="tab-btn" data-tab="earn">
+          <i class="fa-solid fa-coins" style="color:var(--gold);margin-right:6px"></i>Earn Souls
+        </button>
+        <button class="tab-btn" data-tab="coming">
+          <i class="fa-solid fa-clock" style="color:var(--muted);margin-right:6px"></i>Coming Soon
+        </button>
+      </div>
+
+      <!-- ── TAB: SERVER PERKS ── -->
+      <div class="tab-panel active" id="tab-perks">
+        <div class="shop-grid">
+
+          <div class="shop-card reveal">
+            <div class="shop-card-banner bg-green">&#127775;</div>
+            <div class="shop-card-inner">
+              <div class="shop-card-tier tier-free">Free</div>
+              <div class="shop-card-name">Daily Soul Claim</div>
+              <div class="shop-card-desc">Log in and claim your free daily Soul stipend. Consistent claimers build wealth fast.</div>
+              <div class="shop-card-perks">
+                <div class="perk"><i class="fa-solid fa-check"></i> 200 Souls per day</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Streak bonuses (7-day = 2x)</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> No cost — just show up</div>
+              </div>
+              <div class="shop-card-footer">
+                <div>
+                  <div class="shop-price price-free">FREE</div>
+                  <div class="price-sub">Daily Claim</div>
+                </div>
+                <a href="#" onclick="copyCmd('s daily')" class="shop-btn shop-btn-primary">
+                  <i class="fa-solid fa-copy"></i> Copy Command
+                </a>
+              </div>
+            </div>
           </div>
-          <ul class="market-features">
-            <li><i class="fa-solid fa-check"></i> +1,000 Souls</li>
-            <li><i class="fa-solid fa-check"></i> Discord Store badge</li>
-            <li><i class="fa-solid fa-check"></i> Instant delivery</li>
-          </ul>
-          <a href="https://www.patreon.com" target="_blank" class="btn btn-secondary market-action-btn">Patreon Subscribe <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+
+          <div class="shop-card reveal reveal-delay-1">
+            <div class="shop-card-banner bg-red">&#9889;</div>
+            <div class="shop-card-inner">
+              <div class="shop-card-tier tier-rare">Rare Perk</div>
+              <div class="shop-card-name">XP Soul Booster</div>
+              <div class="shop-card-desc">Activate a Soul multiplier for your account. Earn more Souls per message for the next 24 hours.</div>
+              <div class="shop-card-perks">
+                <div class="perk"><i class="fa-solid fa-check"></i> 2x Souls per message</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Lasts 24 hours</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Stackable with daily</div>
+              </div>
+              <div class="shop-card-footer">
+                <div>
+                  <div class="shop-price price-souls">2,500 <span style="font-size:.9rem;color:var(--gold)">&#x1F48E;</span></div>
+                  <div class="price-sub">One-time</div>
+                </div>
+                <a href="#" onclick="copyCmd('s buy booster')" class="shop-btn shop-btn-gold">
+                  <i class="fa-solid fa-bolt"></i> Buy Now
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="shop-card reveal reveal-delay-2">
+            <div class="shop-card-banner bg-purple">&#128081;</div>
+            <div class="shop-card-inner">
+              <div class="shop-card-tier tier-epic">Epic Perk</div>
+              <div class="shop-card-name">Custom Nickname</div>
+              <div class="shop-card-desc">Set any nickname in the server with a glowing custom color role. Stand out from the crowd.</div>
+              <div class="shop-card-perks">
+                <div class="perk"><i class="fa-solid fa-check"></i> Any nickname you choose</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Custom color role applied</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Lasts 7 days</div>
+              </div>
+              <div class="shop-card-footer">
+                <div>
+                  <div class="shop-price price-souls">5,000 <span style="font-size:.9rem;color:var(--gold)">&#x1F48E;</span></div>
+                  <div class="price-sub">7-Day Pass</div>
+                </div>
+                <a href="#" onclick="copyCmd('s buy nickname')" class="shop-btn shop-btn-gold">
+                  <i class="fa-solid fa-pen"></i> Buy Now
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="shop-card reveal">
+            <div class="shop-card-banner bg-gold">&#128269;</div>
+            <div class="shop-card-inner">
+              <div class="shop-card-tier tier-rare">Rare Perk</div>
+              <div class="shop-card-name">Leaderboard Pin</div>
+              <div class="shop-card-desc">Get your name pinned at the top of the leaderboard announcement channel for 48 hours — regardless of rank.</div>
+              <div class="shop-card-perks">
+                <div class="perk"><i class="fa-solid fa-check"></i> Featured in #soul-bot</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> 48-hour spotlight</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Gold name badge</div>
+              </div>
+              <div class="shop-card-footer">
+                <div>
+                  <div class="shop-price price-souls">3,500 <span style="font-size:.9rem;color:var(--gold)">&#x1F48E;</span></div>
+                  <div class="price-sub">48-Hour Slot</div>
+                </div>
+                <a href="#" onclick="copyCmd('s buy pinslot')" class="shop-btn shop-btn-gold">
+                  <i class="fa-solid fa-thumbtack"></i> Buy Now
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="shop-card reveal reveal-delay-1">
+            <div class="shop-card-banner bg-pink">&#127919;</div>
+            <div class="shop-card-inner">
+              <div class="shop-card-tier tier-mythic">Mythic Perk</div>
+              <div class="shop-card-name">Server Shoutout</div>
+              <div class="shop-card-desc">The bot pings @everyone in #soul-bot with a customized announcement from you. Great for events or flexing.</div>
+              <div class="shop-card-perks">
+                <div class="perk"><i class="fa-solid fa-check"></i> @everyone ping</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Custom message (240 chars)</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Embed with your name</div>
+              </div>
+              <div class="shop-card-footer">
+                <div>
+                  <div class="shop-price price-souls">8,000 <span style="font-size:.9rem;color:var(--gold)">&#x1F48E;</span></div>
+                  <div class="price-sub">One-time</div>
+                </div>
+                <a href="#" onclick="copyCmd('s buy shoutout')" class="shop-btn shop-btn-gold">
+                  <i class="fa-solid fa-bullhorn"></i> Buy Now
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="shop-card reveal reveal-delay-2">
+            <div class="shop-card-banner bg-red">&#128293;</div>
+            <div class="shop-card-inner">
+              <div class="shop-card-tier tier-divine">Divine Perk</div>
+              <div class="shop-card-name">Soul Warlord Title</div>
+              <div class="shop-card-desc">The most exclusive role in the server. Warlords get a permanent crimson glow name and a trophy in their profile card.</div>
+              <div class="shop-card-perks">
+                <div class="perk"><i class="fa-solid fa-check"></i> Permanent Warlord role</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Crimson glow name color</div>
+                <div class="perk"><i class="fa-solid fa-check"></i> Trophy on profile card</div>
+              </div>
+              <div class="shop-card-footer">
+                <div>
+                  <div class="shop-price price-souls">50,000 <span style="font-size:.9rem;color:var(--gold)">&#x1F48E;</span></div>
+                  <div class="price-sub">Permanent</div>
+                </div>
+                <a href="#" onclick="copyCmd('s buy warlord')" class="shop-btn shop-btn-primary">
+                  <i class="fa-solid fa-crown"></i> Buy Now
+                </a>
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        <div class="market-card premium" style="border-color: rgba(139, 92, 246, 0.4); background: radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.08) 0%, transparent 60%), var(--bg-card);">
-          <span class="card-badge" style="background: var(--color-purple-gradient); color: #fff;">Patreon Tier</span>
-          <div class="market-header">
-            <h4 class="market-title">Warlock Pack</h4>
-            <p class="market-desc">Our most popular bundle for active players and casino high-rollers.</p>
-            <div class="market-price">$7.99 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">/ Monthly</span></div>
+        <!-- How to Redeem -->
+        <div style="margin-top:48px; padding:32px; background:rgba(12,0,28,.7); border:1px solid rgba(255,96,144,.12); border-radius:12px;">
+          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+            <div style="font-size:2rem">&#9879;&#65039;</div>
+            <div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;margin-bottom:8px;">HOW TO REDEEM IN DISCORD</div>
+              <div style="color:rgba(245,232,255,.45);font-size:13.5px;line-height:1.75;font-family:'Inter',sans-serif;max-width:700px;">
+                All perks are redeemed directly inside your Discord server. Copy the command below and run it in <strong style="color:var(--pink)">#soul-bot</strong>.
+                The bot will verify your balance, deduct the Souls, and apply the perk automatically. No manual admin action needed.
+              </div>
+              <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
+                <code style="background:rgba(230,0,40,.1);border:1px solid rgba(230,0,40,.22);color:#ff8fab;padding:8px 14px;border-radius:4px;font-size:13px;font-family:'Courier New',monospace;">s buy [item]</code>
+                <code style="background:rgba(230,0,40,.1);border:1px solid rgba(230,0,40,.22);color:#ff8fab;padding:8px 14px;border-radius:4px;font-size:13px;font-family:'Courier New',monospace;">s balance</code>
+                <code style="background:rgba(230,0,40,.1);border:1px solid rgba(230,0,40,.22);color:#ff8fab;padding:8px 14px;border-radius:4px;font-size:13px;font-family:'Courier New',monospace;">s inventory</code>
+              </div>
+            </div>
           </div>
-          <ul class="market-features">
-            <li><i class="fa-solid fa-check"></i> +5,000 Souls / month</li>
-            <li><i class="fa-solid fa-check"></i> Golden web name glow</li>
-            <li><i class="fa-solid fa-check"></i> Priority support</li>
-            <li><i class="fa-solid fa-check"></i> Instant delivery</li>
-          </ul>
-          <a href="https://www.patreon.com" target="_blank" class="btn btn-primary market-action-btn" style="background: var(--color-purple-gradient); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.25);">Patreon Subscribe <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
-        </div>
-
-        <div class="market-card">
-          <div class="market-header">
-            <h4 class="market-title">God-Server Pack</h4>
-            <p class="market-desc">Keep your server powered for months with our largest bulk pack.</p>
-            <div class="market-price">$24.99 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">/ Monthly</span></div>
-          </div>
-          <ul class="market-features">
-            <li><i class="fa-solid fa-check"></i> +20,000 Souls / month</li>
-            <li><i class="fa-solid fa-check"></i> Custom profile card border</li>
-            <li><i class="fa-solid fa-check"></i> 1 Featured server credit</li>
-            <li><i class="fa-solid fa-check"></i> VIP Discord access</li>
-          </ul>
-          <a href="https://discord.com" target="_blank" class="btn btn-secondary market-action-btn">Discord Sub <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
         </div>
       </div>
 
-      <!-- Part B: Spend Souls -->
-      <h3 class="market-group-title"><i class="fa-solid fa-gift"></i> Spend Souls (Redeem Value)</h3>
-      <div class="market-grid">
-        <div class="market-card">
-          <div class="market-header">
-            <h4 class="market-title">Server Identity Customization</h4>
-            <p class="market-desc">Personalize the bot avatar and name specifically for your server.</p>
-            <div class="market-price">10,000 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">Souls</span></div>
+      <!-- ── TAB: GACHA SOUL SUMMON ── -->
+      <div class="tab-panel" id="tab-gacha">
+        <div class="gacha-terminal">
+          <div class="gacha-header">
+            <div class="gacha-header-left">
+              <div class="gacha-dot gacha-dot-1"></div>
+              <div class="gacha-dot gacha-dot-2"></div>
+              <div>
+                <div class="gacha-header-title">SOUL SUMMON SHRINE</div>
+                <div class="gacha-header-sub">Free simulator &middot; No real souls required &middot; Practice your luck</div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:rgba(245,232,255,.3);font-family:'Inter',sans-serif;letter-spacing:1px;">DEMO MODE</div>
           </div>
-          <ul class="market-features">
-            <li><i class="fa-solid fa-circle"></i> Custom server bot nickname</li>
-            <li><i class="fa-solid fa-circle"></i> Custom bot avatar (1 Server)</li>
-            <li><i class="fa-solid fa-circle"></i> Validity: 30 Days</li>
-          </ul>
-          <button onclick="alert('To redeem, type `s buy bot_customization` inside your Discord server #soul-bot channel!')" class="btn btn-secondary market-action-btn">Redeem In-Game <i class="fa-solid fa-ticket"></i></button>
-        </div>
-
-        <div class="market-card">
-          <div class="market-header">
-            <h4 class="market-title">Partnership Advertisement</h4>
-            <p class="market-desc">Advertise your server invite banner to all users via our bot.</p>
-            <div class="market-price">15,000 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">Souls</span></div>
-          </div>
-          <ul class="market-features">
-            <li><i class="fa-solid fa-circle"></i> Listed in <code>/partners</code></li>
-            <li><i class="fa-solid fa-circle"></i> Featured on website homepage</li>
-            <li><i class="fa-solid fa-circle"></i> Validity: 7 Days</li>
-          </ul>
-          <button onclick="alert('To redeem, type `s buy partnership` inside your Discord server #soul-bot channel!')" class="btn btn-secondary market-action-btn">Redeem In-Game <i class="fa-solid fa-ticket"></i></button>
-        </div>
-
-        <div class="market-card">
-          <div class="market-header">
-            <h4 class="market-title">XP & Drop Server Booster</h4>
-            <p class="market-desc">Activate a server-wide booster to engage your chat members.</p>
-            <div class="market-price">20,000 <span style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary);">Souls</span></div>
-          </div>
-          <ul class="market-features">
-            <li><i class="fa-solid fa-circle"></i> Double daily rewards</li>
-            <li><i class="fa-solid fa-circle"></i> +25% milestone multiplier</li>
-            <li><i class="fa-solid fa-circle"></i> Validity: 24 Hours</li>
-          </ul>
-          <button onclick="alert('To redeem, type `s buy booster` inside your Discord server #soul-bot channel!')" class="btn btn-secondary market-action-btn">Redeem In-Game <i class="fa-solid fa-ticket"></i></button>
-        </div>
-      </div>
-
-      <!-- Part C: Summoning Shrine (Free Gacha Simulator) -->
-      <h3 class="market-group-title"><i class="fa-solid fa-dice-d20"></i> Soul Summoning Shrine (Free Gacha Sim)</h3>
-      <p class="section-subtitle" style="text-align: left; margin: -10px 0 30px 0; color: var(--color-text-secondary);">Test your luck! Spend mock souls to summon legendary characters (Goku, Luffy, Kratos, Pikachu, Sans, Steve, and customized element souls) directly to your deck collection.</p>
-      
-      <div class="gacha-container">
-        <div class="gacha-summon-area">
-          <div class="summon-card-back" id="gacha-card">
-            <div class="card-inner">
-              <div class="card-back">
-                <div class="back-logo">
-                  <img src="assets/logo.png" alt="Soul Logo">
-                  <span>SOUL SHRINE</span>
+          <div class="gacha-body">
+            <div class="gacha-left">
+              <div class="gacha-card-display" id="gachaDisplay">
+                <div class="gacha-spark" id="gachaSpark"></div>
+                <div class="gacha-card-display-placeholder">
+                  <div class="gacha-placeholder-icon">&#127924;</div>
+                  <div class="gacha-placeholder-text">PULL TO REVEAL</div>
+                </div>
+                <img id="gachaImg" src="" alt="Pulled Character">
+                <div class="gacha-card-info">
+                  <div class="gacha-result-rarity" id="gachaRarity"></div>
+                  <div class="gacha-result-name" id="gachaName"></div>
+                  <div class="gacha-result-val" id="gachaVal"></div>
                 </div>
               </div>
-              <div class="card-front">
-                <div class="card-glow-effect"></div>
-                <div class="card-rarity-badge" id="card-rarity">DIVINE</div>
-                <img src="assets/portrait_catgirl.jpg" alt="Summon Result" id="card-img" class="card-portrait">
-                <div class="card-info">
-                  <h4 class="card-character-name" id="card-name">Genesis Prime</h4>
-                  <div class="card-value-badge"><i class="fa-solid fa-coins"></i> <span id="card-value">100,000</span> Souls</div>
+              <div class="gacha-btn-row">
+                <button class="gacha-pull-btn" id="pullOne" onclick="doPull(1)">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> PULL x1
+                </button>
+                <button class="gacha-pull-btn ten" id="pullTen" onclick="doPull(10)">
+                  <i class="fa-solid fa-burst"></i> PULL x10
+                </button>
+              </div>
+
+              <!-- Prob table -->
+              <div class="prob-table" style="margin-top:28px;width:100%;">
+                <div class="prob-row">
+                  <span style="width:60px;color:var(--gold);font-weight:700;font-size:11px">Divine</span>
+                  <div class="prob-bar-wrap"><div class="prob-bar" style="width:0.5%;background:var(--gold);box-shadow:0 0 6px var(--gold)"></div></div>
+                  <span class="prob-pct">0.5%</span>
+                </div>
+                <div class="prob-row">
+                  <span style="width:60px;color:var(--red);font-weight:700;font-size:11px">Mythic</span>
+                  <div class="prob-bar-wrap"><div class="prob-bar" style="width:4%;background:var(--red);box-shadow:0 0 6px var(--red)"></div></div>
+                  <span class="prob-pct">4%</span>
+                </div>
+                <div class="prob-row">
+                  <span style="width:60px;color:#d946ef;font-weight:700;font-size:11px">Epic</span>
+                  <div class="prob-bar-wrap"><div class="prob-bar" style="width:12%;background:#d946ef"></div></div>
+                  <span class="prob-pct">12%</span>
+                </div>
+                <div class="prob-row">
+                  <span style="width:60px;color:#60a5fa;font-weight:700;font-size:11px">Rare</span>
+                  <div class="prob-bar-wrap"><div class="prob-bar" style="width:23.5%;background:#60a5fa"></div></div>
+                  <span class="prob-pct">23.5%</span>
+                </div>
+                <div class="prob-row">
+                  <span style="width:60px;color:#4ade80;font-weight:700;font-size:11px">Common</span>
+                  <div class="prob-bar-wrap"><div class="prob-bar" style="width:60%;background:#4ade80"></div></div>
+                  <span class="prob-pct">60%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="gacha-right">
+              <div class="gacha-deck-header">
+                <div class="gacha-deck-title">YOUR COLLECTION</div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <div class="deck-count" id="deckCount">0 Pulls</div>
+                  <button class="deck-clear-btn" onclick="clearDeck()">Clear</button>
+                </div>
+              </div>
+              <div class="deck-grid" id="deckGrid">
+                <div class="deck-empty" id="deckEmpty">
+                  <div class="deck-empty-icon">&#129310;</div>
+                  Pull characters to start<br>building your collection.
                 </div>
               </div>
             </div>
           </div>
-          
-          <div class="gacha-actions">
-            <button class="btn btn-primary" id="summon-btn" style="background: var(--color-purple-gradient); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.25);"><i class="fa-solid fa-wand-magic-sparkles"></i> Summon Soul</button>
-            <span class="cooldown-notice"><i class="fa-solid fa-circle-info"></i> Free local simulation. Your summoned deck is saved locally!</span>
+        </div>
+      </div>
+
+      <!-- ── TAB: EARN SOULS ── -->
+      <div class="tab-panel" id="tab-earn">
+        <div class="earn-grid">
+          <div class="earn-card reveal">
+            <div class="earn-icon" style="color:var(--gold)">&#128172;</div>
+            <div class="earn-title">CHAT MILESTONES</div>
+            <div class="earn-desc">Simply talking in any tracked channel rewards Souls. Every 10 messages = 100 Souls automatically deposited to your account.</div>
+            <div class="earn-reward"><i class="fa-solid fa-coins"></i> 100 Souls / 10 messages</div>
+            <code class="earn-cmd">Auto — No command needed</code>
+          </div>
+          <div class="earn-card reveal reveal-delay-1">
+            <div class="earn-icon" style="color:var(--pink)">&#127384;</div>
+            <div class="earn-title">DAILY CLAIM</div>
+            <div class="earn-desc">Claim your daily Soul stipend every 24 hours. Build a 7-day streak to earn a 2x bonus multiplier on day 7.</div>
+            <div class="earn-reward"><i class="fa-solid fa-coins"></i> 200–400 Souls / day</div>
+            <code class="earn-cmd">s daily</code>
+          </div>
+          <div class="earn-card reveal reveal-delay-2">
+            <div class="earn-icon" style="color:var(--red)">&#127920;</div>
+            <div class="earn-title">RANDOM DROP CLAIMS</div>
+            <div class="earn-desc">Every 10 minutes, a Soul Coin drops in the server channel. Be the first to type "soul" and grab it before anyone else.</div>
+            <div class="earn-reward"><i class="fa-solid fa-coins"></i> 500–100,000 Souls</div>
+            <code class="earn-cmd">Type: soul (in #soul-bot)</code>
+          </div>
+          <div class="earn-card reveal">
+            <div class="earn-icon" style="color:#60a5fa">&#127922;</div>
+            <div class="earn-title">WIN AT CASINO</div>
+            <div class="earn-desc">Use Souls to play Blackjack, Roulette, Coinflip or Slots. A smart bet can double or triple your Soul stack overnight.</div>
+            <div class="earn-reward"><i class="fa-solid fa-coins"></i> Up to 3x your bet</div>
+            <code class="earn-cmd">s blackjack 500</code>
+          </div>
+          <div class="earn-card reveal reveal-delay-1">
+            <div class="earn-icon" style="color:#c084fc">&#128198;</div>
+            <div class="earn-title">WEEKLY CHALLENGES</div>
+            <div class="earn-desc">Complete server challenges — top chatter of the week, most casino wins, biggest drop claim — for massive Soul bonuses.</div>
+            <div class="earn-reward"><i class="fa-solid fa-coins"></i> 1,000–10,000 Souls</div>
+            <code class="earn-cmd">s challenges (coming soon)</code>
+          </div>
+          <div class="earn-card reveal reveal-delay-2">
+            <div class="earn-icon" style="color:#4ade80">&#128204;</div>
+            <div class="earn-title">SELL YOUR CARDS</div>
+            <div class="earn-desc">Don't need a character? Sell it back for Souls. Rarer cards are worth more. Divine characters sell for 80,000+ Souls.</div>
+            <div class="earn-reward"><i class="fa-solid fa-coins"></i> 600–80,000 Souls</div>
+            <code class="earn-cmd">s sell [character_name]</code>
           </div>
         </div>
-        
-        <div class="gacha-inventory">
-          <h4>Your Summoned Deck (<span id="deck-count">0</span>)</h4>
-          <div class="gacha-deck-grid" id="gacha-deck">
-            <div class="empty-deck-notice">Your deck is currently empty. Summon some souls above!</div>
+      </div>
+
+      <!-- ── TAB: COMING SOON ── -->
+      <div class="tab-panel" id="tab-coming">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
+          <!-- Placeholder coming soon cards -->
+          <div style="background:rgba(12,0,28,.5);border:1px dashed rgba(255,255,255,.08);border-radius:12px;padding:28px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:12px;right:12px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;background:rgba(255,96,144,.1);border:1px solid rgba(255,96,144,.2);color:var(--pink);border-radius:2px;">SOON</div>
+            <div style="font-size:2rem;margin-bottom:14px;opacity:.5">&#127881;</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;margin-bottom:8px;color:rgba(245,232,255,.5)">SOUL LOTTERY</div>
+            <div style="color:rgba(245,232,255,.3);font-size:13px;line-height:1.65;font-family:'Inter',sans-serif">Enter weekly lottery draws using Souls. Winner takes the entire jackpot pool.</div>
           </div>
+          <div style="background:rgba(12,0,28,.5);border:1px dashed rgba(255,255,255,.08);border-radius:12px;padding:28px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:12px;right:12px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;background:rgba(255,96,144,.1);border:1px solid rgba(255,96,144,.2);color:var(--pink);border-radius:2px;">SOON</div>
+            <div style="font-size:2rem;margin-bottom:14px;opacity:.5">&#128260;</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;margin-bottom:8px;color:rgba(245,232,255,.5)">CHARACTER TRADING</div>
+            <div style="color:rgba(245,232,255,.3);font-size:13px;line-height:1.65;font-family:'Inter',sans-serif">Trade your character cards with other users. Negotiate Soul deals directly in the marketplace.</div>
+          </div>
+          <div style="background:rgba(12,0,28,.5);border:1px dashed rgba(255,255,255,.08);border-radius:12px;padding:28px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:12px;right:12px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;background:rgba(255,96,144,.1);border:1px solid rgba(255,96,144,.2);color:var(--pink);border-radius:2px;">SOON</div>
+            <div style="font-size:2rem;margin-bottom:14px;opacity:.5">&#128248;</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;margin-bottom:8px;color:rgba(245,232,255,.5)">CUSTOM PROFILE CARDS</div>
+            <div style="color:rgba(245,232,255,.3);font-size:13px;line-height:1.65;font-family:'Inter',sans-serif">Personalized Discord profile cards with animated borders, background images, and badge slots.</div>
+          </div>
+          <div style="background:rgba(12,0,28,.5);border:1px dashed rgba(255,255,255,.08);border-radius:12px;padding:28px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:12px;right:12px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;background:rgba(255,96,144,.1);border:1px solid rgba(255,96,144,.2);color:var(--pink);border-radius:2px;">SOON</div>
+            <div style="font-size:2rem;margin-bottom:14px;opacity:.5">&#127941;</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;margin-bottom:8px;color:rgba(245,232,255,.5)">SERVER WARS</div>
+            <div style="color:rgba(245,232,255,.3);font-size:13px;line-height:1.65;font-family:'Inter',sans-serif">Compete server vs server in weekly Soul accumulation races. Win exclusive divine drops for your whole server.</div>
+          </div>
+          <div style="background:rgba(12,0,28,.5);border:1px dashed rgba(255,255,255,.08);border-radius:12px;padding:28px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:12px;right:12px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;background:rgba(255,96,144,.1);border:1px solid rgba(255,96,144,.2);color:var(--pink);border-radius:2px;">SOON</div>
+            <div style="font-size:2rem;margin-bottom:14px;opacity:.5">&#127775;</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;margin-bottom:8px;color:rgba(245,232,255,.5)">SPONSOR DROPS</div>
+            <div style="color:rgba(245,232,255,.3);font-size:13px;line-height:1.65;font-family:'Inter',sans-serif">Brand-sponsored drops reward free Souls + promo codes. Brands pay us, you get free Souls — win/win.</div>
+          </div>
+          <div style="background:rgba(12,0,28,.5);border:1px dashed rgba(255,255,255,.08);border-radius:12px;padding:28px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:12px;right:12px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;background:rgba(255,96,144,.1);border:1px solid rgba(255,96,144,.2);color:var(--pink);border-radius:2px;">SOON</div>
+            <div style="font-size:2rem;margin-bottom:14px;opacity:.5">&#127979;</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;margin-bottom:8px;color:rgba(245,232,255,.5)">GUILD SYSTEM</div>
+            <div style="color:rgba(245,232,255,.3);font-size:13px;line-height:1.65;font-family:'Inter',sans-serif">Form guilds, pool Souls into a guild bank, run guild raids for rare boss drops, and climb the guild leaderboard.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:48px;text-align:center;padding:48px 32px;background:rgba(12,0,28,.6);border:1px solid rgba(255,96,144,.1);border-radius:12px;">
+          <div style="font-size:2.5rem;margin-bottom:16px">&#127942;</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:2px;margin-bottom:12px">SUGGEST A FEATURE</div>
+          <div style="color:rgba(245,232,255,.4);font-size:14px;max-width:500px;margin:0 auto 24px;font-family:'Inter',sans-serif;line-height:1.7">
+            Have ideas for the shop? Join the Discord server and post in #suggestions. Best ideas get implemented next sprint.
+          </div>
+          <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands" target="_blank" class="btn-cta btn-cta-primary" style="display:inline-flex;align-items:center;gap:10px;padding:14px 36px;background:linear-gradient(135deg,var(--red),var(--pink));color:#fff;text-decoration:none;border-radius:4px;font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">
+            <i class="fa-brands fa-discord"></i> Join the Discord
+          </a>
         </div>
       </div>
 
     </div>
   </section>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-top">
-        <div class="footer-brand">
-          <img src="assets/logo.png" alt="Soul Brand" class="footer-logo">
-          <span class="footer-brand-name">SOUL CURRENCY</span>
-        </div>
-        <div class="footer-links">
-          <a href="index.html">Home</a>
-          <a href="shop.html">Shop</a>
-          <a href="index.html#setup-guide">Setup Guide</a>
-          <a href="index.html#leaderboard">Standings</a>
-          <a href="index.html#commands">Commands</a>
-        </div>
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <div class="footer-brand">SOUL ECONOMY</div>
+        <div class="footer-jp">&#39746;&#12398;&#32076;&#28168;&#12471;&#12473;&#12486;&#12512;</div>
       </div>
-      <hr class="footer-divider">
-      <div class="footer-bottom">
-        <p class="copyright">&copy; 2026 Soul Currency System. All rights reserved. Game assets powered by Supabase.</p>
-        <div class="social-links">
-          <a href="https://discord.gg" target="_blank" aria-label="Discord Guild"><i class="fa-brands fa-discord"></i></a>
-          <a href="https://github.com" target="_blank" aria-label="Github Repo"><i class="fa-brands fa-github"></i></a>
-        </div>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="https://discord.com/oauth2/authorize?client_id=1523588943340109996&permissions=274878024720&scope=bot%20applications.commands" target="_blank">Add Bot</a>
+        <a href="index.html#commands">Commands</a>
       </div>
     </div>
   </footer>
 
-  <!-- Scripts -->
-  <script src="app.js"></script>
+  <script src="main.js"></script>
   <script>
-    const CHARACTER_POOL = [
-      { name: 'Genesis Prime', tier: 'DIVINE', value: 100000, img: 'assets/divine_soul_purple.png', color: '#c084fc' },
-      { name: 'Goku', tier: 'DIVINE', value: 80000, img: 'assets/dbz_goku.png', color: '#c084fc' },
-      { name: 'Malenia', tier: 'MYTHIC', value: 35000, img: 'assets/boss_malenia.jpg', color: '#ef4444' },
-      { name: 'Ryomen Sukuna', tier: 'MYTHIC', value: 32000, img: 'assets/ryomen_sukuna.png', color: '#ef4444' },
-      { name: 'Luffy', tier: 'MYTHIC', value: 30000, img: 'assets/op_luffy.png', color: '#ef4444' },
-      { name: 'Kratos', tier: 'MYTHIC', value: 28000, img: 'assets/gow_kratos.png', color: '#ef4444' },
-      { name: 'Elden Beast', tier: 'EPIC', value: 22000, img: 'assets/boss_elden_beast.png', color: '#db2777' },
-      { name: 'Starscourge Radahn', tier: 'EPIC', value: 18000, img: 'assets/boss_radahn.png', color: '#db2777' },
-      { name: 'Raiden Shogun', tier: 'EPIC', value: 15000, img: 'assets/raiden_shogun.png', color: '#db2777' },
-      { name: 'Makima', tier: 'EPIC', value: 13500, img: 'assets/makima_csm.png', color: '#db2777' },
-      { name: 'Sans', tier: 'RARE', value: 9000, img: 'assets/ut_sans.png', color: '#3b82f6' },
-      { name: 'Guts', tier: 'RARE', value: 8500, img: 'assets/guts_berserk.png', color: '#3b82f6' },
-      { name: 'Roronoa Zoro', tier: 'RARE', value: 7500, img: 'assets/roronoa_zoro.jpg', color: '#3b82f6' },
-      { name: 'Dante', tier: 'RARE', value: 6000, img: 'assets/dante_dmc.png', color: '#3b82f6' },
-      { name: 'Ben Tennyson', tier: 'UNCOMMON', value: 3200, img: 'assets/ben_tennyson.png', color: '#10b981' },
-      { name: 'Ada Wong', tier: 'UNCOMMON', value: 2800, img: 'assets/ada_wong.png', color: '#10b981' },
-      { name: 'Leon Kennedy', tier: 'UNCOMMON', value: 2400, img: 'assets/leon_kennedy.png', color: '#10b981' },
-      { name: 'Steve', tier: 'UNCOMMON', value: 2200, img: 'assets/mc_steve.png', color: '#10b981' },
-      { name: 'Rangiku Matsumoto', tier: 'COMMON', value: 950, img: 'assets/rangiku_matsumoto.png', color: '#94a3b8' },
-      { name: 'Pikachu', tier: 'COMMON', value: 600, img: 'assets/pk_pikachu.png', color: '#94a3b8' }
-    ];
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const cardElement = document.getElementById('gacha-card');
-      const summonBtn = document.getElementById('summon-btn');
-      const cardImg = document.getElementById('card-img');
-      const cardRarity = document.getElementById('card-rarity');
-      const cardName = document.getElementById('card-name');
-      const cardValue = document.getElementById('card-value');
-      const deckContainer = document.getElementById('gacha-deck');
-      const deckCount = document.getElementById('deck-count');
-      
-      let deck = [];
-      try {
-        deck = JSON.parse(localStorage.getItem('soul_deck') || '[]');
-      } catch (e) {
-        deck = [];
-      }
-      
-      function updateDeckUI() {
-        deckCount.textContent = deck.length;
-        if (deck.length === 0) {
-          deckContainer.innerHTML = '<div class="empty-deck-notice">Your deck is currently empty. Summon some souls above!</div>';
-          return;
-        }
-        deckContainer.innerHTML = '';
-        deck.forEach(c => {
-          const chip = document.createElement('div');
-          chip.className = `gacha-card-chip rarity-${c.tier.toLowerCase()}`;
-          chip.innerHTML = `
-            <img src="${c.img}" alt="${c.name}" class="chip-img">
-            <span class="chip-name">${c.name}</span>
-            <span class="chip-rarity rarity-text-${c.tier.toLowerCase()}">${c.tier}</span>
-          `;
-          deckContainer.appendChild(chip);
-        });
-      }
-      
-      updateDeckUI();
-      
-      summonBtn.addEventListener('click', () => {
-        if (summonBtn.disabled) return;
-        
-        cardElement.classList.remove('flipped');
-        summonBtn.disabled = true;
-        summonBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Summoning...';
-        
-        setTimeout(() => {
-          const roll = Math.random() * 100;
-          let selected = CHARACTER_POOL[CHARACTER_POOL.length - 1]; // fallback Pikachu
-          
-          let tier = 'COMMON';
-          if (roll < 1.5) tier = 'DIVINE';
-          else if (roll < 6) tier = 'MYTHIC';
-          else if (roll < 16) tier = 'EPIC';
-          else if (roll < 36) tier = 'RARE';
-          else if (roll < 66) tier = 'UNCOMMON';
-          
-          const tierPool = CHARACTER_POOL.filter(c => c.tier === tier);
-          if (tierPool.length > 0) {
-            selected = tierPool[Math.floor(Math.random() * tierPool.length)];
-          }
-          
-          cardImg.src = selected.img;
-          cardRarity.textContent = selected.tier;
-          cardRarity.style.backgroundColor = selected.color;
-          cardName.textContent = selected.name;
-          cardValue.textContent = selected.value.toLocaleString();
-          
-          const cardFront = cardElement.querySelector('.card-front');
-          cardFront.style.boxShadow = `0 0 25px ${selected.color}`;
-          
-          cardElement.classList.add('flipped');
-          
-          deck.unshift(selected);
-          try {
-            localStorage.setItem('soul_deck', JSON.stringify(deck));
-          } catch(e) {}
-          updateDeckUI();
-          
-          summonBtn.disabled = false;
-          summonBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Summon Again';
-        }, 1000);
-      });
+  /* ── TABS ── */
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
     });
-  </script>
+  });
 
-  <script>
-    /* ===== SAKURA PARTICLE SYSTEM ===== */
-    (function() {
-      const canvas = document.getElementById('sakura-canvas');
-      const ctx = canvas.getContext('2d');
-      let petals = [];
-      const PETAL_COUNT = 28;
-      function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-      resize();
-      window.addEventListener('resize', resize);
-      function randomBetween(a, b) { return a + Math.random() * (b - a); }
-      function createPetal() {
-        return { x: randomBetween(0, canvas.width), y: randomBetween(-80, -10), size: randomBetween(5, 12), speedY: randomBetween(0.5, 1.6), speedX: randomBetween(-0.5, 0.5), rotation: randomBetween(0, Math.PI * 2), rotationSpeed: randomBetween(-0.02, 0.02), opacity: randomBetween(0.25, 0.65), sway: randomBetween(0.3, 0.8), swayOffset: randomBetween(0, Math.PI * 2) };
+  /* ── COPY COMMAND ── */
+  function copyCmd(cmd) {
+    navigator.clipboard.writeText(cmd).catch(() => {});
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(12,0,28,.95);border:1px solid rgba(255,96,144,.3);color:var(--white);padding:12px 24px;border-radius:6px;font-family:Space Grotesk,sans-serif;font-size:13px;z-index:9999;letter-spacing:1px;box-shadow:0 8px 30px rgba(0,0,0,.6);';
+    toast.innerHTML = '<i class="fa-solid fa-check" style="color:#4ade80;margin-right:8px"></i>Copied: <strong style="color:var(--pink)">' + cmd + '</strong> — paste in Discord!';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+    return false;
+  }
+
+  /* ── GACHA ENGINE ── */
+  const POOL = [
+    { name:'Genesis Prime',  rarity:'Divine', color:'#f5c842', img:'assets/portrait_catgirl.jpg', val:100000 },
+    { name:'Son Goku',       rarity:'Divine', color:'#f5c842', img:'assets/dbz_goku.png',         val:80000  },
+    { name:'Raiden Shogun',  rarity:'Mythic', color:'#e60028', img:'assets/raiden_shogun.png',    val:35000  },
+    { name:'Monkey D. Luffy',rarity:'Mythic', color:'#e60028', img:'assets/op_luffy.png',         val:30000  },
+    { name:'Sukuna',         rarity:'Mythic', color:'#e60028', img:'assets/ryomen_sukuna.png',    val:28000  },
+    { name:'Makima',         rarity:'Epic',   color:'#d946ef', img:'assets/makima_csm.png',       val:12000  },
+    { name:'Kratos',         rarity:'Epic',   color:'#d946ef', img:'assets/gow_kratos.png',       val:11000  },
+    { name:'Guts',           rarity:'Epic',   color:'#d946ef', img:'assets/guts_berserk.png',     val:10500  },
+    { name:'Dante',          rarity:'Epic',   color:'#d946ef', img:'assets/dante_dmc.png',        val:9500   },
+    { name:'Rangiku',        rarity:'Rare',   color:'#60a5fa', img:'assets/rangiku_matsumoto.png',val:6500   },
+    { name:'Roronoa Zoro',   rarity:'Rare',   color:'#60a5fa', img:'assets/roronoa_zoro.jpg',     val:5500   },
+    { name:'Sans',           rarity:'Rare',   color:'#60a5fa', img:'assets/ut_sans.png',          val:4500   },
+    { name:'Pikachu',        rarity:'Common', color:'#facc15', img:'assets/pk_pikachu.png',       val:600    },
+    { name:'Minecraft Steve',rarity:'Common', color:'#94a3b8', img:'assets/mc_steve.png',         val:800    },
+  ];
+
+  const WEIGHTS = { Divine:.005, Mythic:.04, Epic:.12, Rare:.235, Common:.6 };
+  let deck = JSON.parse(localStorage.getItem('soulDeck') || '[]');
+
+  function roll() {
+    const r = Math.random();
+    let tier;
+    if (r < WEIGHTS.Divine) tier = 'Divine';
+    else if (r < WEIGHTS.Divine + WEIGHTS.Mythic) tier = 'Mythic';
+    else if (r < WEIGHTS.Divine + WEIGHTS.Mythic + WEIGHTS.Epic) tier = 'Epic';
+    else if (r < WEIGHTS.Divine + WEIGHTS.Mythic + WEIGHTS.Epic + WEIGHTS.Rare) tier = 'Rare';
+    else tier = 'Common';
+    const candidates = POOL.filter(c => c.rarity === tier);
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  function doPull(count) {
+    const btn1 = document.getElementById('pullOne');
+    const btn10 = document.getElementById('pullTen');
+    btn1.disabled = btn10.disabled = true;
+
+    const pulls = [];
+    for (let i = 0; i < count; i++) pulls.push(roll());
+
+    let i = 0;
+    const show = () => {
+      if (i >= pulls.length) {
+        saveDeck();
+        renderDeck();
+        btn1.disabled = btn10.disabled = false;
+        return;
       }
-      for (let i = 0; i < PETAL_COUNT; i++) { const p = createPetal(); p.y = randomBetween(0, canvas.height); petals.push(p); }
-      function drawPetal(p) {
-        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rotation); ctx.globalAlpha = p.opacity;
-        ctx.beginPath();
-        ctx.moveTo(0, -p.size); ctx.bezierCurveTo(p.size * 0.8, -p.size * 0.5, p.size * 0.8, p.size * 0.5, 0, p.size * 0.3); ctx.bezierCurveTo(-p.size * 0.8, p.size * 0.5, -p.size * 0.8, -p.size * 0.5, 0, -p.size);
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
-        grad.addColorStop(0, 'rgba(255, 182, 193, 0.9)'); grad.addColorStop(0.5, 'rgba(220, 100, 140, 0.7)'); grad.addColorStop(1, 'rgba(180, 60, 100, 0.2)');
-        ctx.fillStyle = grad; ctx.fill(); ctx.restore();
-      }
-      let frame = 0;
-      function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height); frame++;
-        petals.forEach(p => { p.y += p.speedY; p.x += p.speedX + Math.sin(frame * 0.01 + p.swayOffset) * p.sway; p.rotation += p.rotationSpeed; if (p.y > canvas.height + 20 || p.x < -40 || p.x > canvas.width + 40) Object.assign(p, createPetal()); drawPetal(p); });
-        requestAnimationFrame(animate);
-      }
-      animate();
-    })();
+      const c = pulls[i++];
+      const disp = document.getElementById('gachaDisplay');
+      const img = document.getElementById('gachaImg');
+      const spark = document.getElementById('gachaSpark');
+
+      disp.classList.remove('revealed');
+      img.src = '';
+      setTimeout(() => {
+        img.src = c.img;
+        img.onload = () => {
+          disp.classList.add('revealed');
+          document.getElementById('gachaRarity').textContent = c.rarity.toUpperCase() + ' SOUL';
+          document.getElementById('gachaRarity').style.color = c.color;
+          document.getElementById('gachaName').textContent = c.name;
+          document.getElementById('gachaVal').textContent = c.val.toLocaleString() + ' Soul Value';
+          spark.className = 'gacha-spark';
+          void spark.offsetWidth;
+          spark.className = 'gacha-spark sparking';
+          disp.style.borderColor = c.color;
+          disp.style.boxShadow = '0 0 40px ' + c.color + '44';
+          deck.push(c);
+          setTimeout(show, count === 1 ? 1200 : 350);
+        };
+        img.onerror = () => {
+          deck.push(c);
+          setTimeout(show, 200);
+        };
+      }, 120);
+    };
+    show();
+  }
+
+  function saveDeck() {
+    localStorage.setItem('soulDeck', JSON.stringify(deck.slice(-60)));
+  }
+
+  function clearDeck() {
+    deck = [];
+    localStorage.removeItem('soulDeck');
+    renderDeck();
+  }
+
+  function renderDeck() {
+    const grid = document.getElementById('deckGrid');
+    const empty = document.getElementById('deckEmpty');
+    document.getElementById('deckCount').textContent = deck.length + ' Pulls';
+    if (!deck.length) {
+      grid.innerHTML = '<div class="deck-empty" id="deckEmpty"><div class="deck-empty-icon">&#129310;</div>Pull characters to start<br>building your collection.</div>';
+      return;
+    }
+    grid.innerHTML = deck.slice().reverse().slice(0, 30).map(c => `
+      <div class="deck-card">
+        <img src="${c.img}" alt="${c.name}" onerror="this.style.display='none'">
+        <div class="deck-card-info">
+          <div class="deck-card-rarity" style="color:${c.color}">${c.rarity}</div>
+          <div class="deck-card-name">${c.name}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+  renderDeck();
+
+  /* ── SHOP CARD MOUSE GLOW ── */
+  document.querySelectorAll('.shop-card, .earn-card').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
+      card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+    });
+  });
   </script>
 </body>
 </html>
