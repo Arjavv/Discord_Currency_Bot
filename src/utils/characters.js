@@ -5,153 +5,154 @@
  */
 const CHARACTER_SPAWNS = [
   // --- COMMON (Tiers: 100 - 150) ---
+  // --- COMMON (Tiers: 300 - 500) ---
   {
     id: 'common_soul',
-    name: 'Blossom Soul',
+    name: 'Nova Blossom Soul',
     tier: 'COMMON',
-    value: 100,
-    weight: 50, // 25% spawn chance
+    value: 300,
+    weight: 100, // Common spawn probability
     imagePath: './src/assets/common_soul.png',
     attachmentName: 'common_soul.png',
     color: '#ec4899', // Pink
     embedTitle: '✦ A COMMON SOUL HAS DESCENDED ✦',
-    embedDescription: 'Blossom Soul has appeared! Tier: COMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Nova Blossom Soul has appeared! Tier: COMMON\n\nA beautiful cherry blossom spirit has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'COMMON SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Blossom Soul 💚\n\n✦ The common soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Nova Blossom Soul 🌸\n\n✦ The common soul has chosen its master.`
   },
   {
     id: 'common_girl2',
-    name: 'Sakura Soul',
+    name: 'Neon Frost Soul',
     tier: 'COMMON',
-    value: 150,
-    weight: 50, // 25% spawn chance
+    value: 500,
+    weight: 100, // Common spawn probability
     imagePath: './src/assets/common_girl2.png',
     attachmentName: 'common_girl2.png',
-    color: '#fda4af', // Rose pink
+    color: '#06b6d4', // Cyan
     embedTitle: '✦ A COMMON SOUL HAS DESCENDED ✦',
-    embedDescription: 'Sakura Soul has appeared! Tier: COMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Neon Frost Soul has appeared! Tier: COMMON\n\nA gorgeous frost spirit with glowing silver-blue hair has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'COMMON SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Sakura Soul 🌸\n\n✦ The common soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Neon Frost Soul ❄️\n\n✦ The common soul has chosen its master.`
   },
 
-  // --- UNCOMMON (Tiers: 300 - 350) ---
+  // --- UNCOMMON (Tiers: 1200 - 1800) ---
   {
     id: 'uncommon_soul',
-    name: 'Azure Soul',
+    name: 'Solar Flare Soul',
     tier: 'UNCOMMON',
-    value: 300,
-    weight: 25, // 12.5% spawn chance
+    value: 1200,
+    weight: 50, // Uncommon spawn probability
     imagePath: './src/assets/uncommon_soul.png',
     attachmentName: 'uncommon_soul.png',
-    color: '#3b82f6', // Blue
+    color: '#f97316', // Orange
     embedTitle: '✦ AN UNCOMMON SOUL HAS DESCENDED ✦',
-    embedDescription: 'Azure Soul has appeared! Tier: UNCOMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Solar Flare Soul has appeared! Tier: UNCOMMON\n\nA stunning sun spirit with burning orange-gold hair has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'UNCOMMON SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Azure Soul 💙\n\n✦ The uncommon soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Solar Flare Soul ☀️\n\n✦ The uncommon soul has chosen its master.`
   },
   {
     id: 'uncommon_girl2',
-    name: 'Ocean Soul',
+    name: 'Deep Abyss Soul',
     tier: 'UNCOMMON',
-    value: 350,
-    weight: 25, // 12.5% spawn chance
+    value: 1800,
+    weight: 50, // Uncommon spawn probability
     imagePath: './src/assets/uncommon_girl2.png',
     attachmentName: 'uncommon_girl2.png',
-    color: '#06b6d4', // Cyan
+    color: '#3b82f6', // Blue
     embedTitle: '✦ AN UNCOMMON SOUL HAS DESCENDED ✦',
-    embedDescription: 'Ocean Soul has appeared! Tier: UNCOMMON\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Deep Abyss Soul has appeared! Tier: UNCOMMON\n\nA beautiful deep sea mermaid spirit with bioluminescent scales has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'UNCOMMON SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Ocean Soul 🌊\n\n✦ The uncommon soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Deep Abyss Soul 🌊\n\n✦ The uncommon soul has chosen its master.`
   },
 
-  // --- RARE (Tiers: 500 - 550) ---
+  // --- RARE (Tiers: 4000 - 5500) ---
   {
     id: 'rare_soul',
-    name: 'Ember Soul',
+    name: 'Spectral Storm Soul',
     tier: 'RARE',
-    value: 500,
-    weight: 15, // 7.5% spawn chance
+    value: 4000,
+    weight: 25, // Rare spawn probability
     imagePath: './src/assets/rare_soul.png',
     attachmentName: 'rare_soul.png',
-    color: '#f97316', // Orange
+    color: '#8b5cf6', // Violet
     embedTitle: '✦ A RARE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Ember Soul has appeared! Tier: RARE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Spectral Storm Soul has appeared! Tier: RARE\n\nA gorgeous lightning spirit with crackling violet electricity has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'RARE SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Ember Soul ❤️\n\n✦ The rare soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Spectral Storm Soul ⚡\n\n✦ The rare soul has chosen its master.`
   },
   {
     id: 'rare_girl2',
-    name: 'Spark Soul',
+    name: 'Verdant Luster Soul',
     tier: 'RARE',
-    value: 550,
-    weight: 15, // 7.5% spawn chance
+    value: 5500,
+    weight: 25, // Rare spawn probability
     imagePath: './src/assets/rare_girl2.png',
     attachmentName: 'rare_girl2.png',
-    color: '#f43f5e', // Rose red
+    color: '#10b981', // Emerald green
     embedTitle: '✦ A RARE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Spark Soul has appeared! Tier: RARE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Verdant Luster Soul has appeared! Tier: RARE\n\nA beautiful emerald forest spirit with a leaf crown has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'RARE SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Spark Soul 🔥\n\n✦ The rare soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Verdant Luster Soul 🌿\n\n✦ The rare soul has chosen its master.`
   },
 
-  // --- EPIC / MYTHIC (Tiers: 700 - 750) ---
+  // --- EPIC / MYTHIC (Tiers: 12000 - 25000) ---
+  {
+    id: 'epic_girl2',
+    name: 'Astral Eclipse Soul',
+    tier: 'EPIC',
+    value: 12000,
+    weight: 10, // Epic spawn probability
+    imagePath: './src/assets/epic_girl2.png',
+    attachmentName: 'epic_girl2.png',
+    color: '#6366f1', // Indigo
+    embedTitle: '✦ AN EPIC SOUL HAS DESCENDED ✦',
+    embedDescription: 'Astral Eclipse Soul has appeared! Tier: EPIC\n\nA mysterious dark celestial spirit surrounded by an eclipsing ring has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'EPIC SOUL CLAIMED!',
+    claimDescription: (userMention) => `${userMention} captured Astral Eclipse Soul 🔮\n\n✦ The epic soul has chosen its master.`
+  },
   {
     id: 'mythic_soul',
-    name: 'Goddess Soul',
+    name: 'Celestial Empress Soul',
     tier: 'MYTHIC',
-    value: 700,
-    weight: 8, // 4% spawn chance
+    value: 25000,
+    weight: 5, // Mythic spawn probability (low priority)
     imagePath: './src/assets/mythic_soul.png',
     attachmentName: 'mythic_soul.png',
     color: '#fbbf24', // Gold
     embedTitle: '✦ A MYTHIC SOUL HAS DESCENDED ✦',
-    embedDescription: 'Goddess Soul has appeared! Tier: MYTHIC\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Celestial Empress Soul has appeared! Tier: MYTHIC\n\nA magnificent golden-winged celestial queen of divine light has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'MYTHIC SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Goddess Soul 💛\n\n✦ The mythic soul has chosen its master.`
-  },
-  {
-    id: 'epic_girl2',
-    name: 'Twilight Soul',
-    tier: 'EPIC',
-    value: 750,
-    weight: 8, // 4% spawn chance
-    imagePath: './src/assets/epic_girl2.png',
-    attachmentName: 'epic_girl2.png',
-    color: '#db2777', // Deep pink
-    embedTitle: '✦ AN EPIC SOUL HAS DESCENDED ✦',
-    embedDescription: 'Twilight Soul has appeared! Tier: EPIC\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
-    claimTitle: 'EPIC SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Twilight Soul 🦇\n\n✦ The epic soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Celestial Empress Soul 👑\n\n✦ The mythic soul has chosen its master.`
   },
 
-  // --- DIVINE (Tier: 1000) ---
+  // --- DIVINE (Tiers: 40000 - 50000) ---
   {
     id: 'divine_soul',
-    name: 'Divine Soul',
+    name: 'Genesis Prime Soul',
     tier: 'DIVINE',
-    value: 1000,
-    weight: 2, // 1% spawn chance (most rare, highest value!)
+    value: 40000,
+    weight: 1, // Divine spawn probability (rarest spawn chance)
     imagePath: './src/assets/divine_soul_purple.png',
     attachmentName: 'divine_soul_purple.png',
     color: '#a855f7', // Purple
     embedTitle: '✦ A DIVINE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Divine Soul has appeared! Tier: DIVINE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Genesis Prime Soul has appeared! Tier: DIVINE\n\nA radiant goddess of creation with flowing white-gold hair has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'DIVINE SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ The divine soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Genesis Prime Soul 💖\n\n✦ The divine soul has chosen its master.`
   },
   {
     id: 'divine_girl2',
-    name: 'Celestia Soul',
+    name: 'Infinity Void Soul',
     tier: 'DIVINE',
-    value: 1000,
-    weight: 2, // 1% spawn chance (most rare, highest value!)
+    value: 50000,
+    weight: 1, // Divine spawn probability (rarest spawn chance)
     imagePath: './src/assets/divine_girl2.png',
     attachmentName: 'divine_girl2.png',
-    color: '#6366f1', // Indigo
+    color: '#db2777', // Deep pink
     embedTitle: '✦ A DIVINE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Celestia Soul has appeared! Tier: DIVINE\n\nA rare presence has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Infinity Void Soul has appeared! Tier: DIVINE\n\nAn iridescent dark-matter goddess from the edge of the universe has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'DIVINE SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Celestia Soul ✨\n\n✦ The divine soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Infinity Void Soul ✨\n\n✦ The divine soul has chosen its master.`
   },
   // --- CUTE CATS ---
   {
