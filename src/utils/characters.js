@@ -128,17 +128,17 @@ const CHARACTER_SPAWNS = [
   // --- DIVINE (Tiers: 40000 - 50000) ---
   {
     id: 'divine_soul',
-    name: 'Genesis Prime Soul',
+    name: 'Divine Soul',
     tier: 'DIVINE',
-    value: 40000,
+    value: 100000,
     weight: 1, // Divine spawn probability (rarest spawn chance)
     imagePath: './src/assets/divine_soul_purple.png',
     attachmentName: 'divine_soul_purple.png',
     color: '#a855f7', // Purple
     embedTitle: '✦ A DIVINE SOUL HAS DESCENDED ✦',
-    embedDescription: 'Genesis Prime Soul has appeared! Tier: DIVINE\n\nA radiant goddess of creation with flowing white-gold hair has entered this realm...\n\nType soul to claim her!',
+    embedDescription: 'Divine Soul has appeared! Tier: DIVINE\n\nA beautiful purple-haired divine soul with cat ears has entered this realm...\n\nType soul to claim her!',
     claimTitle: 'DIVINE SOUL CLAIMED!',
-    claimDescription: (userMention) => `${userMention} captured Genesis Prime Soul 💖\n\n✦ The divine soul has chosen its master.`
+    claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ The divine soul has chosen its master.`
   },
   {
     id: 'divine_girl2',
