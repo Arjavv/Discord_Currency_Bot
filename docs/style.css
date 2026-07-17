@@ -1861,4 +1861,432 @@ h1, h2, h3, h4, .brand-name, .btn, .command-name, .section-title, .market-title,
   }
 }
 
+/* ==========================================
+   PREMIUM CUSTOM WEB SHINE & MASCOT ART
+   ========================================== */
+
+:root {
+  --color-purple: #8b5cf6;
+  --color-purple-glow: #c084fc;
+  --color-purple-gradient: linear-gradient(135deg, #a78bfa, #7c3aed);
+  --color-accent-gradient: linear-gradient(135deg, #fbbf24, #8b5cf6);
+  --glass-bg: rgba(15, 10, 30, 0.45);
+  --glass-border: rgba(139, 92, 246, 0.15);
+}
+
+.purple-text {
+  color: var(--color-purple-glow);
+  background: var(--color-purple-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(139, 92, 246, 0.25));
+}
+
+.purple-badge {
+  background: rgba(139, 92, 246, 0.08) !important;
+  border-color: rgba(139, 92, 246, 0.3) !important;
+  color: var(--color-purple-glow) !important;
+}
+
+/* Holographic Visual Mascot Card */
+.holo-frame-container {
+  position: relative;
+  width: 330px;
+  height: 420px;
+  perspective: 1000px;
+}
+
+.holo-card {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(139, 92, 246, 0.15);
+  overflow: hidden;
+}
+
+.holo-card:hover {
+  transform: rotateY(10deg) rotateX(10deg) scale(1.03);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 45px rgba(139, 92, 246, 0.35);
+}
+
+.holo-glow-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%, rgba(139, 92, 246, 0.1) 100%);
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.3s;
+}
+
+.holo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.holo-card:hover .holo-image {
+  transform: scale(1.05);
+}
+
+.holo-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 30px 24px 20px;
+  background: linear-gradient(to top, rgba(3, 3, 6, 0.95) 0%, rgba(3, 3, 6, 0.5) 70%, transparent 100%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+}
+
+.holo-rarity {
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--color-purple-glow);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.holo-name {
+  font-size: 24px;
+  font-weight: 850;
+  color: #fff;
+  font-family: 'Outfit', sans-serif;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.holo-shadow {
+  position: absolute;
+  bottom: -30px;
+  left: 10%;
+  width: 80%;
+  height: 16px;
+  background: radial-gradient(ellipse, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+  filter: blur(8px);
+  animation: shadowPulse 5s ease-in-out infinite;
+}
+
+/* Shrine Banner Feature Section */
+.banner-feature-section {
+  padding: 120px 0;
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
+  border-top: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.banner-feature-content {
+  max-width: 650px;
+  position: relative;
+  z-index: 3;
+}
+
+.banner-stats {
+  display: flex;
+  gap: 30px;
+  margin-top: 40px;
+}
+
+.b-stat {
+  background: rgba(4, 4, 7, 0.75);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  padding: 16px 24px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.b-stat strong {
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  color: #fff;
+  margin-bottom: 4px;
+  background: var(--color-purple-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.b-stat span {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* Gacha Simulator Section */
+.gacha-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 40px;
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 40px;
+  backdrop-filter: blur(12px);
+}
+
+.gacha-summon-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  padding-right: 40px;
+}
+
+.summon-card-back {
+  width: 250px;
+  height: 350px;
+  perspective: 1000px;
+  cursor: pointer;
+  margin-bottom: 30px;
+}
+
+.card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.summon-card-back.flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-front, .card-back {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  backface-visibility: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.card-back {
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, rgba(3, 3, 6, 0.95) 80%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.back-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-logo img {
+  width: 60px;
+  height: auto;
+  filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.5));
+}
+
+.back-logo span {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--color-purple-glow);
+}
+
+.card-front {
+  background: rgba(7, 7, 15, 0.95);
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+}
+
+.card-glow-effect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.15;
+}
+
+.card-rarity-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #000;
+  background: #fbbf24;
+}
+
+.card-portrait {
+  width: 100%;
+  height: 70%;
+  object-fit: cover;
+  position: relative;
+  z-index: 2;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.card-info {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-grow: 1;
+  z-index: 3;
+  background: rgba(3, 3, 6, 0.9);
+}
+
+.card-character-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.card-value-badge {
+  font-size: 13px;
+  color: var(--color-gold-glow);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+}
+
+.gacha-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.cooldown-notice {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.gacha-inventory {
+  display: flex;
+  flex-direction: column;
+}
+
+.gacha-inventory h4 {
+  font-size: 16px;
+  color: #fff;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.gacha-deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 12px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.empty-deck-notice {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 0;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.gacha-card-chip {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.gacha-card-chip:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gacha-card-chip.rarity-divine { border-color: rgba(139, 92, 246, 0.5); box-shadow: 0 0 10px rgba(139, 92, 246, 0.15); }
+.gacha-card-chip.rarity-mythic { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 10px rgba(239, 68, 68, 0.15); }
+.gacha-card-chip.rarity-epic { border-color: rgba(219, 39, 119, 0.5); box-shadow: 0 0 10px rgba(219, 39, 119, 0.15); }
+.gacha-card-chip.rarity-rare { border-color: rgba(59, 130, 246, 0.5); box-shadow: 0 0 10px rgba(59, 130, 246, 0.15); }
+.gacha-card-chip.rarity-uncommon { border-color: rgba(16, 185, 129, 0.5); box-shadow: 0 0 10px rgba(16, 185, 129, 0.15); }
+
+.chip-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chip-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.chip-rarity {
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rarity-text-divine { color: var(--color-purple-glow) }
+.rarity-text-mythic { color: #ef4444 }
+.rarity-text-epic { color: #db2777 }
+.rarity-text-rare { color: #3b82f6 }
+.rarity-text-uncommon { color: #10b981 }
+.rarity-text-common { color: #94a3b8 }
+
+@media (max-width: 992px) {
+  .gacha-container {
+    grid-template-columns: 1fr;
+  }
+  .gacha-summon-area {
+    border-right: none;
+    padding-right: 0;
+    margin-bottom: 40px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 40px;
+  }
+}
+
+
 
