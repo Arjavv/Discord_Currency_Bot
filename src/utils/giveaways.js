@@ -14,16 +14,26 @@ const MONTHLY_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
  * Iterates through all guilds and attempts to broadcast an announcement embed.
  */
 async function announceGiveaway(client, type, winnerUser, amount) {
+  const globalSettings = await getGlobalSettings();
+  const pingTemplate = globalSettings.giveaway_ping_template || `🎉 CONGRATULATIONS {mention}! You won the {type} giveaway draw! 🎉`;
+  const descTemplate = globalSettings.giveaway_desc_template || `A lucky server member has been chosen by the cosmic scales for the **{type}** sweepstakes!\n\n👤 **Winner:** {tag} ({mention})\n💰 **Prize:** **{amount}** Souls\n\nCongratulations to the winner! Keep chatting and claiming drops to stand a chance in the next draw!`;
+
+  const replacePlaceholders = (str) => {
+    return str
+      .replace(/{mention}/g, `<@${winnerUser.id}>`)
+      .replace(/{tag}/g, winnerUser.tag)
+      .replace(/{type}/g, type)
+      .replace(/{amount}/g, amount.toLocaleString());
+  };
+
+  const pingContent = replacePlaceholders(pingTemplate);
+  const descriptionContent = replacePlaceholders(descTemplate);
+
   const embed = new EmbedBuilder()
     .setColor(type === 'monthly' ? '#f5c842' : type === 'weekly' ? '#ff6090' : '#8b2fc9')
     .setTitle(`🎁 SOUL ${type.toUpperCase()} GIVEAWAY WINNER! 🎁`)
     .setThumbnail(winnerUser.displayAvatarURL({ dynamic: true }))
-    .setDescription(
-      `A lucky server member has been chosen by the cosmic scales for the **${type}** sweepstakes!\n\n` +
-      `👤 **Winner:** ${winnerUser.tag} (<@${winnerUser.id}>)\n` +
-      `💰 **Prize:** **${amount.toLocaleString()}** Souls\n\n` +
-      `Congratulations to the winner! Keep chatting and claiming drops to stand a chance in the next draw!`
-    )
+    .setDescription(descriptionContent)
     .setFooter({ text: 'Soul Economy Giveaway System', iconURL: client.user.displayAvatarURL() })
     .setTimestamp();
 
@@ -54,7 +64,7 @@ async function announceGiveaway(client, type, winnerUser, amount) {
       }
 
       if (targetChannel) {
-        await targetChannel.send({ embeds: [embed] }).catch(() => {});
+        await targetChannel.send({ content: pingContent, embeds: [embed] }).catch(() => {});
       }
     } catch (err) {
       console.error(`Failed to broadcast giveaway announcement to guild ${guild.name}:`, err);

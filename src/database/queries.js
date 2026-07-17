@@ -1080,7 +1080,9 @@ async function getGlobalSettings() {
       message_daily_cap: '5000',
       message_cooldown_seconds: '15',
       message_milestone: '10',
-      drops_paused_until: '0'
+      drops_paused_until: '0',
+      giveaway_ping_template: '🎉 CONGRATULATIONS {mention}! You won the {type} giveaway draw! 🎉',
+      giveaway_desc_template: 'A lucky server member has been chosen by the cosmic scales for the **{type}** sweepstakes!\n\n👤 **Winner:** {tag} ({mention})\n💰 **Prize:** **{amount}** Souls\n\nCongratulations to the winner! Keep chatting and claiming drops to stand a chance in the next draw!'
     };
     
     for (const [key, val] of Object.entries(defaults)) {
@@ -1128,7 +1130,9 @@ async function getGlobalSettings() {
       message_reward: '100',
       message_daily_cap: '5000',
       message_cooldown_seconds: '15',
-      message_milestone: '10'
+      message_milestone: '10',
+      giveaway_ping_template: '🎉 CONGRATULATIONS {mention}! You won the {type} giveaway draw! 🎉',
+      giveaway_desc_template: 'A lucky server member has been chosen by the cosmic scales for the **{type}** sweepstakes!\n\n👤 **Winner:** {tag} ({mention})\n💰 **Prize:** **{amount}** Souls\n\nCongratulations to the winner! Keep chatting and claiming drops to stand a chance in the next draw!'
     };
   }
 }

@@ -363,6 +363,73 @@ app.post('/api/settings', requireLogin, async (req, res) => {
   }
 });
 
+// Giveaway sweepstakes endpoints (Protected)
+app.get('/api/giveaway/status', requireLogin, async (req, res) => {
+  try {
+    const settings = await getGlobalSettings();
+    const now = Date.now();
+    const dailyCooldown = 24 * 60 * 60 * 1000;
+    const weeklyCooldown = 7 * 24 * 60 * 60 * 1000;
+    const monthlyCooldown = 30 * 24 * 60 * 60 * 1000;
+
+    const lastDaily = parseInt(settings.last_giveaway_daily || '0', 10);
+    const lastWeekly = parseInt(settings.last_giveaway_weekly || '0', 10);
+    const lastMonthly = parseInt(settings.last_giveaway_monthly || '0', 10);
+
+    const getRemainingSeconds = (lastTime, cooldown) => {
+      const nextTime = lastTime + cooldown;
+      if (now >= nextTime) return 0;
+      return Math.max(0, Math.floor((nextTime - now) / 1000));
+    };
+
+    res.json({
+      daily: {
+        lastDraw: lastDaily,
+        remainingSeconds: getRemainingSeconds(lastDaily, dailyCooldown),
+        lastWinner: settings.last_winner_daily ? JSON.parse(settings.last_winner_daily) : null
+      },
+      weekly: {
+        lastDraw: lastWeekly,
+        remainingSeconds: getRemainingSeconds(lastWeekly, weeklyCooldown),
+        lastWinner: settings.last_winner_weekly ? JSON.parse(settings.last_winner_weekly) : null
+      },
+      monthly: {
+        lastDraw: lastMonthly,
+        remainingSeconds: getRemainingSeconds(lastMonthly, monthlyCooldown),
+        lastWinner: settings.last_winner_monthly ? JSON.parse(settings.last_winner_monthly) : null
+      },
+      templates: {
+        ping: settings.giveaway_ping_template,
+        description: settings.giveaway_desc_template
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching giveaway status:', err);
+    res.status(500).json({ error: 'Failed to fetch giveaway status' });
+  }
+});
+
+app.post('/api/giveaway/trigger', requireLogin, async (req, res) => {
+  const { type } = req.body;
+  if (!['daily', 'weekly', 'monthly'].includes(type)) {
+    return res.status(400).json({ error: 'Invalid giveaway type.' });
+  }
+
+  try {
+    const val = type === 'daily' ? 1000 : (type === 'weekly' ? 5000 : 50000);
+    const { runGiveaway } = require('./utils/giveaways');
+    const result = await runGiveaway(client, type, val);
+    if (result) {
+      res.json({ success: true, winner: result.winnerUser.tag });
+    } else {
+      res.status(500).json({ error: 'Draw failed. No eligible human users exist.' });
+    }
+  } catch (err) {
+    console.error(`Error triggering manual giveaway for ${type}:`, err);
+    res.status(500).json({ error: err.message || 'Failed to trigger giveaway draw.' });
+  }
+});
+
 // Servers list & stats endpoint (Protected)
 app.get('/api/servers-info', requireLogin, async (req, res) => {
   try {

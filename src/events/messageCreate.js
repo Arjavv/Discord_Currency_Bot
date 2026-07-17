@@ -3379,25 +3379,9 @@ module.exports = {
           }
 
           if (['giveaway', 'giveaways'].includes(commandName)) {
-            // Check if admin is triggering manual run
+            // Block manual runs from Discord
             if (args[0] === 'run') {
-              const isServerAdmin = message.member && message.member.permissions.has(PermissionFlagsBits.Administrator);
-              if (!isServerAdmin) {
-                return message.reply('❌ Only server administrators can trigger manual giveaways.').catch(() => {});
-              }
-              const type = args[1] ? args[1].toLowerCase() : null;
-              if (!['daily', 'weekly', 'monthly'].includes(type)) {
-                return message.reply('❌ **Usage**: `s giveaway run <daily/weekly/monthly>`').catch(() => {});
-              }
-              const val = type === 'daily' ? 1000 : (type === 'weekly' ? 5000 : 50000);
-              const { runGiveaway } = require('../utils/giveaways');
-              await message.reply(`⚙️ Manually triggering **${type}** giveaway...`).catch(() => {});
-              const result = await runGiveaway(message.client, type, val);
-              if (result) {
-                return message.channel.send(`✅ **${type}** giveaway manual drawing finished! Winner: **${result.winnerUser.tag}**`).catch(() => {});
-              } else {
-                return message.channel.send('❌ Giveaway failed. No eligible users found.').catch(() => {});
-              }
+              return message.reply('❌ Manual drawings can only be triggered from the **Web Admin Panel** for security.').catch(() => {});
             }
 
             const settings = await getGlobalSettings();
