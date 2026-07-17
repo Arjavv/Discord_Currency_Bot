@@ -1669,7 +1669,7 @@ async function getServerDetail(serverId) {
  */
 async function getUserInspect(discordId) {
   try {
-    const [balRes, txRes, statsRes, rankRes] = await Promise.all([
+    const [balRes, txRes, statsRes, rankRes, invRes] = await Promise.all([
       pool.query('SELECT coin_balance, last_checkin_at FROM users WHERE discord_id = $1 AND server_id = $2', [discordId, 'GLOBAL']),
       pool.query(`
         SELECT amount, source, created_at FROM transactions
@@ -1682,29 +1682,143 @@ async function getUserInspect(discordId) {
         WHERE server_id = 'GLOBAL' AND coin_balance > (
           SELECT COALESCE(coin_balance, 0) FROM users WHERE discord_id = $1 AND server_id = 'GLOBAL'
         )
-      `, [discordId])
+      `, [discordId]),
+      pool.query('SELECT item_id, quantity FROM user_inventory WHERE discord_id = $1 AND server_id = $2', [discordId, 'GLOBAL'])
     ]);
 
-    if (balRes.rows.length === 0) return null;
-
-    const user = balRes.rows[0];
+    const hasProfile = balRes.rows.length > 0;
+    const user = hasProfile ? balRes.rows[0] : { coin_balance: 0, last_checkin_at: null };
     const stats = statsRes.rows[0] || null;
+    const transactions = txRes.rows.map(r => ({ amount: r.amount, source: r.source, at: r.created_at }));
+    const inventory = invRes.rows.map(r => ({ itemId: r.item_id, quantity: parseInt(r.quantity, 10) || 0 }));
+
     return {
       discordId,
       balance: parseInt(user.coin_balance, 10) || 0,
       lastCheckin: user.last_checkin_at,
-      rank: parseInt(rankRes.rows[0].rank, 10) || 0,
-      transactions: txRes.rows.map(r => ({ amount: r.amount, source: r.source, at: r.created_at })),
-      stats: stats ? {
-        strength: (stats.base_strength || 50) + (stats.boost_strength || 0),
-        defense: (stats.base_defense || 50) + (stats.boost_defense || 0),
-        speed: (stats.base_speed || 50) + (stats.boost_speed || 0),
-        magic: (stats.base_magic || 50) + (stats.boost_magic || 0)
-      } : null
+      rank: hasProfile ? (parseInt(rankRes.rows[0].rank, 10) || 0) : 0,
+      transactions,
+      inventory,
+      stats: {
+        strength: (stats?.base_strength || 50) + (stats?.boost_strength || 0),
+        defense: (stats?.base_defense || 50) + (stats?.boost_defense || 0),
+        speed: (stats?.base_speed || 50) + (stats?.boost_speed || 0),
+        magic: (stats?.base_magic || 50) + (stats?.boost_magic || 0),
+        base_strength: stats?.base_strength || 50,
+        base_defense: stats?.base_defense || 50,
+        base_speed: stats?.base_speed || 50,
+        base_magic: stats?.base_magic || 50,
+        boost_strength: stats?.boost_strength || 0,
+        boost_defense: stats?.boost_defense || 0,
+        boost_speed: stats?.boost_speed || 0,
+        boost_magic: stats?.boost_magic || 0
+      },
+      isNew: !hasProfile
     };
   } catch (e) {
     console.error('Error in getUserInspect:', e);
     return null;
+  }
+}
+
+/**
+ * Updates user details (balance, stats, inventory) from the admin panel.
+ */
+async function adminUpdateUser(discordId, updates) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Ensure user exists globally first
+    await ensureUserExists(client, discordId, 'GLOBAL');
+    
+    // 1. Update Balance if provided
+    if (updates.coin_balance !== undefined) {
+      const newBal = parseInt(updates.coin_balance, 10);
+      
+      const curRes = await client.query('SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = $2', [discordId, 'GLOBAL']);
+      const oldBal = curRes.rows[0] ? parseInt(curRes.rows[0].coin_balance, 10) : 0;
+      const difference = newBal - oldBal;
+      
+      await client.query(`
+        UPDATE users
+        SET coin_balance = $2
+        WHERE discord_id = $1 AND server_id = 'GLOBAL'
+      `, [discordId, newBal]);
+      
+      if (difference !== 0) {
+        await client.query(`
+          INSERT INTO transactions (user_id, server_id, amount, source)
+          VALUES ($1, 'GLOBAL', $2, 'admin_edit')
+        `, [discordId, difference]);
+      }
+    }
+    
+    // 2. Update Stats if provided
+    if (updates.stats !== undefined) {
+      const stats = updates.stats;
+      await client.query(`
+        INSERT INTO user_stats (discord_id, server_id)
+        VALUES ($1, 'GLOBAL')
+        ON CONFLICT (discord_id, server_id) DO NOTHING
+      `, [discordId]);
+      
+      const setClauses = [];
+      const params = [discordId];
+      let paramIndex = 2;
+      
+      const fields = [
+        'base_strength', 'base_defense', 'base_speed', 'base_magic',
+        'boost_strength', 'boost_defense', 'boost_speed', 'boost_magic'
+      ];
+      
+      fields.forEach(field => {
+        if (stats[field] !== undefined) {
+          setClauses.push(`${field} = $${paramIndex}`);
+          params.push(parseInt(stats[field], 10) || 0);
+          paramIndex++;
+        }
+      });
+      
+      if (setClauses.length > 0) {
+        await client.query(`
+          UPDATE user_stats
+          SET ${setClauses.join(', ')}
+          WHERE discord_id = $1 AND server_id = 'GLOBAL'
+        `, params);
+      }
+    }
+    
+    // 3. Update Inventory if provided
+    if (updates.inventory !== undefined && Array.isArray(updates.inventory)) {
+      for (const item of updates.inventory) {
+        const itemId = item.itemId;
+        const quantity = parseInt(item.quantity, 10);
+        
+        if (isNaN(quantity) || quantity <= 0) {
+          await client.query(`
+            DELETE FROM user_inventory
+            WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+          `, [discordId, itemId]);
+        } else {
+          await client.query(`
+            INSERT INTO user_inventory (discord_id, server_id, item_id, quantity)
+            VALUES ($1, 'GLOBAL', $2, $3)
+            ON CONFLICT (discord_id, server_id, item_id)
+            DO UPDATE SET quantity = $3
+          `, [discordId, itemId, quantity]);
+        }
+      }
+    }
+    
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in adminUpdateUser for user ${discordId}:`, error);
+    throw error;
+  } finally {
+    client.release();
   }
 }
 
@@ -2055,6 +2169,7 @@ module.exports = {
   setServerFeatureOverride,
   getServerDetail,
   getUserInspect,
+  adminUpdateUser,
   getDatabaseSize,
   ensureTreasuryExists,
   getTreasury,

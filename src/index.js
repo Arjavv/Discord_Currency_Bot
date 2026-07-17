@@ -121,7 +121,7 @@ if (fs.existsSync(eventsPath)) {
 // Serve the docs/ website, admin dashboard, and endpoints
 const express = require('express');
 const session = require('express-session');
-const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, getShopPrices, setShopPrice, resetCycle, getDatabaseSize } = require('./database/queries');
+const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, adminUpdateUser, getShopPrices, setShopPrice, resetCycle, getDatabaseSize } = require('./database/queries');
 const { getBotControlState } = require('./utils/botControl');
 const { scheduleNextDrop, triggerDrop, nextDropTimers } = require('./utils/drops');
 
@@ -889,10 +889,29 @@ app.get('/api/user/:discordId', requireLogin, async (req, res) => {
       const member = await client.users.fetch(discordId).catch(() => null);
       if (member) discordTag = member.tag || member.username;
     } catch (_) {}
+
+    // If the profile doesn't exist and they are not a valid Discord user, 404
+    if (user.isNew && !discordTag) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     res.json({ ...user, discordTag });
   } catch (err) {
     console.error('Error fetching user:', err);
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// Update user details (Protected)
+app.post('/api/user/:discordId/update', requireLogin, async (req, res) => {
+  const { discordId } = req.params;
+  const updates = req.body;
+  try {
+    const result = await adminUpdateUser(discordId, updates);
+    res.json(result);
+  } catch (err) {
+    console.error('Error updating user:', err);
+    res.status(500).json({ error: 'Failed to update user: ' + err.message });
   }
 });
 

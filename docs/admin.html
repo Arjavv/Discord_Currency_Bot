@@ -213,6 +213,30 @@
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+    /* CARD TABS */
+    .card-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px; }
+    .card-tab { padding: 8px 16px; font-size: 0.85rem; font-weight: 500; color: var(--muted); background: transparent; border: none; cursor: pointer; border-radius: 6px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .card-tab:hover { color: var(--text); background: rgba(255, 255, 255, 0.03); }
+    .card-tab.active { color: var(--violet); background: var(--violet-glow); border: 1px solid rgba(139, 92, 246, 0.3); }
+    .card-tab-content { display: none; }
+    .card-tab-content.active { display: block; }
+    
+    .inv-item-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 8px; margin-bottom: 8px; }
+    .inv-item-info { display: flex; align-items: center; gap: 12px; }
+    .inv-item-img { width: 36px; height: 36px; border-radius: 6px; border: 1px solid var(--card-border); object-fit: cover; }
+    .inv-item-fallback-img { width: 36px; height: 36px; border-radius: 6px; border: 1px solid var(--card-border); background: var(--violet-glow); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .inv-item-name { font-weight: 600; font-size: 0.88rem; }
+    .inv-item-id { font-size: 0.72rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .inv-qty-controls { display: flex; align-items: center; gap: 8px; }
+    .inv-qty-btn { width: 26px; height: 26px; border-radius: 5px; border: 1px solid var(--card-border); background: rgba(255,255,255,0.03); color: var(--text); font-size: 0.85rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+    .inv-qty-btn:hover { background: rgba(255,255,255,0.1); }
+    .inv-qty-input { width: 50px; padding: 4px 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); border-radius: 5px; color: var(--text); font-size: 0.82rem; text-align: center; outline: none; -moz-appearance: textfield; }
+    .inv-qty-input::-webkit-outer-spin-button, .inv-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    
+    .inv-add-form { display: flex; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border); align-items: flex-end; flex-wrap: wrap; }
+    .inv-add-form select { flex: 1; min-width: 180px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--card-border); border-radius: 9px; color: var(--text); font-size: 0.88rem; outline: none; cursor: pointer; }
+    .inv-add-form select option { background: #1e1e2e; color: var(--text); }
   </style>
 </head>
 <body>
@@ -454,20 +478,99 @@
       <div class="user-card" id="user-card">
         <div class="user-card-header">
           <div class="user-avatar">&#x1F464;</div>
-          <div class="user-info"><h3 id="ui-tag">Unknown User</h3><p id="ui-id">--</p></div>
+          <div class="user-info">
+            <h3 id="ui-tag">Unknown User</h3>
+            <p id="ui-id">--</p>
+            <span id="ui-new-badge" style="display:none; background: rgba(239, 68, 68, 0.15); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; margin-top: 4px; display: inline-block;">New profile</span>
+          </div>
           <div style="margin-left:auto;text-align:right">
             <div style="font-family:'Orbitron',monospace;font-size:1.6rem;font-weight:700;color:var(--violet)" id="ui-balance">--</div>
             <div style="font-size:0.72rem;color:var(--muted)">Souls - Rank #<span id="ui-rank">--</span></div>
           </div>
         </div>
-        <div class="user-stat-row" id="ui-stats-row" style="margin-bottom:16px">
-          <div class="user-stat"><div class="us-val" id="ui-str">--</div><div class="us-key">Strength</div></div>
-          <div class="user-stat"><div class="us-val" id="ui-def">--</div><div class="us-key">Defense</div></div>
-          <div class="user-stat"><div class="us-val" id="ui-spd">--</div><div class="us-key">Speed</div></div>
-          <div class="user-stat"><div class="us-val" id="ui-mag">--</div><div class="us-key">Magic</div></div>
+        
+        <!-- CARD SUB-TABS -->
+        <div class="card-tabs">
+          <button class="card-tab active" data-card-tab="overview"><i class="fa-solid fa-chart-simple"></i> Overview</button>
+          <button class="card-tab" data-card-tab="edit-profile"><i class="fa-solid fa-user-pen"></i> Edit Profile & Stats</button>
+          <button class="card-tab" data-card-tab="inventory"><i class="fa-solid fa-bag-shopping"></i> Manage Inventory (<span id="ui-inv-count">0</span>)</button>
         </div>
-        <div class="section-title"><i class="fa-solid fa-scroll"></i> Recent Transactions (last 30)</div>
-        <div id="ui-tx-table"></div>
+        
+        <!-- TAB 1: OVERVIEW -->
+        <div class="card-tab-content active" id="card-tab-overview">
+          <div class="user-stat-row" id="ui-stats-row" style="margin-bottom:20px">
+            <div class="user-stat"><div class="us-val" id="ui-str">--</div><div class="us-key">Strength</div></div>
+            <div class="user-stat"><div class="us-val" id="ui-def">--</div><div class="us-key">Defense</div></div>
+            <div class="user-stat"><div class="us-val" id="ui-spd">--</div><div class="us-key">Speed</div></div>
+            <div class="user-stat"><div class="us-val" id="ui-mag">--</div><div class="us-key">Magic</div></div>
+          </div>
+          <div class="section-title"><i class="fa-solid fa-scroll"></i> Recent Transactions (last 30)</div>
+          <div id="ui-tx-table"></div>
+        </div>
+        
+        <!-- TAB 2: EDIT PROFILE & STATS -->
+        <div class="card-tab-content" id="card-tab-edit-profile">
+          <div class="section" style="padding: 16px; background: rgba(255,255,255,0.01); border-color: var(--card-border);">
+            <div class="section-title" style="margin-bottom: 12px;"><i class="fa-solid fa-coins"></i> Balance Adjustment</div>
+            <div class="input-group" style="margin: 0; max-width: 320px;">
+              <label>Coin Balance (Souls)</label>
+              <input type="number" id="edit-ui-balance" value="0">
+            </div>
+          </div>
+          
+          <div class="section" style="padding: 16px; background: rgba(255,255,255,0.01); border-color: var(--card-border);">
+            <div class="section-title" style="margin-bottom: 12px;"><i class="fa-solid fa-shield-halved"></i> Player Base Stats</div>
+            <div class="input-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
+              <div class="input-group" style="margin:0;"><label>Base Strength</label><input type="number" id="edit-ui-base-str" value="50"></div>
+              <div class="input-group" style="margin:0;"><label>Base Defense</label><input type="number" id="edit-ui-base-def" value="50"></div>
+              <div class="input-group" style="margin:0;"><label>Base Speed</label><input type="number" id="edit-ui-base-spd" value="50"></div>
+              <div class="input-group" style="margin:0;"><label>Base Magic</label><input type="number" id="edit-ui-base-mag" value="50"></div>
+            </div>
+          </div>
+          
+          <div class="section" style="padding: 16px; background: rgba(255,255,255,0.01); border-color: var(--card-border);">
+            <div class="section-title" style="margin-bottom: 12px;"><i class="fa-solid fa-dumbbell"></i> Weekly Stat Upgrades (Boosts)</div>
+            <div class="input-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
+              <div class="input-group" style="margin:0;"><label>Boost Strength</label><input type="number" id="edit-ui-boost-str" value="0"></div>
+              <div class="input-group" style="margin:0;"><label>Boost Defense</label><input type="number" id="edit-ui-boost-def" value="0"></div>
+              <div class="input-group" style="margin:0;"><label>Boost Speed</label><input type="number" id="edit-ui-boost-spd" value="0"></div>
+              <div class="input-group" style="margin:0;"><label>Boost Magic</label><input type="number" id="edit-ui-boost-mag" value="0"></div>
+            </div>
+          </div>
+          
+          <button class="save-btn" id="save-ui-profile-btn" style="width: 100%; justify-content: center;"><i class="fa-solid fa-circle-check"></i> Save Profile & Stats Changes</button>
+        </div>
+        
+        <!-- TAB 3: INVENTORY MANAGEMENT -->
+        <div class="card-tab-content" id="card-tab-inventory">
+          <div class="section" style="padding: 16px; background: rgba(255,255,255,0.01); border-color: var(--card-border);">
+            <div class="section-title" style="margin-bottom: 12px;"><i class="fa-solid fa-box-archive"></i> Current Inventory Items</div>
+            <div id="ui-inventory-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+          
+          <div class="section" style="padding: 16px; background: rgba(255,255,255,0.01); border-color: var(--card-border);">
+            <div class="section-title" style="margin-bottom: 8px;"><i class="fa-solid fa-circle-plus"></i> Add Item to Player Inventory</div>
+            <div class="inv-add-form">
+              <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size:0.72rem; color:var(--muted); font-weight:600;">Select Item or Character Soul</label>
+                <select id="inv-add-select">
+                  <option value="">-- Choose Item/Character --</option>
+                  <option value="shield">🛡️ Divine Shield (shield)</option>
+                  <!-- Dynamically populated characters -->
+                </select>
+              </div>
+              <div style="width: 80px; display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size:0.72rem; color:var(--muted); font-weight:600;">Quantity</label>
+                <input type="number" id="inv-add-qty" min="1" value="1" style="padding:10px; background:var(--bg2); border:1px solid var(--card-border); border-radius:9px; color:var(--text); font-size:0.88rem; outline:none; text-align:center;">
+              </div>
+              <button class="btn-search" id="inv-add-btn" style="height:41px; padding: 0 16px; margin: 0;"><i class="fa-solid fa-plus"></i> Add</button>
+            </div>
+          </div>
+          
+          <button class="save-btn" id="save-ui-inventory-btn" style="width: 100%; justify-content: center;"><i class="fa-solid fa-floppy-disk"></i> Save Inventory Changes</button>
+        </div>
       </div>
       <div id="user-not-found" style="display:none"><div class="empty-state"><i class="fa-solid fa-user-slash"></i>User not found in the database</div></div>
     </div>
@@ -722,6 +825,16 @@ document.querySelectorAll('.nav-item').forEach(el => {
     if (el.dataset.panel === 'collectibles') loadCollectibles();
     if (el.dataset.panel === 'drops-manager') loadDropsManager();
     if (el.dataset.panel === 'giveaways-manager') loadGiveawaysManager();
+  });
+});
+
+// Setup sub-tabs inside user card
+document.querySelectorAll('[data-card-tab]').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('[data-card-tab]').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.card-tab-content').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    $('card-tab-' + el.dataset.cardTab).classList.add('active');
   });
 });
 
@@ -1257,16 +1370,49 @@ async function loadAnalytics() {
 $('user-search-btn').onclick = () => inspectUser($('user-search-input').value.trim());
 $('user-search-input').addEventListener('keydown', e => { if(e.key==='Enter') $('user-search-btn').click(); });
 
+let currentUser = null;
+let charactersList = [];
+
+// Helper to load characters list for dropdown selection
+async function ensureCharactersLoaded() {
+  if (charactersList.length > 0) return;
+  try {
+    charactersList = await api('/api/characters');
+    // Populate select dropdown
+    const select = $('inv-add-select');
+    // Clear previous options except first
+    select.innerHTML = '<option value="">-- Choose Item/Character --</option><option value="shield">🛡️ Divine Shield (shield)</option>';
+    charactersList.forEach(char => {
+      const opt = document.createElement('option');
+      opt.value = char.id;
+      opt.textContent = `${char.tier === 'LEGENDARY' ? '👑' : char.tier === 'MYTHIC' ? '🦄' : char.tier === 'EPIC' ? '🔮' : '⭐'} ${char.name} (${char.id})`;
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('Failed to load characters for selector:', e);
+  }
+}
+
 async function inspectUser(id) {
   if (!id) return toast('Enter a Discord User ID', 'err');
   $('user-card').classList.remove('visible');
   $('user-not-found').style.display = 'none';
   try {
+    await ensureCharactersLoaded();
     const u = await api(`/api/user/${id}`);
+    currentUser = u; // Store user details locally
+    currentUser.originalItemIds = u.inventory ? u.inventory.map(i => i.itemId) : [];
+    
+    // Header info
     $('ui-tag').textContent = u.discordTag || 'Unknown User';
     $('ui-id').textContent = u.discordId;
     $('ui-balance').textContent = fmt(u.balance) + ' Souls';
     $('ui-rank').textContent = u.rank || '—';
+    
+    // New profile badge
+    $('ui-new-badge').style.display = u.isNew ? 'inline-block' : 'none';
+    
+    // Active/Overview tab details
     if (u.stats) {
       $('ui-str').textContent = u.stats.strength;
       $('ui-def').textContent = u.stats.defense;
@@ -1276,6 +1422,22 @@ async function inspectUser(id) {
     } else {
       $('ui-stats-row').style.display = 'none';
     }
+    
+    // Populate edit fields
+    $('edit-ui-balance').value = u.balance;
+    if (u.stats) {
+      $('edit-ui-base-str').value = u.stats.base_strength || 50;
+      $('edit-ui-base-def').value = u.stats.base_defense || 50;
+      $('edit-ui-base-spd').value = u.stats.base_speed || 50;
+      $('edit-ui-base-mag').value = u.stats.base_magic || 50;
+      
+      $('edit-ui-boost-str').value = u.stats.boost_strength || 0;
+      $('edit-ui-boost-def').value = u.stats.boost_defense || 0;
+      $('edit-ui-boost-spd').value = u.stats.boost_speed || 0;
+      $('edit-ui-boost-mag').value = u.stats.boost_magic || 0;
+    }
+    
+    // Transactions
     const txs = u.transactions || [];
     $('ui-tx-table').innerHTML = txs.length
       ? `<table class="data-table" style="margin-top:12px">
@@ -1287,6 +1449,16 @@ async function inspectUser(id) {
           </tr>`).join('')}</tbody>
         </table>`
       : '<div class="empty-state" style="padding:20px;margin-top:8px"><i class="fa-solid fa-receipt"></i>No transactions found</div>';
+      
+    // Render inventory
+    renderLocalInventory();
+    
+    // Reset to overview tab
+    document.querySelectorAll('[data-card-tab]').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.card-tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector('[data-card-tab="overview"]').classList.add('active');
+    $('card-tab-overview').classList.add('active');
+
     $('user-card').classList.add('visible');
   } catch (e) {
     if (e.message.includes('not found') || e.message.includes('404')) {
@@ -1296,6 +1468,150 @@ async function inspectUser(id) {
     }
   }
 }
+
+function renderLocalInventory() {
+  if (!currentUser) return;
+  const list = $('ui-inventory-list');
+  const items = currentUser.inventory || [];
+  
+  // Update tab badge count
+  let totalCount = items.reduce((acc, item) => acc + item.quantity, 0);
+  $('ui-inv-count').textContent = totalCount;
+  
+  if (items.length === 0) {
+    list.innerHTML = '<div class="empty-state" style="padding:15px;"><i class="fa-solid fa-box-open" style="font-size:1.5rem;"></i>Player inventory is empty</div>';
+    return;
+  }
+  
+  list.innerHTML = items.map((item, index) => {
+    // Try to find character in charactersList to get name, tier, color, and image
+    let name = item.itemId;
+    let imgUrl = '';
+    let isShield = item.itemId === 'shield';
+    let color = 'var(--text)';
+    
+    if (isShield) {
+      name = 'Divine Shield';
+    } else {
+      const char = charactersList.find(c => c.id === item.itemId);
+      if (char) {
+        name = char.name;
+        color = char.color || 'var(--text)';
+        if (char.imagePath) {
+          const imgName = char.imagePath.split('/').pop();
+          imgUrl = `/assets/spawns/${imgName}`;
+        }
+      }
+    }
+    
+    const imgHtml = isShield
+      ? '<div class="inv-item-fallback-img" style="color:var(--cyan); border-color:var(--cyan);"><i class="fa-solid fa-shield"></i></div>'
+      : (imgUrl 
+          ? `<img src="${imgUrl}" class="inv-item-img" onerror="this.outerHTML='<div class=&quot;inv-item-fallback-img&quot;>⭐</div>'">` 
+          : '<div class="inv-item-fallback-img">⭐</div>');
+          
+    return `
+      <div class="inv-item-row">
+        <div class="inv-item-info">
+          ${imgHtml}
+          <div>
+            <div class="inv-item-name" style="color:${color}">${name}</div>
+            <div class="inv-item-id">${item.itemId}</div>
+          </div>
+        </div>
+        <div class="inv-qty-controls">
+          <button class="inv-qty-btn" onclick="adjustLocalInvQty(${index}, -1)">-</button>
+          <input type="number" class="inv-qty-input" value="${item.quantity}" onchange="setLocalInvQty(${index}, this.value)">
+          <button class="inv-qty-btn" onclick="adjustLocalInvQty(${index}, 1)">+</button>
+          <button class="btn-logout" style="padding:5px 8px; width:auto; margin:0 0 0 10px; font-size:0.75rem;" onclick="removeLocalInvItem(${index})"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+window.adjustLocalInvQty = (index, delta) => {
+  if (!currentUser || !currentUser.inventory[index]) return;
+  const item = currentUser.inventory[index];
+  item.quantity = Math.max(1, item.quantity + delta);
+  renderLocalInventory();
+};
+
+window.setLocalInvQty = (index, val) => {
+  if (!currentUser || !currentUser.inventory[index]) return;
+  const qty = parseInt(val, 10);
+  if (isNaN(qty) || qty < 1) {
+    currentUser.inventory[index].quantity = 1;
+  } else {
+    currentUser.inventory[index].quantity = qty;
+  }
+  renderLocalInventory();
+};
+
+window.removeLocalInvItem = (index) => {
+  if (!currentUser || !currentUser.inventory[index]) return;
+  currentUser.inventory.splice(index, 1);
+  renderLocalInventory();
+};
+
+$('inv-add-btn').onclick = () => {
+  if (!currentUser) return;
+  const itemId = $('inv-add-select').value;
+  const qty = parseInt($('inv-add-qty').value, 10);
+  
+  if (!itemId) return toast('Select an item to add', 'err');
+  if (isNaN(qty) || qty < 1) return toast('Enter a valid quantity', 'err');
+  
+  // Check if item already exists in local inventory
+  const existing = currentUser.inventory.find(i => i.itemId === itemId);
+  if (existing) {
+    existing.quantity += qty;
+  } else {
+    currentUser.inventory.push({ itemId, quantity: qty });
+  }
+  
+  // Reset inputs
+  $('inv-add-select').value = '';
+  $('inv-add-qty').value = '1';
+  
+  renderLocalInventory();
+  toast('Item added to list');
+};
+
+$('save-ui-profile-btn').onclick = () => saveBtn($('save-ui-profile-btn'), async () => {
+  if (!currentUser) return;
+  const updates = {
+    coin_balance: parseInt($('edit-ui-balance').value, 10),
+    stats: {
+      base_strength: parseInt($('edit-ui-base-str').value, 10) || 50,
+      base_defense: parseInt($('edit-ui-base-def').value, 10) || 50,
+      base_speed: parseInt($('edit-ui-base-spd').value, 10) || 50,
+      base_magic: parseInt($('edit-ui-base-mag').value, 10) || 50,
+      boost_strength: parseInt($('edit-ui-boost-str').value, 10) || 0,
+      boost_defense: parseInt($('edit-ui-boost-def').value, 10) || 0,
+      boost_speed: parseInt($('edit-ui-boost-spd').value, 10) || 0,
+      boost_magic: parseInt($('edit-ui-boost-mag').value, 10) || 0
+    }
+  };
+  await api(`/api/user/${currentUser.discordId}/update`, 'POST', updates);
+  await inspectUser(currentUser.discordId);
+});
+
+$('save-ui-inventory-btn').onclick = () => saveBtn($('save-ui-inventory-btn'), async () => {
+  if (!currentUser) return;
+  const finalItems = currentUser.inventory.map(i => ({ itemId: i.itemId, quantity: i.quantity }));
+  const currentItemIds = finalItems.map(i => i.itemId);
+  
+  // Add items that were deleted (original items not present in final list) with quantity 0
+  const deletedItemIds = currentUser.originalItemIds.filter(id => !currentItemIds.includes(id));
+  deletedItemIds.forEach(id => {
+    finalItems.push({ itemId: id, quantity: 0 });
+  });
+  
+  const updates = { inventory: finalItems };
+  await api(`/api/user/${currentUser.discordId}/update`, 'POST', updates);
+  await inspectUser(currentUser.discordId);
+});
 
 async function loadCollectibles() {
   try {
