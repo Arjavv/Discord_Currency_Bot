@@ -49,8 +49,7 @@ async function triggerDrop(client, guildId, channel) {
       try {
         const oldMsg = await channel.messages.fetch(oldDrop.messageId).catch(() => null);
         if (oldMsg) {
-          const expiredContent = `💨 **FLED** ── The **${oldDrop.character?.name || 'Soul'}** has faded away...`;
-          await oldMsg.edit({ content: expiredContent, embeds: [], attachments: [], files: [] }).catch(() => {});
+          await oldMsg.delete().catch(() => {});
         }
       } catch (err) {
         console.error('Failed to expire old drop message:', err);
