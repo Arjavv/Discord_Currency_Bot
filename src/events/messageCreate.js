@@ -995,74 +995,15 @@ module.exports = {
       (firstWord === 'soul' && !secondWord) || 
       (firstWord === 's' && secondWord === 'soul' && catchWords.length === 2);
 
-    if (activeDrops.has(message.channel.id) && isSoulCatch) {
-      const dropControl = await getBotControlState(serverId);
-      if (dropControl.maintenanceMode || !dropControl.features.drops) {
-        return;
-      }
-
-      const drop = activeDrops.get(message.channel.id);
-
-      // Delete immediately to prevent double catch race conditions
-      activeDrops.delete(message.channel.id);
-
-      // Set cooldown start time to now (catch time)
-      // We schedule the next drop rather than just setting a time
-      scheduleNextDrop(message.client, serverId, message.channel.id);
-
-      if (drop.timeoutId) {
-        clearTimeout(drop.timeoutId);
-      }
-
-      try {
-        const settings = await getServerSettings(serverId);
-        const currencyName = settings.currency_name;
-        const currencyIcon = settings.currency_icon_url;
-        let character = drop.character;
-        if (!character) {
-          character = {
-            id: 'divine_soul',
-            name: 'Divine Soul',
-            tier: 'DIVINE',
-            value: drop.value || 700,
-            color: '#a855f7',
-            claimTitle: 'DIVINE SOUL CLAIMED!',
-            claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ The divine soul has chosen its master.`
-          };
-        }
-
-        const newQty = await addCharacterToInventory(userId, character.id);
-
-        // Edit original drop message to show caught state and remove attachments (waifu image)
-        const dropMsg = await message.channel.messages.fetch(drop.messageId).catch(() => null);
-        if (dropMsg) {
-          const caughtContent = `🎉 **CLAIMED** ── **${message.author.username}** captured **${character.name}**!`;
-          await dropMsg.edit({ content: caughtContent, embeds: [], attachments: [], files: [] }).catch(() => { });
-        }
-
-        // Send congratulatory reply
-        const claimText = typeof character.claimDescription === 'function'
-          ? character.claimDescription(message.author)
-          : (typeof character.claimDescription === 'string'
-              ? character.claimDescription.replace('{userMention}', String(message.author))
-              : `${message.author} captured ${character.name}!`);
-        const congratulateText = 
-          `**${character.tier} SOUL CLAIMED!**\n` +
-          `> ${claimText.replace(/\n/g, '\n> ')}\n\n` +
-          `🎒 **Saved to Inventory!** Type \`s inv\` to see your collection. (Quantity: \`${newQty}\` | Sell Value: \`${drop.value}\` ${currencyIcon} ${currencyName})`;
-
-        await message.reply({ content: congratulateText, embeds: [] }).catch(() => { });
-      } catch (err) {
-        console.error(`Error claiming drop for user ${userId}:`, err);
-      }
-
-      return; // Exit early to prevent catching from counting as milestone activity
-    } else if (isSoulCatch) {
-      // React with our custom 'soul_react' emoji, or create it if it doesn't exist in the guild
+    if (isSoulCatch) {
       let reactEmoji = null;
       if (message.guild) {
         try {
           reactEmoji = message.guild.emojis.cache.find(e => e.name === 'soul_react');
+          if (!reactEmoji) {
+            // Check client-wide emoji cache across all guilds the bot belongs to
+            reactEmoji = message.client.emojis.cache.find(e => e.name === 'soul_react');
+          }
           if (!reactEmoji) {
             const imgPath = path.join(__dirname, '../../docs/assets/soul_react.jpg');
             if (fs.existsSync(imgPath)) {
@@ -1071,7 +1012,6 @@ module.exports = {
             }
           }
         } catch (err) {
-          // Log error but proceed to fallback
           console.warn(`[EMOJI] Could not resolve/create custom emoji 'soul_react' in guild:`, err.message);
         }
       }
@@ -1084,6 +1024,64 @@ module.exports = {
         const randomEmoji = trollEmojis[Math.floor(Math.random() * trollEmojis.length)];
         await message.react(randomEmoji).catch(() => {});
       }
+
+      // If there is an active drop, claim it
+      if (activeDrops.has(message.channel.id)) {
+        const dropControl = await getBotControlState(serverId);
+        if (dropControl.maintenanceMode || !dropControl.features.drops) {
+          return;
+        }
+
+        const drop = activeDrops.get(message.channel.id);
+        activeDrops.delete(message.channel.id);
+
+        scheduleNextDrop(message.client, serverId, message.channel.id);
+
+        if (drop.timeoutId) {
+          clearTimeout(drop.timeoutId);
+        }
+
+        try {
+          const settings = await getServerSettings(serverId);
+          const currencyName = settings.currency_name;
+          const currencyIcon = settings.currency_icon_url;
+          let character = drop.character;
+          if (!character) {
+            character = {
+              id: 'divine_soul',
+              name: 'Divine Soul',
+              tier: 'DIVINE',
+              value: drop.value || 700,
+              color: '#a855f7',
+              claimTitle: 'DIVINE SOUL CLAIMED!',
+              claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ The divine soul has chosen its master.`
+            };
+          }
+
+          const newQty = await addCharacterToInventory(userId, character.id);
+
+          const dropMsg = await message.channel.messages.fetch(drop.messageId).catch(() => null);
+          if (dropMsg) {
+            const caughtContent = `🎉 **CLAIMED** ── **${message.author.username}** captured **${character.name}**!`;
+            await dropMsg.edit({ content: caughtContent, embeds: [], attachments: [], files: [] }).catch(() => { });
+          }
+
+          const claimText = typeof character.claimDescription === 'function'
+            ? character.claimDescription(message.author)
+            : (typeof character.claimDescription === 'string'
+                ? character.claimDescription.replace('{userMention}', String(message.author))
+                : `${message.author} captured ${character.name}!`);
+          const congratulateText = 
+            `**${character.tier} SOUL CLAIMED!**\n` +
+            `> ${claimText.replace(/\n/g, '\n> ')}\n\n` +
+            `🎒 **Saved to Inventory!** Type \`s inv\` to see your collection. (Quantity: \`${newQty}\` | Sell Value: \`${drop.value}\` ${currencyIcon} ${currencyName})`;
+
+          await message.reply({ content: congratulateText, embeds: [] }).catch(() => { });
+        } catch (err) {
+          console.error(`Error claiming drop for user ${userId}:`, err);
+        }
+      }
+
       return;
     }
 
