@@ -1626,7 +1626,7 @@ module.exports = {
                     `• \`s rare\` · View today's active collectibles and their daily premium prices.\n` +
                     `• \`s sell <index/name> [qty]\` · Sell caught souls at base or collectible prices.\n` +
                     `• \`s gift @user <name/index> [qty]\` / \`s give\` / \`s send\` / \`s transfer\` · Gift a caught soul from your inventory.\n` +
-                    `• \`s flex <index/name>\` · Flex a collectible with a temporary auto-deleting image card.`
+                    `• \`s flex <index/name>\` · Flex a collectible power card in chat.`
                 },
                 {
                   name: '🎰 Casino & Crime',
@@ -2442,16 +2442,10 @@ module.exports = {
               );
 
               const attachment = new AttachmentBuilder(imageBuffer, { name: 'flex.png' });
-              const flexMessage = await message.reply({
-                content: `✨ **${message.author.username}** is flexing their collectible! *(This message will auto-delete in 15 seconds)*`,
+              return await message.reply({
+                content: `✨ **${message.author.username}** is flexing their collectible!`,
                 files: [attachment]
               });
-
-              setTimeout(() => {
-                flexMessage.delete().catch(() => {});
-              }, 15000);
-
-              return;
             } catch (renderErr) {
               console.error('Failed to render flex image:', renderErr);
               return message.reply('❌ Failed to render showcase image. Please try again.').catch(() => {});

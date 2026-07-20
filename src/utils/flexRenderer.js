@@ -76,6 +76,25 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
   const font32 = await loadFont(font32Path);
   const font16 = await loadFont(font16Path);
   
+  // Generate stats deterministically based on character ID
+  let hash = 0;
+  const strId = character.id || '';
+  for (let i = 0; i < strId.length; i++) {
+    hash = strId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  const getVal = (salt, min = 40, max = 95) => {
+    return Math.abs((hash + salt) % (max - min + 1)) + min;
+  };
+  
+  const multiplier = character.tier === 'DIVINE' ? 1.25 : character.tier === 'MYTHIC' ? 1.15 : character.tier === 'EPIC' ? 1.05 : 1.0;
+  
+  const str = Math.min(99, Math.round(getVal(1, 40, 95) * multiplier));
+  const def = Math.min(99, Math.round(getVal(2, 40, 95) * multiplier));
+  const spd = Math.min(99, Math.round(getVal(3, 40, 95) * multiplier));
+  const mag = Math.min(99, Math.round(getVal(4, 40, 95) * multiplier));
+  const totalPower = str + def + spd + mag;
+
   // 4. Draw Header / Character Name
   canvas.print({
     font: font32,
@@ -89,33 +108,77 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
   canvas.print({
     font: font16,
     x: 220,
-    y: 105,
+    y: 100,
     text: `Tier: ${character.tier}`
   });
   
   const valueLabelText = isCollectible
-    ? `Value: ${character.value} ${currencyName} (Rare)`
-    : `Value: ${character.value} ${currencyName}`;
+    ? `${character.value} (Rare)`
+    : `${character.value}`;
 
   canvas.print({
     font: font16,
     x: 220,
-    y: 130,
-    text: valueLabelText
+    y: 125,
+    text: `Value: ${valueLabelText}`
   });
   
   canvas.print({
     font: font16,
     x: 220,
-    y: 155,
-    text: `Drop Chance: ${dropPercentage}%`
+    y: 150,
+    text: `Drop: ${dropPercentage}%`
   });
   
   canvas.print({
     font: font16,
     x: 220,
-    y: 185,
+    y: 180,
     text: `Flexed by: ${username}`
+  });
+
+  // 6. Draw Stats Box (Trump / Power Card layout)
+  drawRect(canvas, 415, 95, 155, 120, 0x2c1f17ff, tierColor, 2);
+  
+  canvas.print({
+    font: font16,
+    x: 415,
+    y: 72,
+    text: "CARD STATS",
+    maxWidth: 155,
+    alignmentX: 'center'
+  });
+
+  canvas.print({
+    font: font16,
+    x: 430,
+    y: 102,
+    text: `STR:  ${str}`
+  });
+  canvas.print({
+    font: font16,
+    x: 430,
+    y: 122,
+    text: `DEF:  ${def}`
+  });
+  canvas.print({
+    font: font16,
+    x: 430,
+    y: 142,
+    text: `SPD:  ${spd}`
+  });
+  canvas.print({
+    font: font16,
+    x: 430,
+    y: 162,
+    text: `MAG:  ${mag}`
+  });
+  
+  canvas.print({
+    font: font16,
+    x: 430,
+    y: 188,
+    text: `TOTAL: ${totalPower}`
   });
   
   return await canvas.getBuffer('image/png');
