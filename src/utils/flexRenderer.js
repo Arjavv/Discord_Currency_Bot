@@ -33,27 +33,60 @@ function drawRect(image, x, y, w, h, fillColor, borderColor, borderWidth = 2) {
 }
 
 /**
- * Renders the single collectible flex showcase graphic as a PNG buffer.
- * @param {string} username - Player's Discord username
- * @param {Object} character - Character/Collectible details
- * @param {string} dropPercentage - Formatted drop chance percentage
- * @param {string} currencyName - Guild's currency name
- * @returns {Promise<Buffer>}
+ * Helper to round canvas corners of the card.
+ */
+function roundCanvasCorners(jimpImage, radius = 24) {
+  const width = jimpImage.bitmap.width;
+  const height = jimpImage.bitmap.height;
+  
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      let deletePixel = false;
+      // Top-Left
+      if (x < radius && y < radius) {
+        if (Math.sqrt((radius - x) ** 2 + (radius - y) ** 2) > radius) deletePixel = true;
+      }
+      // Top-Right
+      else if (x >= width - radius && y < radius) {
+        if (Math.sqrt((x - (width - radius)) ** 2 + (radius - y) ** 2) > radius) deletePixel = true;
+      }
+      // Bottom-Left
+      else if (x < radius && y >= height - radius) {
+        if (Math.sqrt((radius - x) ** 2 + (y - (height - radius)) ** 2) > radius) deletePixel = true;
+      }
+      // Bottom-Right
+      else if (x >= width - radius && y >= height - radius) {
+        if (Math.sqrt((x - (width - radius)) ** 2 + (y - (height - radius)) ** 2) > radius) deletePixel = true;
+      }
+      
+      if (deletePixel) {
+        jimpImage.setPixelColor(0x00000000, x, y);
+      }
+    }
+  }
+  return jimpImage;
+}
+
+/**
+ * Renders the single collectible flex showcase graphic as a PNG buffer (Top Trumps style).
  */
 async function renderFlexImage(username, character, dropPercentage, currencyName, isCollectible = false) {
-  const width = 600;
-  const height = 250;
+  const width = 400;
+  const height = 600;
   
-  // 1. Create canvas
-  const canvas = new Jimp({ width, height, color: 0x1d120cff }); // Very dark brown
+  // 1. Create canvas with Retro Cream/Beige background
+  const canvas = new Jimp({ width, height, color: 0xfcf6e8ff });
   
   const tierColor = hexToColor(character.color);
   
-  // Draw outer card border colored by rarity/tier
-  drawRect(canvas, 0, 0, width, height, undefined, tierColor, 4);
+  // Draw outer rectangular black border inset by 12px
+  drawRect(canvas, 12, 12, width - 24, height - 24, undefined, 0x1d120cff, 2);
   
-  // Draw character image box
-  drawRect(canvas, 28, 43, 164, 164, 0x2c1f17ff, tierColor, 2);
+  // Draw Tier Flag on top left
+  drawRect(canvas, 24, 24, 60, 42, tierColor, 0x1d120cff, 2);
+  
+  // Draw character image slot box
+  drawRect(canvas, 24, 80, 352, 240, 0x2c1f17ff, 0x1d120cff, 2);
   
   // 2. Load character image
   if (character.imagePath) {
@@ -61,17 +94,18 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
     if (fs.existsSync(resolvedImgPath)) {
       try {
         const charImg = await Jimp.read(resolvedImgPath);
-        charImg.resize({ w: 160, h: 160 });
-        canvas.composite(charImg, 30, 45);
+        // Resize to fit image box perfectly inside borders
+        charImg.resize({ w: 348, h: 236 });
+        canvas.composite(charImg, 26, 82);
       } catch (imgErr) {
         console.error(`Failed to read character image at ${resolvedImgPath}:`, imgErr);
       }
     }
   }
   
-  // 3. Load Fonts
-  const font32Path = path.join(__dirname, '..', '..', 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-32-white', 'open-sans-32-white.fnt');
-  const font16Path = path.join(__dirname, '..', '..', 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-16-white', 'open-sans-16-white.fnt');
+  // 3. Load Black Fonts
+  const font32Path = path.join(__dirname, '..', '..', 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-32-black', 'open-sans-32-black.fnt');
+  const font16Path = path.join(__dirname, '..', '..', 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-16-black', 'open-sans-16-black.fnt');
   
   const font32 = await loadFont(font32Path);
   const font16 = await loadFont(font16Path);
@@ -95,91 +129,66 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
   const mag = Math.min(99, Math.round(getVal(4, 40, 95) * multiplier));
   const totalPower = str + def + spd + mag;
 
-  // 4. Draw Header / Character Name
+  // 4. Draw Header Character Name
   canvas.print({
     font: font32,
-    x: 220,
-    y: 35,
+    x: 94,
+    y: 22,
     text: character.name,
-    maxWidth: 350
+    maxWidth: 200
   });
   
-  // 5. Draw Info Labels
+  // Draw card owner/info on the top right
   canvas.print({
     font: font16,
-    x: 220,
-    y: 100,
-    text: `Tier: ${character.tier}`
+    x: 300,
+    y: 35,
+    text: `FLEX`,
+    maxWidth: 76,
+    alignmentX: 'right'
   });
   
-  const valueLabelText = isCollectible
-    ? `${character.value} (Rare)`
-    : `${character.value}`;
+  // 5. Draw Stats Separator Lines and Rows
+  const drawLine = (y) => {
+    for (let lx = 24; lx < 376; lx++) {
+      canvas.setPixelColor(0x1d120cff, lx, y);
+    }
+  };
 
-  canvas.print({
-    font: font16,
-    x: 220,
-    y: 125,
-    text: `Value: ${valueLabelText}`
-  });
-  
-  canvas.print({
-    font: font16,
-    x: 220,
-    y: 150,
-    text: `Drop: ${dropPercentage}%`
-  });
-  
-  canvas.print({
-    font: font16,
-    x: 220,
-    y: 180,
-    text: `Flexed by: ${username}`
-  });
+  drawLine(335);
+  drawLine(375);
+  drawLine(415);
+  drawLine(455);
+  drawLine(495);
+  drawLine(535);
+  drawLine(575);
 
-  // 6. Draw Stats Box (Trump / Power Card layout)
-  drawRect(canvas, 415, 95, 155, 120, 0x2c1f17ff, tierColor, 2);
-  
-  canvas.print({
-    font: font16,
-    x: 415,
-    y: 72,
-    text: "CARD STATS",
-    maxWidth: 155,
-    alignmentX: 'center'
-  });
+  const printStatRow = (label, val, y) => {
+    canvas.print({
+      font: font16,
+      x: 30,
+      y,
+      text: label
+    });
+    canvas.print({
+      font: font16,
+      x: 300,
+      y,
+      text: String(val),
+      maxWidth: 70,
+      alignmentX: 'right'
+    });
+  };
 
-  canvas.print({
-    font: font16,
-    x: 430,
-    y: 102,
-    text: `STR:  ${str}`
-  });
-  canvas.print({
-    font: font16,
-    x: 430,
-    y: 122,
-    text: `DEF:  ${def}`
-  });
-  canvas.print({
-    font: font16,
-    x: 430,
-    y: 142,
-    text: `SPD:  ${spd}`
-  });
-  canvas.print({
-    font: font16,
-    x: 430,
-    y: 162,
-    text: `MAG:  ${mag}`
-  });
-  
-  canvas.print({
-    font: font16,
-    x: 430,
-    y: 188,
-    text: `TOTAL: ${totalPower}`
-  });
+  printStatRow("Strength (STR):", str, 345);
+  printStatRow("Defense (DEF):", def, 385);
+  printStatRow("Speed (SPD):", spd, 425);
+  printStatRow("Magic (MAG):", mag, 465);
+  printStatRow("Total Power:", totalPower, 505);
+  printStatRow("Worth (Value):", isCollectible ? `${character.value} (Rare)` : `${character.value} ${currencyName}`, 545);
+
+  // Round the corners of the canvas
+  roundCanvasCorners(canvas, 24);
   
   return await canvas.getBuffer('image/png');
 }
