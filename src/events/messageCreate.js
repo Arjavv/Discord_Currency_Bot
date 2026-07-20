@@ -28,7 +28,9 @@ const {
   getGlobalSettings,
   getTreasury,
   updateTreasuryRates,
-  applyDailyTaxIfDue
+  applyDailyTaxIfDue,
+  applyServerVaultTaxIfDue,
+  getFluctuatingTaxRate
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 
@@ -1184,6 +1186,18 @@ module.exports = {
           console.error('[Daily Tax Error]', taxErr);
         }
 
+        // Apply server vault daily operational cost if due
+        try {
+          if (message.guild) {
+            const vaultTaxRes = await applyServerVaultTaxIfDue(serverId, message.guild.memberCount);
+            if (vaultTaxRes.success && vaultTaxRes.taxAmount > 0) {
+              console.log(`[Vault Tax] Deducted ${vaultTaxRes.taxAmount} Souls from server ${serverId} vault.`);
+            }
+          }
+        } catch (vaultTaxErr) {
+          console.error('[Vault Daily Tax Error]', vaultTaxErr);
+        }
+
         const settings = await getServerSettings(serverId);
         const currencyName = settings.currency_name;
         const currencyIcon = settings.currency_icon_url;
@@ -1677,6 +1691,11 @@ module.exports = {
 
           if (['vault', 'well'].includes(commandName)) {
             const treasuryInfo = await getTreasury(serverId);
+            const memberCount = message.guild.memberCount;
+            const fluctuatingRate = getFluctuatingTaxRate(memberCount);
+            const currentTaxRate = treasuryInfo.customTaxRate !== null ? treasuryInfo.customTaxRate : fluctuatingRate;
+            const rateLabel = treasuryInfo.customTaxRate !== null ? `\`${currentTaxRate}%\` (Custom Override)` : `\`${currentTaxRate}%\` (Fluctuates based on ${memberCount} members)`;
+
             const embed = new EmbedBuilder()
               .setColor('#7b2fff')
               .setTitle(`🏛️ Server Soul Vault 🏛️`)
@@ -1687,6 +1706,10 @@ module.exports = {
                 `• **Daily Reaper's Cut:** \`${treasuryInfo.dailyTaxRate}%\` of wallet balance daily\n` +
                 `• **Win Reaper's Cut:** \`${treasuryInfo.winTaxRate}%\` siphoned from casino/duel wins\n` +
                 `• **Sell Reaper's Cut:** \`${treasuryInfo.sellTaxRate}%\` deducted on character sales\n\n` +
+                `**Server Vault Operational Costs:**\n` +
+                `• **Vault Tax Rate:** ${rateLabel}\n` +
+                `• **Today's Operational Cost Paid:** \`${treasuryInfo.todayTaxPaid.toLocaleString()}\` Souls\n` +
+                `• **Total Operational Costs Paid:** \`${treasuryInfo.totalTaxPaid.toLocaleString()}\` Souls\n\n` +
                 `*Rates can be customized by the Server Owner using the command \`s tax\` (or \`s cut\`).*`
               )
               .setThumbnail(message.guild.iconURL({ dynamic: true }))
@@ -1705,6 +1728,10 @@ module.exports = {
 
             // Fetch current treasury settings
             const treasuryInfo = await getTreasury(serverId);
+            const memberCount = message.guild.memberCount;
+            const fluctuatingRate = getFluctuatingTaxRate(memberCount);
+            const currentTaxRate = treasuryInfo.customTaxRate !== null ? treasuryInfo.customTaxRate : fluctuatingRate;
+            const rateLabel = treasuryInfo.customTaxRate !== null ? `\`${currentTaxRate}%\` (Custom Override)` : `\`${currentTaxRate}%\` (Fluctuates based on ${memberCount} members)`;
 
             // Build select menus
             const dailySelect = new StringSelectMenuBuilder()
@@ -1760,7 +1787,11 @@ module.exports = {
                 `🏛️ **Soul Vault Balance:** \`${treasuryInfo.balance.toLocaleString()}\` Souls\n` +
                 `📅 **Daily Reaper's Cut Rate:** \`${treasuryInfo.dailyTaxRate}%\`\n` +
                 `🎰 **Win Reaper's Cut Rate:** \`${treasuryInfo.winTaxRate}%\`\n` +
-                `🪙 **Sell Reaper's Cut Rate:** \`${treasuryInfo.sellTaxRate}%\``
+                `🪙 **Sell Reaper's Cut Rate:** \`${treasuryInfo.sellTaxRate}%\`\n\n` +
+                `**Server Vault Operational Costs:**\n` +
+                `• **Vault Tax Rate:** ${rateLabel}\n` +
+                `• **Today's Operational Cost Paid:** \`${treasuryInfo.todayTaxPaid.toLocaleString()}\` Souls\n` +
+                `• **Total Operational Costs Paid:** \`${treasuryInfo.totalTaxPaid.toLocaleString()}\` Souls`
               )
               .setTimestamp();
 
@@ -1789,11 +1820,11 @@ module.exports = {
                 let currentSell = null;
 
                 if (menuInteraction.customId.startsWith('set_daily_tax_')) {
-                  currentDaily = selectedValue;
+                   currentDaily = selectedValue;
                 } else if (menuInteraction.customId.startsWith('set_win_tax_')) {
-                  currentWin = selectedValue;
+                   currentWin = selectedValue;
                 } else if (menuInteraction.customId.startsWith('set_sell_tax_')) {
-                  currentSell = selectedValue;
+                   currentSell = selectedValue;
                 }
 
                 // Update settings in database
@@ -1801,6 +1832,9 @@ module.exports = {
                 
                 // Fetch latest to show updated values
                 const currentTreasury = await getTreasury(serverId);
+                const currentFluctuatingRate = getFluctuatingTaxRate(memberCount);
+                const currentTaxRateVal = currentTreasury.customTaxRate !== null ? currentTreasury.customTaxRate : currentFluctuatingRate;
+                const currentRateLabel = currentTreasury.customTaxRate !== null ? `\`${currentTaxRateVal}%\` (Custom Override)` : `\`${currentTaxRateVal}%\` (Fluctuates based on ${memberCount} members)`;
 
                 // Update placeholders and description
                 const updatedDailySelect = StringSelectMenuBuilder.from(dailySelect)
@@ -1825,6 +1859,10 @@ module.exports = {
                     `📅 **Daily Reaper's Cut Rate:** \`${currentTreasury.dailyTaxRate}%\`\n` +
                     `🎰 **Win Reaper's Cut Rate:** \`${currentTreasury.winTaxRate}%\`\n` +
                     `🪙 **Sell Reaper's Cut Rate:** \`${currentTreasury.sellTaxRate}%\`\n\n` +
+                    `**Server Vault Operational Costs:**\n` +
+                    `• **Vault Tax Rate:** ${currentRateLabel}\n` +
+                    `• **Today's Operational Cost Paid:** \`${currentTreasury.todayTaxPaid.toLocaleString()}\` Souls\n` +
+                    `• **Total Operational Costs Paid:** \`${currentTreasury.totalTaxPaid.toLocaleString()}\` Souls\n\n` +
                     `✅ *Successfully updated Reaper's Cut settings!*`
                   );
 

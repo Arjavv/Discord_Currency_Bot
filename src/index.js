@@ -121,7 +121,7 @@ if (fs.existsSync(eventsPath)) {
 // Serve the docs/ website, admin dashboard, and endpoints
 const express = require('express');
 const session = require('express-session');
-const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, adminUpdateUser, getShopPrices, setShopPrice, resetCycle, getDatabaseSize } = require('./database/queries');
+const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, adminUpdateUser, getShopPrices, setShopPrice, resetCycle, getDatabaseSize, getTreasury, updateServerVaultCustomTaxRate, triggerServerVaultTaxDeduction, getFluctuatingTaxRate } = require('./database/queries');
 const { getBotControlState } = require('./utils/botControl');
 const { scheduleNextDrop, triggerDrop, nextDropTimers } = require('./utils/drops');
 
@@ -473,12 +473,17 @@ app.get('/api/servers-info', requireLogin, async (req, res) => {
         ss.auto_drops_enabled,
         COUNT(DISTINCT u.discord_id) as registered_users,
         COUNT(DISTINCT CASE WHEN g.coin_balance > 0 THEN u.discord_id END) as active_users_with_currency,
-        COALESCE(SUM(g.coin_balance), 0) as total_coins
+        COALESCE(SUM(g.coin_balance), 0) as total_coins,
+        COALESCE(st.balance, 100000) as treasury_balance,
+        COALESCE(st.total_tax_paid, 0) as total_tax_paid,
+        COALESCE(st.today_tax_paid, 0) as today_tax_paid,
+        st.custom_tax_rate
       FROM users u
       JOIN users g ON g.discord_id = u.discord_id AND g.server_id = 'GLOBAL'
       LEFT JOIN server_settings ss ON ss.server_id = u.server_id
+      LEFT JOIN server_treasury st ON st.server_id = u.server_id
       WHERE u.server_id != 'GLOBAL' AND u.server_id NOT LIKE '9999%'
-      GROUP BY u.server_id, ss.drop_channel_id, ss.auto_drops_enabled
+      GROUP BY u.server_id, ss.drop_channel_id, ss.auto_drops_enabled, st.balance, st.total_tax_paid, st.today_tax_paid, st.custom_tax_rate
       ORDER BY total_coins DESC
     `);
 
@@ -489,18 +494,31 @@ app.get('/api/servers-info', requireLogin, async (req, res) => {
         ? client.channels.cache.get(row.drop_channel_id)
         : null;
 
+      const memberCount = guild ? guild.memberCount : 0;
+      const fluctuatingRate = getFluctuatingTaxRate(memberCount);
+      const customRate = row.custom_tax_rate !== null ? parseFloat(row.custom_tax_rate) : null;
+      const effectiveRate = customRate !== null ? customRate : fluctuatingRate;
+
       return {
         id: row.server_id,
         name: guild ? guild.name : `Server ${row.server_id}`,
         icon: guild && guild.icon ? guild.iconURL({ size: 64 }) : null,
         membersCount: parseInt(row.active_users_with_currency, 10) || 0,
+        discordMemberCount: memberCount,
         totalCoins: parseInt(row.total_coins, 10) || 0,
         dropChannelId: row.drop_channel_id,
         dropChannelName: dropChannel ? `#${dropChannel.name}` : null,
         autoDropsEnabled: row.auto_drops_enabled === true,
         nextDropTime: nextDropTimers.has(row.server_id) ? nextDropTimers.get(row.server_id).nextDropTime : null,
         currencyName: settings.currency_name,
-        currencyIcon: settings.currency_icon_url
+        currencyIcon: settings.currency_icon_url,
+        treasury: {
+          balance: parseInt(row.treasury_balance, 10),
+          totalTaxPaid: parseInt(row.total_tax_paid, 10),
+          todayTaxPaid: parseInt(row.today_tax_paid, 10),
+          customTaxRate: customRate,
+          effectiveTaxRate: effectiveRate
+        }
       };
     }));
 
@@ -615,20 +633,54 @@ app.get('/api/server/:serverId/detail', requireLogin, async (req, res) => {
     const detail = await getServerDetail(serverId);
     const guild = client.guilds.cache.get(serverId);
     const settings = await getServerSettings(serverId);
+    const treasury = await getTreasury(serverId);
+    const memberCount = guild ? guild.memberCount : 0;
+    
+    const fluctuatingRate = getFluctuatingTaxRate(memberCount);
+    treasury.effectiveTaxRate = treasury.customTaxRate !== null ? treasury.customTaxRate : fluctuatingRate;
+
     res.json({
       id: serverId,
       name: guild ? guild.name : `Server ${serverId}`,
       icon: guild && guild.icon ? guild.iconURL({ size: 128 }) : null,
-      memberCount: guild ? guild.memberCount : 0,
+      memberCount: memberCount,
       settings: {
         ...settings,
         nextDropTime: nextDropTimers.has(serverId) ? nextDropTimers.get(serverId).nextDropTime : null
       },
+      treasury,
       ...detail
     });
   } catch (err) {
     console.error('Error fetching server detail:', err);
     res.status(500).json({ error: 'Failed to fetch server detail' });
+  }
+});
+
+// Update custom vault tax rate override (Protected)
+app.patch('/api/server/:serverId/vault-tax', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  const { customTaxRate } = req.body;
+  try {
+    const treasury = await updateServerVaultCustomTaxRate(serverId, customTaxRate);
+    res.json({ success: true, treasury });
+  } catch (err) {
+    console.error('Error updating server custom tax rate:', err);
+    res.status(500).json({ error: 'Failed to update custom tax rate' });
+  }
+});
+
+// Trigger immediate server vault tax deduction (Protected)
+app.post('/api/server/:serverId/vault-tax/trigger', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  try {
+    const guild = client.guilds.cache.get(serverId) || await client.guilds.fetch(serverId).catch(() => null);
+    const memberCount = guild ? guild.memberCount : 0;
+    const result = await triggerServerVaultTaxDeduction(serverId, memberCount);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Error triggering manual server vault tax deduction:', err);
+    res.status(500).json({ error: 'Failed to trigger tax deduction: ' + err.message });
   }
 });
 

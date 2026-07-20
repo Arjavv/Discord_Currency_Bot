@@ -38,10 +38,46 @@ function mockQueryExecutor(sql, params) {
         balance: 100000,
         daily_tax_rate: 1.00,
         win_tax_rate: 10.00,
-        sell_tax_rate: 10.00
+        sell_tax_rate: 10.00,
+        total_tax_paid: 0,
+        today_tax_paid: 0,
+        last_tax_deduction_at: null,
+        custom_tax_rate: null
       });
     }
     return { rows: [] };
+  }
+
+  if (normalizedSql.includes('SELECT balance') && normalizedSql.includes('custom_tax_rate')) {
+    const [serverId] = params;
+    const treasury = mockState.server_treasury.get(serverId) || {
+      server_id: serverId,
+      balance: 100000,
+      daily_tax_rate: 1.00,
+      win_tax_rate: 10.00,
+      sell_tax_rate: 10.00,
+      total_tax_paid: 0,
+      today_tax_paid: 0,
+      last_tax_deduction_at: null,
+      custom_tax_rate: null
+    };
+    return { rows: [treasury] };
+  }
+
+  if (normalizedSql.includes('SELECT balance, daily_tax_rate, win_tax_rate, sell_tax_rate') && normalizedSql.includes('total_tax_paid')) {
+    const [serverId] = params;
+    const treasury = mockState.server_treasury.get(serverId) || {
+      server_id: serverId,
+      balance: 100000,
+      daily_tax_rate: 1.00,
+      win_tax_rate: 10.00,
+      sell_tax_rate: 10.00,
+      total_tax_paid: 0,
+      today_tax_paid: 0,
+      last_tax_deduction_at: null,
+      custom_tax_rate: null
+    };
+    return { rows: [treasury] };
   }
 
   if (normalizedSql.includes('SELECT balance, daily_tax_rate, win_tax_rate, sell_tax_rate FROM server_treasury')) {
@@ -51,7 +87,11 @@ function mockQueryExecutor(sql, params) {
       balance: 100000,
       daily_tax_rate: 1.00,
       win_tax_rate: 10.00,
-      sell_tax_rate: 10.00
+      sell_tax_rate: 10.00,
+      total_tax_paid: 0,
+      today_tax_paid: 0,
+      last_tax_deduction_at: null,
+      custom_tax_rate: null
     };
     return { rows: [treasury] };
   }
@@ -63,8 +103,30 @@ function mockQueryExecutor(sql, params) {
       balance: 100000,
       daily_tax_rate: 1.00,
       win_tax_rate: 10.00,
-      sell_tax_rate: 10.00
+      sell_tax_rate: 10.00,
+      total_tax_paid: 0,
+      today_tax_paid: 0,
+      last_tax_deduction_at: null,
+      custom_tax_rate: null
     };
+    return { rows: [treasury] };
+  }
+
+  if (normalizedSql.includes('UPDATE server_treasury SET custom_tax_rate =')) {
+    const [customRate, serverId] = params;
+    const treasury = mockState.server_treasury.get(serverId) || {
+      server_id: serverId,
+      balance: 100000,
+      daily_tax_rate: 1.00,
+      win_tax_rate: 10.00,
+      sell_tax_rate: 10.00,
+      total_tax_paid: 0,
+      today_tax_paid: 0,
+      last_tax_deduction_at: null,
+      custom_tax_rate: null
+    };
+    treasury.custom_tax_rate = customRate;
+    mockState.server_treasury.set(serverId, treasury);
     return { rows: [treasury] };
   }
 
@@ -75,11 +137,36 @@ function mockQueryExecutor(sql, params) {
       balance: 100000,
       daily_tax_rate: 1.00,
       win_tax_rate: 10.00,
-      sell_tax_rate: 10.00
+      sell_tax_rate: 10.00,
+      total_tax_paid: 0,
+      today_tax_paid: 0,
+      last_tax_deduction_at: null,
+      custom_tax_rate: null
     };
     if (dailyRate !== null && dailyRate !== undefined) treasury.daily_tax_rate = dailyRate;
     if (winRate !== null && winRate !== undefined) treasury.win_tax_rate = winRate;
     if (sellRate !== null && sellRate !== undefined) treasury.sell_tax_rate = sellRate;
+    mockState.server_treasury.set(serverId, treasury);
+    return { rows: [treasury] };
+  }
+
+  if (normalizedSql.includes('UPDATE server_treasury SET balance = balance - $1, total_tax_paid = total_tax_paid + $1')) {
+    const [taxAmount, lastTaxTime, serverId] = params;
+    const treasury = mockState.server_treasury.get(serverId) || {
+      server_id: serverId,
+      balance: 100000,
+      daily_tax_rate: 1.00,
+      win_tax_rate: 10.00,
+      sell_tax_rate: 10.00,
+      total_tax_paid: 0,
+      today_tax_paid: 0,
+      last_tax_deduction_at: null,
+      custom_tax_rate: null
+    };
+    treasury.balance = (BigInt(treasury.balance) - BigInt(taxAmount)).toString();
+    treasury.total_tax_paid = (BigInt(treasury.total_tax_paid) + BigInt(taxAmount)).toString();
+    treasury.today_tax_paid = taxAmount.toString();
+    treasury.last_tax_deduction_at = lastTaxTime;
     mockState.server_treasury.set(serverId, treasury);
     return { rows: [treasury] };
   }
@@ -91,7 +178,11 @@ function mockQueryExecutor(sql, params) {
       balance: 100000,
       daily_tax_rate: 1.00,
       win_tax_rate: 10.00,
-      sell_tax_rate: 10.00
+      sell_tax_rate: 10.00,
+      total_tax_paid: 0,
+      today_tax_paid: 0,
+      last_tax_deduction_at: null,
+      custom_tax_rate: null
     };
     treasury.balance = (BigInt(treasury.balance) + BigInt(amount)).toString();
     mockState.server_treasury.set(serverId, treasury);
@@ -513,7 +604,10 @@ async function runTests() {
     getTreasury,
     updateTreasuryRates,
     applyDailyTaxIfDue,
-    sellCharacter
+    sellCharacter,
+    applyServerVaultTaxIfDue,
+    updateServerVaultCustomTaxRate,
+    triggerServerVaultTaxDeduction
 } = require('./src/database/queries');
 
   try {
@@ -790,6 +884,70 @@ async function runTests() {
       throw new Error('Daily tax should have been rate-limited');
     }
     console.log('✔ Daily tax/tribute test passed.');
+
+    // Test Server Vault Daily Tax (Fluctuating based on members or custom override)
+    console.log('\nTesting Server Vault Daily Tax (Fluctuating/Custom)...');
+    
+    // TEST_SERVER has daily tax for users.
+    // Initial treasury balance is 100034 (from casino, sell, user daily tax wins)
+    // memberCount = 10 (fluctuating rate should be 1.00% daily)
+    
+    const vaultTaxRes1 = await applyServerVaultTaxIfDue(TEST_SERVER, 10);
+    console.log('Server vault tax first run result (1.00% rate):', vaultTaxRes1);
+    // 1.00% of 100034 = 1000 Souls
+    if (!vaultTaxRes1.success || vaultTaxRes1.taxAmount !== 1000) {
+      throw new Error(`Vault tax was not applied correctly. Expected 1000 tax, got ${vaultTaxRes1.taxAmount}`);
+    }
+    
+    let currentTreasury = await getTreasury(TEST_SERVER);
+    if (parseInt(currentTreasury.balance, 10) !== 99034) {
+      throw new Error(`Vault balance incorrect. Expected 99034, got ${currentTreasury.balance}`);
+    }
+    if (parseInt(currentTreasury.totalTaxPaid, 10) !== 1000 || parseInt(currentTreasury.todayTaxPaid, 10) !== 1000) {
+      throw new Error(`Vault tax statistics incorrect: total=${currentTreasury.totalTaxPaid}, today=${currentTreasury.todayTaxPaid}`);
+    }
+
+    // Try applying again immediately (should fail with cooldown)
+    const vaultTaxRes2 = await applyServerVaultTaxIfDue(TEST_SERVER, 10);
+    console.log('Server vault tax second run (cooldown) result:', vaultTaxRes2);
+    if (vaultTaxRes2.success) {
+      throw new Error('Server vault tax should have failed due to 24h cooldown');
+    }
+
+    // Update custom tax rate override to 5.00%
+    console.log('Setting custom vault tax rate override to 5.00%...');
+    await updateServerVaultCustomTaxRate(TEST_SERVER, 5.00);
+    currentTreasury = await getTreasury(TEST_SERVER);
+    if (currentTreasury.customTaxRate !== 5.00) {
+      throw new Error(`Custom tax rate override not set. Expected 5.00, got ${currentTreasury.customTaxRate}`);
+    }
+
+    // Trigger manual tax deduction (ignores cooldown, should use custom 5% rate)
+    console.log('Triggering manual tax deduction (5.00% override)...');
+    const manualVaultTaxRes = await triggerServerVaultTaxDeduction(TEST_SERVER, 10);
+    console.log('Manual tax deduction result:', manualVaultTaxRes);
+    // 5.00% of 99034 = 4951 Souls
+    if (!manualVaultTaxRes.success || manualVaultTaxRes.taxAmount !== 4951) {
+      throw new Error(`Manual vault tax failed. Expected 4951 tax, got ${manualVaultTaxRes.taxAmount}`);
+    }
+
+    currentTreasury = await getTreasury(TEST_SERVER);
+    if (parseInt(currentTreasury.balance, 10) !== 94083) {
+      throw new Error(`Vault balance incorrect after manual tax. Expected 94083, got ${currentTreasury.balance}`);
+    }
+    if (parseInt(currentTreasury.totalTaxPaid, 10) !== 5951 || parseInt(currentTreasury.todayTaxPaid, 10) !== 4951) {
+      throw new Error(`Vault tax stats incorrect: total=${currentTreasury.totalTaxPaid}, today=${currentTreasury.todayTaxPaid}`);
+    }
+    
+    // Clear custom tax rate override (reset to NULL)
+    console.log('Resetting custom vault tax rate override to NULL...');
+    await updateServerVaultCustomTaxRate(TEST_SERVER, null);
+    currentTreasury = await getTreasury(TEST_SERVER);
+    if (currentTreasury.customTaxRate !== null) {
+      throw new Error(`Custom tax rate not cleared.`);
+    }
+
+    console.log('✔ Server vault tax tests passed.');
 
     // 6. Reset Cycle Test (Now succeeds under dashboard/owner controls)
     console.log('\nTesting Cycle Reset (should succeed and clear balances)...');

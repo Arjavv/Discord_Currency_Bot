@@ -1855,7 +1855,8 @@ async function getTreasury(serverId) {
   try {
     await ensureTreasuryExists(client, serverId);
     const query = `
-      SELECT balance, daily_tax_rate, win_tax_rate, sell_tax_rate
+      SELECT balance, daily_tax_rate, win_tax_rate, sell_tax_rate,
+             total_tax_paid, today_tax_paid, last_tax_deduction_at, custom_tax_rate
       FROM server_treasury
       WHERE server_id = $1
     `;
@@ -1865,7 +1866,11 @@ async function getTreasury(serverId) {
       balance: parseInt(row.balance, 10),
       dailyTaxRate: parseFloat(row.daily_tax_rate),
       winTaxRate: parseFloat(row.win_tax_rate),
-      sellTaxRate: parseFloat(row.sell_tax_rate)
+      sellTaxRate: parseFloat(row.sell_tax_rate),
+      totalTaxPaid: parseInt(row.total_tax_paid || 0, 10),
+      todayTaxPaid: parseInt(row.today_tax_paid || 0, 10),
+      lastTaxDeductionAt: row.last_tax_deduction_at,
+      customTaxRate: row.custom_tax_rate !== null ? parseFloat(row.custom_tax_rate) : null
     };
   } catch (error) {
     console.error(`Error in getTreasury for server ${serverId}:`, error);
@@ -1873,7 +1878,11 @@ async function getTreasury(serverId) {
       balance: 100000,
       dailyTaxRate: 1.00,
       winTaxRate: 10.00,
-      sellTaxRate: 10.00
+      sellTaxRate: 10.00,
+      totalTaxPaid: 0,
+      todayTaxPaid: 0,
+      lastTaxDeductionAt: null,
+      customTaxRate: null
     };
   } finally {
     client.release();
@@ -2135,6 +2144,153 @@ async function setServerGiveawaySettings(serverId, updates) {
   }
 }
 
+function getFluctuatingTaxRate(memberCount) {
+  if (memberCount <= 100) return 1.00;
+  if (memberCount <= 500) return 1.50;
+  if (memberCount <= 1000) return 2.00;
+  if (memberCount <= 5000) return 2.50;
+  return 3.00;
+}
+
+async function applyServerVaultTaxIfDue(serverId, memberCount) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await ensureTreasuryExists(client, serverId);
+
+    const checkQuery = `
+      SELECT balance, total_tax_paid, today_tax_paid, last_tax_deduction_at, custom_tax_rate
+      FROM server_treasury
+      WHERE server_id = $1
+      FOR UPDATE
+    `;
+    const checkRes = await client.query(checkQuery, [serverId]);
+    const row = checkRes.rows[0];
+
+    const now = new Date();
+    if (row.last_tax_deduction_at) {
+      const lastTax = new Date(row.last_tax_deduction_at);
+      const timeDiff = now.getTime() - lastTax.getTime();
+      const cooldown = 24 * 60 * 60 * 1000;
+      if (timeDiff < cooldown) {
+        await client.query('ROLLBACK');
+        return { success: false, reason: 'cooldown' };
+      }
+    }
+
+    const customRate = row.custom_tax_rate !== null ? parseFloat(row.custom_tax_rate) : null;
+    const effectiveRate = customRate !== null ? customRate : getFluctuatingTaxRate(memberCount);
+    const balance = parseInt(row.balance, 10);
+    const taxAmount = Math.max(0, Math.floor(balance * (effectiveRate / 100.0)));
+
+    if (taxAmount > 0) {
+      await client.query(`
+        UPDATE server_treasury
+        SET balance = balance - $1,
+            total_tax_paid = total_tax_paid + $1,
+            today_tax_paid = $1,
+            last_tax_deduction_at = $2
+        WHERE server_id = $3
+      `, [taxAmount, now, serverId]);
+    } else {
+      await client.query(`
+        UPDATE server_treasury
+        SET today_tax_paid = 0,
+            last_tax_deduction_at = $1
+        WHERE server_id = $2
+      `, [now, serverId]);
+    }
+
+    await client.query('COMMIT');
+    return {
+      success: true,
+      taxAmount,
+      newBalance: balance - taxAmount
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in applyServerVaultTaxIfDue for server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function triggerServerVaultTaxDeduction(serverId, memberCount) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await ensureTreasuryExists(client, serverId);
+
+    const checkQuery = `
+      SELECT balance, total_tax_paid, today_tax_paid, custom_tax_rate
+      FROM server_treasury
+      WHERE server_id = $1
+      FOR UPDATE
+    `;
+    const checkRes = await client.query(checkQuery, [serverId]);
+    const row = checkRes.rows[0];
+
+    const now = new Date();
+    const customRate = row.custom_tax_rate !== null ? parseFloat(row.custom_tax_rate) : null;
+    const effectiveRate = customRate !== null ? customRate : getFluctuatingTaxRate(memberCount);
+    const balance = parseInt(row.balance, 10);
+    const taxAmount = Math.max(0, Math.floor(balance * (effectiveRate / 100.0)));
+
+    if (taxAmount > 0) {
+      await client.query(`
+        UPDATE server_treasury
+        SET balance = balance - $1,
+            total_tax_paid = total_tax_paid + $1,
+            today_tax_paid = $1,
+            last_tax_deduction_at = $2
+        WHERE server_id = $3
+      `, [taxAmount, now, serverId]);
+    } else {
+      await client.query(`
+        UPDATE server_treasury
+        SET today_tax_paid = 0,
+            last_tax_deduction_at = $1
+        WHERE server_id = $2
+      `, [now, serverId]);
+    }
+
+    await client.query('COMMIT');
+    return {
+      success: true,
+      taxAmount,
+      newBalance: balance - taxAmount
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in triggerServerVaultTaxDeduction for server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function updateServerVaultCustomTaxRate(serverId, customTaxRate) {
+  const client = await pool.connect();
+  try {
+    await ensureTreasuryExists(client, serverId);
+    const rateValue = customTaxRate !== null && customTaxRate !== undefined && customTaxRate !== '' ? parseFloat(customTaxRate) : null;
+    const query = `
+      UPDATE server_treasury
+      SET custom_tax_rate = $1
+      WHERE server_id = $2
+      RETURNING *
+    `;
+    const res = await client.query(query, [rateValue, serverId]);
+    return res.rows[0];
+  } catch (error) {
+    console.error(`Error in updateServerVaultCustomTaxRate for server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   getServerSettings,
   updateServerChannels,
@@ -2176,6 +2332,10 @@ module.exports = {
   updateTreasuryRates,
   applyDailyTaxIfDue,
   getServerGiveawaySettings,
-  setServerGiveawaySettings
+  setServerGiveawaySettings,
+  getFluctuatingTaxRate,
+  applyServerVaultTaxIfDue,
+  triggerServerVaultTaxDeduction,
+  updateServerVaultCustomTaxRate
 };
 

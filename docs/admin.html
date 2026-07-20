@@ -1051,11 +1051,82 @@ $('save-global-prices-btn').onclick = () => saveBtn($('save-global-prices-btn'),
 
 let serversData = [];
 
+function renderAllServersTaxOverview() {
+  if (!serversData || !serversData.length) {
+    $('server-detail-area').innerHTML = '<div class="empty-state"><i class="fa-solid fa-server"></i>No server data loaded.</div>';
+    return;
+  }
+
+  const totalBalance = serversData.reduce((sum, s) => sum + (s.treasury?.balance || 0), 0);
+  const totalTaxPaid = serversData.reduce((sum, s) => sum + (s.treasury?.totalTaxPaid || 0), 0);
+  const todayTaxPaid = serversData.reduce((sum, s) => sum + (s.treasury?.todayTaxPaid || 0), 0);
+
+  const rowsHtml = serversData.map((s) => {
+    const tr = s.treasury || {};
+    const isCustom = tr.customTaxRate !== null;
+    const rateVal = isCustom ? tr.customTaxRate : tr.effectiveTaxRate;
+    const rateText = `<span style="color:${isCustom ? 'var(--violet)' : 'var(--muted)'}; font-weight:${isCustom ? '600' : '400'}">${rateVal}% ${isCustom ? '<small>(Custom)</small>' : '<small>(Fluctuating)</small>'}</span>`;
+
+    return `
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            ${s.icon ? `<img src="${s.icon}" style="border-radius:50%;width:28px;height:28px">` : `<div class="inv-item-fallback-img" style="border-radius:50%;width:28px;height:28px;font-size:0.75rem">&#x1F4F9;</div>`}
+            <div>
+              <span style="font-weight:600">${s.name}</span><br>
+              <small style="color:var(--muted);font-size:0.68rem" class="mono">${s.id}</small>
+            </div>
+          </div>
+        </td>
+        <td class="mono">${fmt(s.discordMemberCount || 0)}</td>
+        <td class="mono">${fmt(tr.balance || 0)} <span style="color:var(--muted);font-size:0.72rem">Souls</span></td>
+        <td>${rateText}</td>
+        <td class="mono" style="color:var(--green)">+${fmt(tr.todayTaxPaid || 0)}</td>
+        <td class="mono" style="color:var(--green)">+${fmt(tr.totalTaxPaid || 0)}</td>
+        <td>
+          <button class="save-btn" onclick="document.getElementById('server-select').value='${s.id}'; document.getElementById('server-select').dispatchEvent(new Event('change'))" style="margin-top:0;padding:4px 10px;font-size:0.7rem;background:rgba(255,255,255,0.05)"><i class="fa-solid fa-gear"></i> Manage</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  $('server-detail-area').innerHTML = `
+    <div class="stat-grid" style="margin-bottom:20px">
+      <div class="stat-card v"><div class="accent-bar"></div><i class="fa-solid fa-vault sc-icon"></i><div class="sc-label">Total Vaults Stored Balance</div><div class="sc-value">${fmt(totalBalance)}</div><div class="sc-sub">Souls across all servers</div></div>
+      <div class="stat-card g"><div class="accent-bar"></div><i class="fa-solid fa-calendar-day sc-icon"></i><div class="sc-label">Today's Total Taxes Collected</div><div class="sc-value">${fmt(todayTaxPaid)}</div><div class="sc-sub">Souls collected today</div></div>
+      <div class="stat-card a"><div class="accent-bar"></div><i class="fa-solid fa-receipt sc-icon"></i><div class="sc-label">Total Taxes Collected (All Time)</div><div class="sc-value">${fmt(totalTaxPaid)}</div><div class="sc-sub">Souls collected all-time</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><i class="fa-solid fa-building-columns" style="color:var(--cyan)"></i> Server Vaults & Operational Costs Standings</div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Server Name</th>
+              <th>Discord Members</th>
+              <th>Vault Balance</th>
+              <th>Daily Vault Tax Rate</th>
+              <th>Today's Tax Collected</th>
+              <th>Total Tax Collected</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 async function loadServers() {
   try {
     serversData = await api('/api/servers-info');
     const sel = $('server-select');
     const gSel = $('giveaway-server-select');
+    const prevVal = sel.value;
     sel.innerHTML = '<option value="">-- Select a Server --</option>';
     gSel.innerHTML = '<option value="">-- Select a Server --</option>';
     
@@ -1066,13 +1137,21 @@ async function loadServers() {
       sel.appendChild(opt.cloneNode(true));
       gSel.appendChild(opt);
     });
+
+    if (prevVal) {
+      sel.value = prevVal;
+    }
+
+    if (!sel.value) {
+      renderAllServersTaxOverview();
+    }
   } catch (e) { console.error('Servers error:', e); }
 }
 
 $('server-select').addEventListener('change', () => {
   const id = $('server-select').value;
   if (id) loadServerDetail(id);
-  else $('server-detail-area').innerHTML = '<div class="empty-state"><i class="fa-solid fa-server"></i>Select a server to view its analytics</div>';
+  else renderAllServersTaxOverview();
 });
 
 $('refresh-server-btn').onclick = async () => {
@@ -1081,6 +1160,8 @@ $('refresh-server-btn').onclick = async () => {
   if (id) {
     $('server-select').value = id;
     loadServerDetail(id);
+  } else {
+    renderAllServersTaxOverview();
   }
 };
 
@@ -1214,6 +1295,27 @@ async function loadServerDetail(serverId) {
         <button class="save-btn" id="save-sv-prices-btn" style="margin-top:14px"><i class="fa-solid fa-floppy-disk"></i> Save Shop Price Overrides</button>
       </div>
 
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-building-columns" style="color:var(--violet)"></i> Server Vault Tax Configuration</div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Manage the server's Vault Balance, dynamic daily operational cost (tax) rate, or set a custom rate override.</p>
+        <div class="stat-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin-bottom: 16px;">
+          <div class="stat-card v"><div class="accent-bar"></div><i class="fa-solid fa-vault sc-icon"></i><div class="sc-label">Vault Balance</div><div class="sc-value">${fmt(d.treasury.balance || 0)}</div><div class="sc-sub">Souls</div></div>
+          <div class="stat-card c"><div class="accent-bar"></div><i class="fa-solid fa-percent sc-icon"></i><div class="sc-label">Daily Tax Rate</div><div class="sc-value">${d.treasury.customTaxRate !== null ? d.treasury.customTaxRate + '%' : d.treasury.effectiveTaxRate + '%'}</div><div class="sc-sub">${d.treasury.customTaxRate !== null ? 'Custom Override' : 'Fluctuating (' + d.memberCount + ' members)'}</div></div>
+          <div class="stat-card g"><div class="accent-bar"></div><i class="fa-solid fa-receipt sc-icon"></i><div class="sc-label">Total Tax Collected</div><div class="sc-value">${fmt(d.treasury.totalTaxPaid || 0)}</div><div class="sc-sub">Souls all-time</div></div>
+          <div class="stat-card a"><div class="accent-bar"></div><i class="fa-solid fa-calendar-day sc-icon"></i><div class="sc-label">Today's Tax Collected</div><div class="sc-value">${fmt(d.treasury.todayTaxPaid || 0)}</div><div class="sc-sub">Souls today</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+          <div class="input-group" style="flex:none;width:240px">
+            <label>Custom Tax Rate Override (%)</label>
+            <input type="number" step="0.01" min="0" max="100" id="sv-custom-tax-rate" value="${d.treasury.customTaxRate !== null ? d.treasury.customTaxRate : ''}" placeholder="Leave blank to use fluctuating rate">
+          </div>
+          <div style="display:flex;gap:10px;align-self:flex-end">
+            <button class="save-btn" id="save-sv-custom-tax-btn" style="margin-top:0"><i class="fa-solid fa-floppy-disk"></i> Save Rate Override</button>
+            <button class="save-btn" id="trigger-sv-tax-btn" style="margin-top:0;background:linear-gradient(135deg, var(--red), #b91c1c)"><i class="fa-solid fa-gavel"></i> Deduct Tax Now</button>
+          </div>
+        </div>
+      </div>
+
       <div class="section" style="margin-top:0">
         <div class="section-title"><i class="fa-solid fa-gear"></i> Drop Settings Override</div>
         <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
@@ -1261,6 +1363,22 @@ async function loadServerDetail(serverId) {
         shield: $('sv-price-shield').value
       })
     );
+
+    $('save-sv-custom-tax-btn').onclick = () => saveBtn($('save-sv-custom-tax-btn'), async () => {
+      const customTaxRate = $('sv-custom-tax-rate').value.trim();
+      await api(`/api/server/${serverId}/vault-tax`, 'PATCH', { customTaxRate });
+      await loadServers();
+      await loadServerDetail(serverId);
+    });
+
+    $('trigger-sv-tax-btn').onclick = () => saveBtn($('trigger-sv-tax-btn'), async () => {
+      if (confirm('Are you sure you want to trigger an immediate tax deduction from the server vault? This ignores the 24-hour cooldown.')) {
+        const res = await api(`/api/server/${serverId}/vault-tax/trigger`, 'POST');
+        toast(`Taxes deducted successfully! Amount: ${fmt(res.taxAmount)} Souls.`);
+        await loadServers();
+        await loadServerDetail(serverId);
+      }
+    });
 
     $('save-sv-drops-btn').onclick = () => saveBtn($('save-sv-drops-btn'), async () => {
       await api(`/api/server/${serverId}`, 'PATCH', { auto_drops_enabled: $('sv-auto-drops').checked });

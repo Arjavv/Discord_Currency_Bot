@@ -150,7 +150,11 @@ CREATE TABLE IF NOT EXISTS server_treasury (
     balance BIGINT NOT NULL DEFAULT 100000,
     daily_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 1.00, -- Default 1% daily tax
     win_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 10.00,  -- Default 10% win tax
-    sell_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 10.00  -- Default 10% sell tax
+    sell_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 10.00,  -- Default 10% sell tax
+    total_tax_paid BIGINT NOT NULL DEFAULT 0,
+    today_tax_paid BIGINT NOT NULL DEFAULT 0,
+    last_tax_deduction_at TIMESTAMP,
+    custom_tax_rate NUMERIC(5, 2) DEFAULT NULL
 );
 
 -- 14. Track user daily tax payment timestamps per server
@@ -179,4 +183,11 @@ CREATE TABLE IF NOT EXISTS server_giveaways (
     giveaway_desc_template TEXT,
     FOREIGN KEY (server_id) REFERENCES server_settings(server_id) ON DELETE CASCADE
 );
+
+-- Migration: Add operational cost tracking columns to server_treasury
+ALTER TABLE server_treasury ADD COLUMN IF NOT EXISTS total_tax_paid BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE server_treasury ADD COLUMN IF NOT EXISTS today_tax_paid BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE server_treasury ADD COLUMN IF NOT EXISTS last_tax_deduction_at TIMESTAMP;
+ALTER TABLE server_treasury ADD COLUMN IF NOT EXISTS custom_tax_rate NUMERIC(5, 2) DEFAULT NULL;
+
 
