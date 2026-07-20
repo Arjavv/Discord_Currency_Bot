@@ -141,6 +141,20 @@ const CHARACTER_SPAWNS = [
     claimDescription: (userMention) => `${userMention} captured Divine Soul 💜\n\n✦ The divine soul has chosen its master.`
   },
   {
+    id: 'kimi_kitsune',
+    name: 'Kimi Kitsune',
+    tier: 'DIVINE',
+    value: 100000,
+    weight: 1, // Divine spawn probability (rarest spawn chance)
+    imagePath: './src/assets/kimi_cyber_kitsune.png',
+    attachmentName: 'kimi_cyber_kitsune.png',
+    color: '#ff00aa', // Hot pink / neon-pink
+    embedTitle: '✦ A DIVINE CYBER-KITSUNE HAS DESCENDED ✦',
+    embedDescription: 'Kimi Kitsune has appeared! Tier: DIVINE\n\nA beautiful cyber-kitsune girl with glowing fox ears and neon pink accents has entered this realm...\n\nType soul to claim her!',
+    claimTitle: 'DIVINE KITSUNE CLAIMED!',
+    claimDescription: (userMention) => `${userMention} captured Kimi Kitsune 🌸🦊\n\n✦ The cyber-kitsune has chosen its master.`
+  },
+  {
     id: 'divine_girl2',
     name: 'Infinity Void Soul',
     tier: 'DIVINE',
