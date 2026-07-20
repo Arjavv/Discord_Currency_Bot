@@ -1058,8 +1058,6 @@ function renderAllServersTaxOverview() {
   }
 
   const totalBalance = serversData.reduce((sum, s) => sum + (s.treasury?.balance || 0), 0);
-  const totalTaxPaid = serversData.reduce((sum, s) => sum + (s.treasury?.totalTaxPaid || 0), 0);
-  const todayTaxPaid = serversData.reduce((sum, s) => sum + (s.treasury?.todayTaxPaid || 0), 0);
 
   const rowsHtml = serversData.map((s) => {
     const tr = s.treasury || {};
@@ -1093,8 +1091,6 @@ function renderAllServersTaxOverview() {
   $('server-detail-area').innerHTML = `
     <div class="stat-grid" style="margin-bottom:20px">
       <div class="stat-card v"><div class="accent-bar"></div><i class="fa-solid fa-vault sc-icon"></i><div class="sc-label">Total Vaults Stored Balance</div><div class="sc-value">${fmt(totalBalance)}</div><div class="sc-sub">Souls across all servers</div></div>
-      <div class="stat-card g"><div class="accent-bar"></div><i class="fa-solid fa-calendar-day sc-icon"></i><div class="sc-label">Today's Total Taxes Collected</div><div class="sc-value">${fmt(todayTaxPaid)}</div><div class="sc-sub">Souls collected today</div></div>
-      <div class="stat-card a"><div class="accent-bar"></div><i class="fa-solid fa-receipt sc-icon"></i><div class="sc-label">Total Taxes Collected (All Time)</div><div class="sc-value">${fmt(totalTaxPaid)}</div><div class="sc-sub">Souls collected all-time</div></div>
     </div>
 
     <div class="section">
