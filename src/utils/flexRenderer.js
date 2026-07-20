@@ -68,25 +68,25 @@ function roundCanvasCorners(jimpImage, radius = 24) {
 }
 
 /**
- * Renders the single collectible flex showcase graphic as a PNG buffer (Top Trumps style).
+ * Renders the single collectible flex showcase graphic as a PNG buffer (Top Trumps style - Dark Theme).
  */
 async function renderFlexImage(username, character, dropPercentage, currencyName, isCollectible = false) {
   const width = 400;
   const height = 600;
   
-  // 1. Create canvas with Retro Cream/Beige background
-  const canvas = new Jimp({ width, height, color: 0xfcf6e8ff });
+  // 1. Create canvas with Premium Dark Brown background
+  const canvas = new Jimp({ width, height, color: 0x1d120cff });
   
   const tierColor = hexToColor(character.color);
   
-  // Draw outer rectangular black border inset by 12px
-  drawRect(canvas, 12, 12, width - 24, height - 24, undefined, 0x1d120cff, 2);
+  // Draw outer rectangular border inset by 12px, colored by character tier
+  drawRect(canvas, 12, 12, width - 24, height - 24, undefined, tierColor, 2);
   
   // Draw Tier Flag on top left
-  drawRect(canvas, 24, 24, 60, 42, tierColor, 0x1d120cff, 2);
+  drawRect(canvas, 24, 24, 60, 42, tierColor, tierColor, 2);
   
   // Draw character image slot box
-  drawRect(canvas, 24, 80, 352, 240, 0x2c1f17ff, 0x1d120cff, 2);
+  drawRect(canvas, 24, 80, 352, 240, 0x2c1f17ff, tierColor, 2);
   
   // 2. Load character image
   if (character.imagePath) {
@@ -94,6 +94,21 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
     if (fs.existsSync(resolvedImgPath)) {
       try {
         const charImg = await Jimp.read(resolvedImgPath);
+        
+        // Remove solid white background if present (e.g. color-keying out white pixels)
+        const threshold = 240;
+        for (let x = 0; x < charImg.bitmap.width; x++) {
+          for (let y = 0; y < charImg.bitmap.height; y++) {
+            const idx = (charImg.bitmap.width * y + x) * 4;
+            const r = charImg.bitmap.data[idx];
+            const g = charImg.bitmap.data[idx + 1];
+            const b = charImg.bitmap.data[idx + 2];
+            if (r > threshold && g > threshold && b > threshold) {
+              charImg.bitmap.data[idx + 3] = 0; // alpha = 0 (transparent)
+            }
+          }
+        }
+
         // Resize to fit image box perfectly inside borders
         charImg.resize({ w: 348, h: 236 });
         canvas.composite(charImg, 26, 82);
@@ -103,9 +118,9 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
     }
   }
   
-  // 3. Load Black Fonts
-  const font32Path = path.join(__dirname, '..', '..', 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-32-black', 'open-sans-32-black.fnt');
-  const font16Path = path.join(__dirname, '..', '..', 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-16-black', 'open-sans-16-black.fnt');
+  // 3. Load White Fonts for Dark Theme
+  const font32Path = path.join(__dirname, '..', '..', 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-32-white', 'open-sans-32-white.fnt');
+  const font16Path = path.join(__dirname, '..', '..', 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-16-white', 'open-sans-16-white.fnt');
   
   const font32 = await loadFont(font32Path);
   const font16 = await loadFont(font16Path);
@@ -129,7 +144,7 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
   const mag = Math.min(99, Math.round(getVal(4, 40, 95) * multiplier));
   const totalPower = str + def + spd + mag;
 
-  // 4. Draw Header Character Name
+  // 4. Draw Header Character Name (in white font)
   canvas.print({
     font: font32,
     x: 94,
@@ -148,10 +163,10 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
     alignmentX: 'right'
   });
   
-  // 5. Draw Stats Separator Lines and Rows
+  // 5. Draw Stats Separator Lines (colored by tier color)
   const drawLine = (y) => {
     for (let lx = 24; lx < 376; lx++) {
-      canvas.setPixelColor(0x1d120cff, lx, y);
+      canvas.setPixelColor(tierColor, lx, y);
     }
   };
 
@@ -172,10 +187,10 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
     });
     canvas.print({
       font: font16,
-      x: 300,
+      x: 220,
       y,
       text: String(val),
-      maxWidth: 70,
+      maxWidth: 150,
       alignmentX: 'right'
     });
   };
