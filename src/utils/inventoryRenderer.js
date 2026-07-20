@@ -100,7 +100,7 @@ async function renderInventoryImage(username, avatarUrl, items, totalCaught) {
 
   const columns = 6;
   const slotWidth = 110;
-  const slotHeight = 135;
+  const slotHeight = 160;
   const spacing = 15;
   const startX = Math.round((width - (columns * slotWidth + (columns - 1) * spacing)) / 2);
   const headerHeight = 45;
@@ -237,8 +237,8 @@ async function renderInventoryImage(username, avatarUrl, items, totalCaught) {
           if (fs.existsSync(resolvedImgPath)) {
             try {
               const charImg = await Jimp.read(resolvedImgPath);
-              charImg.resize({ w: 76, h: 76 });
-              canvas.composite(charImg, slotX + 17, slotY + 15);
+              charImg.resize({ w: 72, h: 72 });
+              canvas.composite(charImg, slotX + 19, slotY + 12);
             } catch (imgErr) {
               console.error(`Failed to read character image at ${resolvedImgPath}:`, imgErr);
             }
@@ -258,8 +258,21 @@ async function renderInventoryImage(username, avatarUrl, items, totalCaught) {
         canvas.print({
           font: font16,
           x: slotX + 4,
-          y: slotY + 95,
+          y: slotY + 90,
           text: item.name,
+          maxWidth: slotWidth - 8,
+          alignmentX: 'center'
+        });
+
+        // Print sell price / rate at the bottom
+        const priceVal = item.price || item.value;
+        const priceText = Number(priceVal).toLocaleString();
+        const rateLabel = item.isCollectible ? 'Rare' : 'Rate';
+        canvas.print({
+          font: font16,
+          x: slotX + 4,
+          y: slotY + 138,
+          text: `${rateLabel}: ${priceText}`,
           maxWidth: slotWidth - 8,
           alignmentX: 'center'
         });

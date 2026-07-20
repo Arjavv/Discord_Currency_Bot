@@ -3279,6 +3279,7 @@ module.exports = {
           if (['inv', 'inventory'].includes(commandName)) {
             // 1. Fetch user inventory
             const userInv = await getUserInventory(userId, serverId);
+            const settings = await getGlobalSettings();
             
             // 2. Map and filter characters
             const characterItems = [];
@@ -3287,11 +3288,21 @@ module.exports = {
             for (const [itemId, qty] of Object.entries(userInv)) {
               const charDef = CHARACTER_SPAWNS.find(c => c.id === itemId);
               if (charDef) {
+                const isCollectible = settings[`collectible_active_${charDef.id}`] === 'true';
+                const collectiblePrice = settings[`collectible_price_${charDef.id}`] !== undefined
+                  ? parseInt(settings[`collectible_price_${charDef.id}`], 10)
+                  : null;
+                const sellPrice = (isCollectible && collectiblePrice !== null && !isNaN(collectiblePrice))
+                  ? collectiblePrice
+                  : charDef.value;
+
                 characterItems.push({
                   id: charDef.id,
                   name: charDef.name,
                   tier: charDef.tier,
                   value: charDef.value,
+                  price: sellPrice,
+                  isCollectible: isCollectible && collectiblePrice !== null && !isNaN(collectiblePrice),
                   quantity: qty,
                   color: charDef.color,
                   imagePath: charDef.imagePath
