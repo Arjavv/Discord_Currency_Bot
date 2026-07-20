@@ -70,9 +70,12 @@ function roundCanvasCorners(jimpImage, radius = 24) {
 /**
  * Renders the single collectible flex showcase graphic as a PNG buffer (Top Trumps style - Dark Theme).
  */
+/**
+ * Renders the single collectible flex showcase graphic as a PNG buffer (Top Trumps style - Dark Theme).
+ */
 async function renderFlexImage(username, character, dropPercentage, currencyName, isCollectible = false) {
   const width = 400;
-  const height = 600;
+  const height = 530;
   
   // 1. Create canvas with Premium Dark Brown background
   const canvas = new Jimp({ width, height, color: 0x1d120cff });
@@ -125,25 +128,6 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
   const font32 = await loadFont(font32Path);
   const font16 = await loadFont(font16Path);
   
-  // Generate stats deterministically based on character ID
-  let hash = 0;
-  const strId = character.id || '';
-  for (let i = 0; i < strId.length; i++) {
-    hash = strId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  
-  const getVal = (salt, min = 40, max = 95) => {
-    return Math.abs((hash + salt) % (max - min + 1)) + min;
-  };
-  
-  const multiplier = character.tier === 'DIVINE' ? 1.25 : character.tier === 'MYTHIC' ? 1.15 : character.tier === 'EPIC' ? 1.05 : 1.0;
-  
-  const str = Math.min(99, Math.round(getVal(1, 40, 95) * multiplier));
-  const def = Math.min(99, Math.round(getVal(2, 40, 95) * multiplier));
-  const spd = Math.min(99, Math.round(getVal(3, 40, 95) * multiplier));
-  const mag = Math.min(99, Math.round(getVal(4, 40, 95) * multiplier));
-  const totalPower = str + def + spd + mag;
-
   // 4. Draw Header Character Name (in white font)
   canvas.print({
     font: font32,
@@ -171,12 +155,9 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
   };
 
   drawLine(335);
-  drawLine(375);
-  drawLine(415);
-  drawLine(455);
-  drawLine(495);
-  drawLine(535);
-  drawLine(575);
+  drawLine(385);
+  drawLine(435);
+  drawLine(485);
 
   const printStatRow = (label, val, y) => {
     canvas.print({
@@ -195,12 +176,9 @@ async function renderFlexImage(username, character, dropPercentage, currencyName
     });
   };
 
-  printStatRow("Strength (STR):", str, 345);
-  printStatRow("Defense (DEF):", def, 385);
-  printStatRow("Speed (SPD):", spd, 425);
-  printStatRow("Magic (MAG):", mag, 465);
-  printStatRow("Total Power:", totalPower, 505);
-  printStatRow("Worth (Value):", isCollectible ? `${character.value} (Rare)` : `${character.value} ${currencyName}`, 545);
+  printStatRow("League (Tier):", character.tier, 347);
+  printStatRow("Rarity (Drop):", `${dropPercentage}%`, 397);
+  printStatRow("Worth (Value):", isCollectible ? `${character.value} (Rare)` : `${character.value} ${currencyName}`, 447);
 
   // Round the corners of the canvas
   roundCanvasCorners(canvas, 24);
