@@ -1242,8 +1242,11 @@ async function loadServerDetail(serverId) {
       nextDropText = 'Disabled';
     }
     const dropSubText = sv.dropChannelName ? `${sv.dropChannelName} (${nextDropText})` : 'No channel set';
+    const isOutofFuel = (d.treasury.balance || 0) < 20000;
+    const fuelClass = isOutofFuel ? 'r' : 'v';
+    const fuelSub = isOutofFuel ? '<span style="color:var(--red); font-weight:600">⚠️ OUT OF FUEL (Min 20,000)</span>' : 'Souls (Min 20,000)';
 
-    $('server-detail-area').innerHTML = `
+      $('server-detail-area').innerHTML = `
       <div class="stat-grid">
         <div class="stat-card c"><div class="accent-bar"></div><i class="fa-solid fa-users sc-icon"></i><div class="sc-label">Discord Members</div><div class="sc-value">${fmt(d.memberCount||0)}</div><div class="sc-sub">in guild</div></div>
         <div class="stat-card v"><div class="accent-bar"></div><i class="fa-solid fa-coins sc-icon"></i><div class="sc-label">Total Souls Held</div><div class="sc-value">${fmt(sv.totalCoins||0)}</div><div class="sc-sub">by server members</div></div>
@@ -1295,7 +1298,7 @@ async function loadServerDetail(serverId) {
         <div class="section-title"><i class="fa-solid fa-building-columns" style="color:var(--violet)"></i> Server Vault Tax Configuration</div>
         <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Manage the server's Vault Balance, dynamic daily operational cost (tax) rate, or set a custom rate override.</p>
         <div class="stat-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin-bottom: 16px;">
-          <div class="stat-card v"><div class="accent-bar"></div><i class="fa-solid fa-vault sc-icon"></i><div class="sc-label">Vault Balance</div><div class="sc-value">${fmt(d.treasury.balance || 0)}</div><div class="sc-sub">Souls</div></div>
+          <div class="stat-card ${fuelClass}"><div class="accent-bar"></div><i class="fa-solid fa-vault sc-icon"></i><div class="sc-label">Vault Balance</div><div class="sc-value">${fmt(d.treasury.balance || 0)}</div><div class="sc-sub">${fuelSub}</div></div>
           <div class="stat-card c"><div class="accent-bar"></div><i class="fa-solid fa-percent sc-icon"></i><div class="sc-label">Daily Tax Rate</div><div class="sc-value">${d.treasury.customTaxRate !== null ? d.treasury.customTaxRate + '%' : d.treasury.effectiveTaxRate + '%'}</div><div class="sc-sub">${d.treasury.customTaxRate !== null ? 'Custom Override' : 'Fluctuating (' + d.memberCount + ' members)'}</div></div>
           <div class="stat-card g"><div class="accent-bar"></div><i class="fa-solid fa-receipt sc-icon"></i><div class="sc-label">Total Tax Collected</div><div class="sc-value">${fmt(d.treasury.totalTaxPaid || 0)}</div><div class="sc-sub">Souls all-time</div></div>
           <div class="stat-card a"><div class="accent-bar"></div><i class="fa-solid fa-calendar-day sc-icon"></i><div class="sc-label">Today's Tax Collected</div><div class="sc-value">${fmt(d.treasury.todayTaxPaid || 0)}</div><div class="sc-sub">Souls today</div></div>
@@ -1310,16 +1313,26 @@ async function loadServerDetail(serverId) {
             <button class="save-btn" id="trigger-sv-tax-btn" style="margin-top:0;background:linear-gradient(135deg, var(--red), #b91c1c)"><i class="fa-solid fa-gavel"></i> Deduct Tax Now</button>
           </div>
         </div>
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:20px;border-top:1px solid rgba(255,255,255,0.06);padding-top:20px">
+          <div class="input-group" style="flex:none;width:240px">
+            <label>Add Souls to Vault</label>
+            <input type="number" min="1" id="sv-add-funds-amount" placeholder="Enter amount to add">
+          </div>
+          <div style="display:flex;gap:10px;align-self:flex-end">
+            <button class="save-btn" id="add-sv-funds-btn" style="margin-top:0;background:linear-gradient(135deg, var(--green), #16a34a)"><i class="fa-solid fa-circle-plus"></i> Add Funds</button>
+          </div>
+        </div>
       </div>
 
       <div class="section" style="margin-top:0">
-        <div class="section-title"><i class="fa-solid fa-gear"></i> Drop Settings Override</div>
+        <div class="section-title"><i class="fa-solid fa-gear"></i> Drop Settings & Actions</div>
         <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
           <div class="toggle-item" style="flex:none">
             <div class="toggle-label">Auto Drops<small>Automatically drop Souls</small></div>
             <label class="switch"><input type="checkbox" id="sv-auto-drops" ${sv.autoDropsEnabled?'checked':''}><span class="slider"></span></label>
           </div>
-          <button class="save-btn" id="save-sv-drops-btn" style="margin-top:0"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+          <button class="save-btn" id="save-sv-drops-btn" style="margin-top:0"><i class="fa-solid fa-floppy-disk"></i> Save Settings</button>
+          <button class="save-btn" id="force-sv-drop-btn" style="margin-top:0;background:linear-gradient(135deg, var(--cyan), #0891b2)"><i class="fa-solid fa-wand-magic-sparkles"></i> Force Drop Now</button>
         </div>
       </div>
     `;
@@ -1378,6 +1391,25 @@ async function loadServerDetail(serverId) {
 
     $('save-sv-drops-btn').onclick = () => saveBtn($('save-sv-drops-btn'), async () => {
       await api(`/api/server/${serverId}`, 'PATCH', { auto_drops_enabled: $('sv-auto-drops').checked });
+      await loadServers();
+      await loadServerDetail(serverId);
+    });
+
+    $('force-sv-drop-btn').onclick = () => saveBtn($('force-sv-drop-btn'), async () => {
+      if (confirm('Are you sure you want to trigger an immediate Soul drop on this server?')) {
+        const res = await api(`/api/server/${serverId}/force-drop`, 'POST');
+        toast(res.message || 'Soul drop triggered successfully ✓');
+      }
+    });
+
+    $('add-sv-funds-btn').onclick = () => saveBtn($('add-sv-funds-btn'), async () => {
+      const amount = $('sv-add-funds-amount').value.trim();
+      if (!amount || isNaN(amount) || parseInt(amount, 10) <= 0) {
+        return toast('Please enter a valid positive amount', 'err');
+      }
+      
+      const res = await api(`/api/server/${serverId}/vault/add-funds`, 'POST', { amount });
+      toast(res.message || 'Funds added successfully ✓');
       await loadServers();
       await loadServerDetail(serverId);
     });

@@ -1168,6 +1168,39 @@ module.exports = {
         return res;
       }
 
+      // Server Vault Fuel Check (block commands if balance < 20000)
+      const treasury = await getTreasury(message.guildId);
+      const isFuelLow = treasury && treasury.balance < 20000;
+
+      if (isFuelLow && !isAdminPrefixCommand(commandName)) {
+        fulfilled = false;
+        errorText = 'Insufficient Vault Fuel';
+        const isOwner = message.author.id === message.guild.ownerId;
+        const components = [];
+        if (isOwner) {
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId('refuel_vault_btn')
+              .setLabel('Refuel Vault')
+              .setStyle(ButtonStyle.Primary)
+              .setEmoji('⛽')
+          );
+          components.push(row);
+        }
+
+        const msgContent = `❌ **Insufficient Vault Balance**: This server's Soul Vault is out of fuel (Balance: **${treasury.balance}** Souls, Minimum required: **20,000** Souls). Commands and features are temporarily disabled.${isOwner ? '\nAs the Server Owner, you can refuel the vault using your own Souls.' : '\nPlease contact the Server Owner to refuel the vault.'}`;
+        
+        if (components.length > 0) {
+          const res = await message.reply({ content: msgContent, components });
+          logFinal(false, errorText);
+          return res;
+        } else {
+          const res = sendTempMessage(message.channel, msgContent);
+          logFinal(false, errorText);
+          return res;
+        }
+      }
+
       const featureKey = getFeatureForPrefixCommand(commandName);
       if (featureKey && !control.features[featureKey]) {
         fulfilled = false;
@@ -1909,12 +1942,6 @@ module.exports = {
               return sendTempMessage(message.channel, '❌ You cannot gift bots.');
             }
 
-            // Extract remaining arguments by filtering out mentions
-            const giftArgs = args.filter(arg => !arg.startsWith('<@') && !arg.endsWith('>'));
-            if (giftArgs.length === 0) {
-              return message.reply(`❌ **Usage:**\n- Gifting coins: \`s gift @user <amount>\`\n- Gifting characters: \`s gift @user <index/name> [quantity]\``).catch(() => {});
-            }
-
             // Fetch sender's character inventory to check for index/name matching
             const userInv = await getUserInventory(userId, serverId);
             const characterItems = [];
@@ -1939,6 +1966,310 @@ module.exports = {
               if (orderA !== orderB) return orderA - orderB;
               return a.name.localeCompare(b.name);
             });
+
+            // Extract remaining arguments by filtering out mentions
+            const giftArgs = args.filter(arg => !arg.startsWith('<@') && !arg.endsWith('>'));
+            if (giftArgs.length === 0) {
+              // --- Gifting via Cheque Panel ---
+              let txType = 'coins'; // 'coins' or 'character'
+              let selectedCharacter = null;
+              let amount = 0;
+
+              const formatChequeVal = (val) => {
+                return String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+              };
+
+              const buildChequeEmbed = () => {
+                const isCoins = txType === 'coins';
+                const statusText = selectedCharacter || isCoins ? (amount > 0 ? '🟢 Ready to Sign' : '🟡 Enter Amount / Qty') : '🟡 Select Character';
+                const assetName = isCoins ? 'Souls Currency' : (selectedCharacter ? selectedCharacter.name : 'None Selected');
+                const displayAmount = isCoins ? `${formatChequeVal(amount)} Souls` : `${amount}x`;
+
+                return new EmbedBuilder()
+                  .setColor(isCoins ? '#8b5cf6' : '#00ffaa')
+                  .setTitle('✦ SOUL TRANSACTION CHEQUE ✦')
+                  .setDescription(
+                    `\`\`\`\n` +
+                    `┌──────────────────────────────────────────────┐\n` +
+                    `│ DRAWER (SENDER):  ${message.author.username.substring(0, 25).padEnd(26)} │\n` +
+                    `│ PAY TO ORDER OF:  ${targetUser.username.substring(0, 25).padEnd(26)} │\n` +
+                    `├──────────────────────────────────────────────┤\n` +
+                    `│ TYPE:             ${(isCoins ? 'CURRENCY (SOULS)' : 'COLLECTIBLE SOUL').padEnd(26)} │\n` +
+                    `│ ASSET:            ${assetName.substring(0, 25).padEnd(26)} │\n` +
+                    `│ AMOUNT / QTY:     ${displayAmount.substring(0, 25).padEnd(26)} │\n` +
+                    `└──────────────────────────────────────────────┘\n` +
+                    `\`\`\``
+                  )
+                  .addFields(
+                    { name: '👤 Drawer', value: `${message.author}`, inline: true },
+                    { name: '👤 Payee', value: `${targetUser}`, inline: true },
+                    { name: '📊 Status', value: statusText, inline: true }
+                  )
+                  .setFooter({ text: 'Soul Currency Financial Corp. · Click buttons below to edit' })
+                  .setTimestamp();
+              };
+
+              const buildChequeComponents = (disabled = false) => {
+                const rows = [];
+
+                // Row 1: Toggles and Enter Amount
+                const row1 = new ActionRowBuilder().addComponents(
+                  new ButtonBuilder()
+                    .setCustomId('cheque_toggle_coins')
+                    .setLabel('Souls (Currency)')
+                    .setStyle(txType === 'coins' ? ButtonStyle.Success : ButtonStyle.Secondary)
+                    .setEmoji('💰')
+                    .setDisabled(disabled),
+                  new ButtonBuilder()
+                    .setCustomId('cheque_toggle_character')
+                    .setLabel('Caught Souls (Inventory)')
+                    .setStyle(txType === 'character' ? ButtonStyle.Success : ButtonStyle.Secondary)
+                    .setEmoji('🎒')
+                    .setDisabled(disabled || characterItems.length === 0),
+                  new ButtonBuilder()
+                    .setCustomId('cheque_enter_amount')
+                    .setLabel(txType === 'coins' ? 'Set Amount' : 'Set Quantity')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('✏️')
+                    .setDisabled(disabled)
+                );
+                rows.push(row1);
+
+                // Row 2: Select character dropdown (only if txType is character and inventory is not empty)
+                if (txType === 'character' && characterItems.length > 0) {
+                  const selectOptions = characterItems.slice(0, 25).map((item, idx) => {
+                    return new StringSelectMenuOptionBuilder()
+                      .setLabel(`${idx + 1}. ${item.name} (${item.tier})`)
+                      .setDescription(`Val: ${item.value} Souls · Available: ${item.quantity}`)
+                      .setValue(item.id);
+                  });
+
+                  const row2 = new ActionRowBuilder().addComponents(
+                    new StringSelectMenuBuilder()
+                      .setCustomId('cheque_select_character')
+                      .setPlaceholder(selectedCharacter ? `Selected: ${selectedCharacter.name}` : 'Choose a Caught Soul from inventory')
+                      .addOptions(selectOptions)
+                      .setDisabled(disabled)
+                  );
+                  rows.push(row2);
+                }
+
+                // Row 3: Sign/Cancel actions
+                const isSignDisabled = disabled || (txType === 'character' ? !selectedCharacter || amount <= 0 : amount <= 0);
+                const row3 = new ActionRowBuilder().addComponents(
+                  new ButtonBuilder()
+                    .setCustomId('cheque_sign')
+                    .setLabel('Sign & Gift')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('✍️')
+                    .setDisabled(isSignDisabled),
+                  new ButtonBuilder()
+                    .setCustomId('cheque_cancel')
+                    .setLabel('Void Cheque')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('❌')
+                    .setDisabled(disabled)
+                );
+                rows.push(row3);
+
+                return rows;
+              };
+
+              const chequeMsg = await message.reply({
+                embeds: [buildChequeEmbed()],
+                components: buildChequeComponents()
+              }).catch(err => {
+                console.error('Failed to send cheque message:', err);
+                return null;
+              });
+
+              if (!chequeMsg) return;
+
+              const collector = chequeMsg.createMessageComponentCollector({
+                filter: i => i.user.id === message.author.id,
+                time: 120000 // 2 minutes
+              });
+
+              collector.on('collect', async interaction => {
+                try {
+                  if (interaction.customId === 'cheque_toggle_coins') {
+                    txType = 'coins';
+                    selectedCharacter = null;
+                    amount = 0;
+                    await interaction.update({ embeds: [buildChequeEmbed()], components: buildChequeComponents() });
+                  } else if (interaction.customId === 'cheque_toggle_character') {
+                    txType = 'character';
+                    selectedCharacter = null;
+                    amount = 0;
+                    await interaction.update({ embeds: [buildChequeEmbed()], components: buildChequeComponents() });
+                  } else if (interaction.customId === 'cheque_select_character') {
+                    const charId = interaction.values[0];
+                    selectedCharacter = characterItems.find(c => c.id === charId);
+                    amount = 1; // Default quantity is 1 when chosen
+                    await interaction.update({ embeds: [buildChequeEmbed()], components: buildChequeComponents() });
+                  } else if (interaction.customId === 'cheque_enter_amount') {
+                    // Show modal to enter amount/qty
+                    const modal = new ModalBuilder()
+                      .setCustomId('cheque_amount_modal')
+                      .setTitle(txType === 'coins' ? 'Enter Souls Amount' : 'Enter Caught Soul Qty');
+
+                    const amountInput = new TextInputBuilder()
+                      .setCustomId('amount_input')
+                      .setLabel(txType === 'coins' ? 'Amount of Souls to gift' : 'Quantity to gift')
+                      .setStyle(TextInputStyle.Short)
+                      .setPlaceholder(txType === 'coins' ? 'e.g. 5000' : 'e.g. 1')
+                      .setRequired(true);
+
+                    const row = new ActionRowBuilder().addComponents(amountInput);
+                    modal.addComponents(row);
+
+                    await interaction.showModal(modal);
+
+                    const submitted = await interaction.awaitModalSubmit({
+                      filter: i => i.customId === 'cheque_amount_modal' && i.user.id === message.author.id,
+                      time: 60000
+                    }).catch(() => null);
+
+                    if (submitted) {
+                      const inputVal = submitted.fields.getTextInputValue('amount_input');
+                      const parsed = parseInt(inputVal.replace(/,/g, ''), 10);
+                      if (!isNaN(parsed) && parsed > 0) {
+                        if (txType === 'character' && selectedCharacter && parsed > selectedCharacter.quantity) {
+                          await submitted.reply({
+                            content: `❌ You only have **${selectedCharacter.quantity}** of **${selectedCharacter.name}** in inventory.`,
+                            ephemeral: true
+                          });
+                        } else {
+                          amount = parsed;
+                          await submitted.update({ embeds: [buildChequeEmbed()], components: buildChequeComponents() });
+                        }
+                      } else {
+                        await submitted.reply({
+                          content: '❌ Invalid number. Please enter a positive integer.',
+                          ephemeral: true
+                        });
+                      }
+                    }
+                  } else if (interaction.customId === 'cheque_cancel') {
+                    collector.stop('cancelled');
+                    const voidEmbed = new EmbedBuilder()
+                      .setColor('#ef4444')
+                      .setTitle('✦ SOUL TRANSACTION CHEQUE ✦')
+                      .setDescription(
+                        `\`\`\`\n` +
+                        `┌──────────────────────────────────────────────┐\n` +
+                        `│ STATUS:           VOID                       │\n` +
+                        `│ THIS CHEQUE HAS BEEN CANCELLED BY DRAWER      │\n` +
+                        `└──────────────────────────────────────────────┘\n` +
+                        `\`\`\``
+                      )
+                      .addFields(
+                        { name: '👤 Drawer', value: `${message.author}`, inline: true },
+                        { name: '👤 Payee', value: `${targetUser}`, inline: true },
+                        { name: '📊 Status', value: '❌ Voided', inline: true }
+                      )
+                      .setFooter({ text: 'Soul Currency Financial Corp.' })
+                      .setTimestamp();
+                    await interaction.update({ embeds: [voidEmbed], components: [] });
+                  } else if (interaction.customId === 'cheque_sign') {
+                    // Execute transaction
+                    if (txType === 'coins') {
+                      const result = await transferCoins(message.author.id, targetUser.id, serverId, amount);
+                      if (result.success) {
+                        collector.stop('success');
+                        const clearedEmbed = new EmbedBuilder()
+                          .setColor('#10b981')
+                          .setTitle('✦ SOUL TRANSACTION CHEQUE ✦')
+                          .setDescription(
+                            `\`\`\`\n` +
+                            `┌──────────────────────────────────────────────┐\n` +
+                            `│ STATUS:           CLEARED / PAID             │\n` +
+                            `│ TRANSACTION CLEARED ON THE SOUL ECONOMY      │\n` +
+                            `└──────────────────────────────────────────────┘\n` +
+                            `\`\`\``
+                          )
+                          .addFields(
+                            { name: '👤 Drawer', value: `${message.author}`, inline: true },
+                            { name: '👤 Payee', value: `${targetUser}`, inline: true },
+                            { name: '💰 Drawer Balance', value: `**${result.newSenderBalance}** ${currencyIcon} ${currencyName}`, inline: true }
+                          )
+                          .setFooter({ text: 'Soul Currency Financial Corp.' })
+                          .setTimestamp();
+                        await interaction.update({ embeds: [clearedEmbed], components: [] });
+                      } else if (result.reason === 'insufficient_funds') {
+                        await interaction.reply({
+                          content: `❌ Insufficient funds. Your current balance is **${result.currentBalance}** Souls.`,
+                          ephemeral: true
+                        });
+                      } else {
+                        await interaction.reply({
+                          content: '❌ An error occurred during the transfer.',
+                          ephemeral: true
+                        });
+                      }
+                    } else {
+                      // Character gift
+                      if (!selectedCharacter) return;
+                      const giftResult = await giftCharacter(userId, targetUser.id, selectedCharacter.id, amount);
+                      if (giftResult.success) {
+                        collector.stop('success');
+                        const clearedEmbed = new EmbedBuilder()
+                          .setColor('#10b981')
+                          .setTitle('✦ SOUL TRANSACTION CHEQUE ✦')
+                          .setDescription(
+                            `\`\`\`\n` +
+                            `┌──────────────────────────────────────────────┐\n` +
+                            `│ STATUS:           CLEARED / DELIVERED        │\n` +
+                            `│ SOUL CARD TRANSFERRED TO PAYEE INVENTORY     │\n` +
+                            `└──────────────────────────────────────────────┘\n` +
+                            `\`\`\``
+                          )
+                          .addFields(
+                            { name: '👤 Drawer', value: `${message.author}`, inline: true },
+                            { name: '👤 Payee', value: `${targetUser}`, inline: true },
+                            { name: '🎒 Remaining Soul Cards', value: `**${giftResult.senderNewQty}** left`, inline: true }
+                          )
+                          .setFooter({ text: 'Soul Currency Financial Corp.' })
+                          .setTimestamp();
+                        await interaction.update({ embeds: [clearedEmbed], components: [] });
+                      } else {
+                        await interaction.reply({
+                          content: '❌ Gifting failed. Verify you still have the character card in your inventory.',
+                          ephemeral: true
+                        });
+                      }
+                    }
+                  }
+                } catch (collectErr) {
+                  console.error('Error in cheque collector interaction:', collectErr);
+                }
+              });
+
+              collector.on('end', async (_, reason) => {
+                if (reason === 'time') {
+                  const timeoutEmbed = new EmbedBuilder()
+                    .setColor('#64748b')
+                    .setTitle('✦ SOUL TRANSACTION CHEQUE ✦')
+                    .setDescription(
+                      `\`\`\`\n` +
+                      `┌──────────────────────────────────────────────┐\n` +
+                      `│ STATUS:           EXPIRED                    │\n` +
+                      `│ TRANSACTION CANCELLED DUE TO INACTIVITY      │\n` +
+                      `└──────────────────────────────────────────────┘\n` +
+                      `\`\`\``
+                    )
+                    .addFields(
+                      { name: '👤 Drawer', value: `${message.author}`, inline: true },
+                      { name: '👤 Payee', value: `${targetUser}`, inline: true },
+                      { name: '📊 Status', value: '⏰ Expired', inline: true }
+                    )
+                    .setFooter({ text: 'Soul Currency Financial Corp.' })
+                    .setTimestamp();
+                  await chequeMsg.edit({ embeds: [timeoutEmbed], components: [] }).catch(() => {});
+                }
+              });
+              return;
+            }
 
             let isCharacterGift = false;
             let targetItem = null;

@@ -2519,7 +2519,62 @@ async function updateServerVaultCustomTaxRate(serverId, customTaxRate) {
   }
 }
 
+async function refuelServerVault(discordId, serverId, amount) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Check user balance on GLOBAL
+    const userRes = await client.query(
+      `SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = 'GLOBAL' FOR UPDATE`,
+      [discordId]
+    );
+    if (userRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'user_not_found' };
+    }
+    
+    const userBalance = parseInt(userRes.rows[0].coin_balance, 10);
+    if (userBalance < amount) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'insufficient_funds', userBalance };
+    }
+    
+    // Deduct from user
+    await client.query(
+      `UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = 'GLOBAL'`,
+      [amount, discordId]
+    );
+    
+    // Ensure treasury exists
+    await ensureTreasuryExists(client, serverId);
+    
+    // Add to server treasury
+    await client.query(
+      `UPDATE server_treasury SET balance = balance + $1 WHERE server_id = $2`,
+      [amount, serverId]
+    );
+    
+    // Fetch new treasury balance
+    const treasuryRes = await client.query(
+      `SELECT balance FROM server_treasury WHERE server_id = $1`,
+      [serverId]
+    );
+    const newVaultBalance = parseInt(treasuryRes.rows[0].balance, 10);
+    
+    await client.query('COMMIT');
+    return { success: true, newVaultBalance, newUserBalance: userBalance - amount };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error refueling server vault for server ${serverId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
+  refuelServerVault,
   getServerSettings,
   updateServerChannels,
   updateServerSetting,

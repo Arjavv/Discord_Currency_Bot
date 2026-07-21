@@ -25,11 +25,6 @@ module.exports = {
     )
     .addSubcommand(subcommand =>
       subcommand
-        .setName('force-drop')
-        .setDescription('Force a soul coin drop to happen immediately in the general channel')
-    )
-    .addSubcommand(subcommand =>
-      subcommand
         .setName('auto-drops')
         .setDescription('Start or stop the continuous 10-minute auto drop cycle in the drop channel')
         .addStringOption(option =>
@@ -207,39 +202,6 @@ module.exports = {
           .setTimestamp();
 
         return await interaction.editReply({ embeds: [embed] });
-      }
-
-      if (subcommand === 'force-drop') {
-        const settings = await getServerSettings(serverId);
-        let dropChannel = null;
-
-        if (settings.drop_channel_id) {
-          dropChannel = interaction.guild.channels.cache.get(settings.drop_channel_id) || 
-                        await interaction.guild.channels.fetch(settings.drop_channel_id).catch(() => null);
-        } else {
-          // Fallback to channel named general
-          const currentChannels = await interaction.guild.channels.fetch().catch(() => interaction.guild.channels.cache);
-          dropChannel = currentChannels.find(
-            c => c.name.toLowerCase() === 'general' && c.type === ChannelType.GuildText
-          );
-        }
-
-        if (!dropChannel) {
-          return await interaction.editReply({
-            content: '❌ **Error**: Drop channel not configured or not found. Please set it using `/admin set-drop-channel` or name a channel `#general`.'
-          });
-        }
-
-        const dropResult = await triggerDrop(interaction.client, serverId, dropChannel);
-        if (dropResult) {
-          return await interaction.editReply({
-            content: `✅ Successfully triggered a random coin drop in ${dropChannel}!`
-          });
-        } else {
-          return await interaction.editReply({
-            content: '❌ **Error**: Failed to send drop message. Please check permissions.'
-          });
-        }
       }
       
       if (subcommand === 'auto-drops') {

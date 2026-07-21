@@ -684,6 +684,75 @@ app.post('/api/server/:serverId/vault-tax/trigger', requireLogin, async (req, re
   }
 });
 
+// Force drop for a specific server (Protected)
+app.post('/api/server/:serverId/force-drop', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  try {
+    const settings = await getServerSettings(serverId);
+    const guild = client.guilds.cache.get(serverId) || await client.guilds.fetch(serverId).catch(() => null);
+    if (!guild) {
+      return res.status(404).json({ error: 'Server not found' });
+    }
+
+    let dropChannel = null;
+    if (settings.drop_channel_id) {
+      dropChannel = guild.channels.cache.get(settings.drop_channel_id) || 
+                    await guild.channels.fetch(settings.drop_channel_id).catch(() => null);
+    } else {
+      const currentChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
+      dropChannel = currentChannels.find(
+        c => c.name.toLowerCase() === 'general' && c.isTextBased()
+      );
+    }
+
+    if (!dropChannel) {
+      return res.status(400).json({ error: 'Drop channel not configured and no general channel found.' });
+    }
+
+    const dropResult = await triggerDrop(client, serverId, dropChannel);
+    if (dropResult) {
+      res.json({ success: true, message: `Successfully triggered a drop in #${dropChannel.name}!` });
+    } else {
+      res.status(500).json({ error: 'Failed to trigger drop. Please check bot permissions.' });
+    }
+  } catch (err) {
+    console.error('Error triggering forced drop from web panel:', err);
+    res.status(500).json({ error: 'Failed to trigger forced drop: ' + err.message });
+  }
+});
+
+// POST add funds to server vault (Protected - Admin panel)
+app.post('/api/server/:serverId/vault/add-funds', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  const { amount } = req.body;
+  const fundAmount = parseInt(amount, 10);
+  if (isNaN(fundAmount) || fundAmount <= 0) {
+    return res.status(400).json({ error: 'Invalid amount. Must be a positive integer.' });
+  }
+
+  try {
+    const { ensureTreasuryExists } = require('./database/queries');
+    const client = await pool.connect();
+    let newBalance = 0;
+    try {
+      await ensureTreasuryExists(client, serverId);
+      const dbRes = await client.query(
+        `UPDATE server_treasury SET balance = balance + $1 WHERE server_id = $2 RETURNING balance`,
+        [fundAmount, serverId]
+      );
+      newBalance = parseInt(dbRes.rows[0].balance, 10);
+    } finally {
+      client.release();
+    }
+    res.json({ success: true, newBalance, message: `Successfully added ${fundAmount} Souls to the server vault.` });
+  } catch (err) {
+    console.error('Error adding funds to server vault:', err);
+    res.status(500).json({ error: 'Failed to add funds: ' + err.message });
+  }
+});
+
+
+
 // POST create custom auto drop (Protected)
 app.post('/api/drops', requireLogin, async (req, res) => {
   const { name, tier, value, weight, color, claimDescription, image } = req.body;

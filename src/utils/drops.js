@@ -22,6 +22,14 @@ async function triggerDrop(client, guildId, channel) {
       return null;
     }
 
+    // Check Server Vault Fuel
+    const { getTreasury } = require('../database/queries');
+    const treasury = await getTreasury(guildId);
+    if (treasury && treasury.balance < 20000) {
+      console.log(`[Drops] Blocked drop in guild ${guildId} due to insufficient vault balance (${treasury.balance} < 20000).`);
+      return null;
+    }
+
     const character = getRandomCharacter();
     const dropValue = character.value;
 
