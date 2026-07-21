@@ -2872,7 +2872,6 @@ module.exports = {
             
             // In-memory cart state for this interaction
             const cart = {}; // itemId -> quantity
-            let lastSelectedItemId = null;
 
             // Helper to generate the shop/cart embed
             const generateShopEmbed = () => {
@@ -2951,17 +2950,19 @@ module.exports = {
                 });
               }
 
-              embed.setFooter({ text: 'Use the select menu to add items. Adjust quantities using ➕/➖. Click Checkout to purchase!' });
+              embed.setFooter({ text: 'Use the select menu to add items. Adjust quantities using ➕/➖ on each item row!' });
               embed.setTimestamp();
               return { embed, totalCost };
             };
 
             // Helper to generate components (dropdown select + buttons row)
-            const generateComponents = (totalCost) => {
+            const generateComponents = (totalCost, isEnded = false) => {
+              const rows = [];
               const selectId = `shop_select_${userId}_${Date.now()}`;
               const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId(selectId)
                 .setPlaceholder('🛒 Select a product to add to cart...')
+                .setDisabled(isEnded)
                 .addOptions(
                   new StringSelectMenuOptionBuilder()
                     .setLabel('Iron Dumbbell (+5 Strength)')
@@ -3010,40 +3011,70 @@ module.exports = {
                     .setEmoji('🔮')
                 );
 
-              const row1 = new ActionRowBuilder().addComponents(selectMenu);
+              rows.push(new ActionRowBuilder().addComponents(selectMenu));
 
-              const btnPlus = new ButtonBuilder()
-                .setCustomId(`shop_plus_${userId}`)
-                .setLabel('➕ Add Qty')
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(!lastSelectedItemId);
+              const itemNamesShort = {
+                dumbbell: 'Dumbbell 🏋️',
+                vest: 'Vest 🛡️',
+                shoes: 'Shoes 👟',
+                tome: 'Tome 📘',
+                rage: 'Rage 🧪',
+                aegis: 'Aegis 🧪',
+                adrenaline: 'Adrenaline 💊',
+                mana: 'Mana 🧪',
+                shield: 'Shield 🔮'
+              };
 
-              const btnMinus = new ButtonBuilder()
-                .setCustomId(`shop_minus_${userId}`)
-                .setLabel('➖ Rem Qty')
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(!lastSelectedItemId || !cart[lastSelectedItemId]);
+              // Rows 2, 3, 4: Distinct items in the cart
+              const activeItems = Object.keys(cart).filter(k => cart[k] > 0);
+              for (const itemId of activeItems) {
+                const qty = cart[itemId];
+                
+                const btnLabel = new ButtonBuilder()
+                  .setCustomId(`shop_lbl_${itemId}_${userId}`)
+                  .setLabel(`${itemNamesShort[itemId] || itemId} (x${qty})`)
+                  .setStyle(ButtonStyle.Secondary)
+                  .setDisabled(true);
 
+                const btnMinus = new ButtonBuilder()
+                  .setCustomId(`shop_minus_${itemId}_${userId}`)
+                  .setLabel('➖')
+                  .setStyle(ButtonStyle.Primary)
+                  .setDisabled(isEnded);
+
+                const btnPlus = new ButtonBuilder()
+                  .setCustomId(`shop_plus_${itemId}_${userId}`)
+                  .setLabel('➕')
+                  .setStyle(ButtonStyle.Primary)
+                  .setDisabled(isEnded);
+
+                const productRow = new ActionRowBuilder().addComponents(btnLabel, btnMinus, btnPlus);
+                rows.push(productRow);
+              }
+
+              // Row 5: Checkout row
               const btnClear = new ButtonBuilder()
                 .setCustomId(`shop_clear_${userId}`)
                 .setLabel('🧹 Clear')
                 .setStyle(ButtonStyle.Danger)
-                .setDisabled(totalCost === 0);
+                .setDisabled(totalCost === 0 || isEnded);
 
               const btnCheckout = new ButtonBuilder()
                 .setCustomId(`shop_checkout_${userId}`)
                 .setLabel(totalCost > 0 ? `💳 Checkout (${totalCost})` : '💳 Checkout')
                 .setStyle(ButtonStyle.Success)
-                .setDisabled(totalCost === 0);
+                .setDisabled(totalCost === 0 || isEnded);
 
               const btnClose = new ButtonBuilder()
                 .setCustomId(`shop_close_${userId}`)
                 .setLabel('❌ Close')
-                .setStyle(ButtonStyle.Secondary);
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(isEnded);
 
-              const row2 = new ActionRowBuilder().addComponents(btnPlus, btnMinus, btnClear, btnCheckout, btnClose);
+              const controlRow = new ActionRowBuilder().addComponents(btnClear, btnCheckout, btnClose);
+              rows.push(controlRow);
 
-              return { selectId, rows: [row1, row2] };
+              return { selectId, rows };
             };
 
             const { embed: initialEmbed, totalCost: initialCost } = generateShopEmbed();
@@ -3065,33 +3096,40 @@ module.exports = {
             collector.on('collect', async (interaction) => {
               await interaction.deferUpdate();
 
+              const customId = interaction.customId;
+
               if (interaction.isStringSelectMenu()) {
                 if (interaction.customId === currentSelectId) {
                   const selectedItemId = interaction.values[0];
+                  
+                  // Check limit of 3 distinct items
+                  const distinctCount = Object.keys(cart).filter(k => cart[k] > 0).length;
+                  if (!cart[selectedItemId] && distinctCount >= 3) {
+                    const errMsg = await message.channel.send(`❌ You can have a maximum of 3 distinct items in your cart at a time. Please checkout or remove an item first.`);
+                    setTimeout(() => errMsg.delete().catch(() => {}), 5000);
+                    return;
+                  }
+
                   cart[selectedItemId] = (cart[selectedItemId] || 0) + 1;
-                  lastSelectedItemId = selectedItemId;
                 }
               } else if (interaction.isButton()) {
-                const customId = interaction.customId;
-                if (customId === `shop_plus_${userId}`) {
-                  if (lastSelectedItemId) {
-                    cart[lastSelectedItemId] = (cart[lastSelectedItemId] || 0) + 1;
-                  }
-                } else if (customId === `shop_minus_${userId}`) {
-                  if (lastSelectedItemId && cart[lastSelectedItemId] > 0) {
-                    cart[lastSelectedItemId]--;
-                    if (cart[lastSelectedItemId] === 0) {
-                      delete cart[lastSelectedItemId];
-                      // Find another item in the cart to set as last selected
-                      const keys = Object.keys(cart);
-                      lastSelectedItemId = keys.length > 0 ? keys[keys.length - 1] : null;
+                if (customId.startsWith(`shop_plus_`)) {
+                  const parts = customId.split('_');
+                  const itemId = parts[2];
+                  cart[itemId] = (cart[itemId] || 0) + 1;
+                } else if (customId.startsWith(`shop_minus_`)) {
+                  const parts = customId.split('_');
+                  const itemId = parts[2];
+                  if (cart[itemId] > 0) {
+                    cart[itemId]--;
+                    if (cart[itemId] === 0) {
+                      delete cart[itemId];
                     }
                   }
                 } else if (customId === `shop_clear_${userId}`) {
                   for (const key of Object.keys(cart)) {
                     delete cart[key];
                   }
-                  lastSelectedItemId = null;
                 } else if (customId === `shop_close_${userId}`) {
                   collector.stop('user_closed');
                   return;
@@ -3113,12 +3151,9 @@ module.exports = {
                     for (const key of Object.keys(cart)) {
                       delete cart[key];
                     }
-                    lastSelectedItemId = null;
                     
                     // Disable all components and show success
-                    const { rows: disabledRows } = generateComponents(0);
-                    disabledRows[0].components[0].setDisabled(true).setPlaceholder('Checkout completed.');
-                    disabledRows[1].components.forEach(btn => btn.setDisabled(true));
+                    const { rows: disabledRows } = generateComponents(0, true);
 
                     await shopMessage.edit({
                       embeds: [successEmbed],
@@ -3166,9 +3201,7 @@ module.exports = {
               }
               // Otherwise, session expired
               const { embed: finalEmbed, totalCost: finalCost } = generateShopEmbed();
-              const { rows: disabledRows } = generateComponents(finalCost);
-              disabledRows[0].components[0].setDisabled(true).setPlaceholder('Shop session expired. Type s shop to reopen.');
-              disabledRows[1].components.forEach(btn => btn.setDisabled(true));
+              const { rows: disabledRows } = generateComponents(finalCost, true);
               
               await shopMessage.edit({
                 embeds: [finalEmbed],
@@ -3628,7 +3661,6 @@ module.exports = {
             const sellTaxRate = treasuryInfo.sellTaxRate;
 
             const sellCart = {}; // itemId -> quantity
-            let lastSelectedItemId = null;
 
             const generateSellEmbed = () => {
               const embed = new EmbedBuilder()
@@ -3681,16 +3713,18 @@ module.exports = {
                 value: invLines.slice(0, 15).join('\n') + (invLines.length > 15 ? `\n*...and ${invLines.length - 15} more types.*` : '')
               });
 
-              embed.setFooter({ text: 'Use the select menu to add items. Adjust quantities using ➕/➖. Click Sell All to checkout!' });
+              embed.setFooter({ text: 'Use the select menu to add items. Adjust quantities using ➕/➖ on each item row!' });
               embed.setTimestamp();
               return { embed, totalGross, netEarnings, taxAmount };
             };
 
-            const generateComponents = (totalGross) => {
+            const generateComponents = (totalGross, isEnded = false) => {
+              const rows = [];
               const selectId = `sell_select_${userId}_${Date.now()}`;
               const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId(selectId)
-                .setPlaceholder('🎒 Select a soul to add to sell cart...');
+                .setPlaceholder('🎒 Select a soul to add to sell cart...')
+                .setDisabled(isEnded);
 
               // Add top 25 items to option menu
               const options = characterItems.slice(0, 25).map(item => {
@@ -3700,41 +3734,60 @@ module.exports = {
                   .setValue(item.id);
               });
               selectMenu.addOptions(options);
+              rows.push(new ActionRowBuilder().addComponents(selectMenu));
 
-              const row1 = new ActionRowBuilder().addComponents(selectMenu);
+              // Rows 2, 3, 4: Distinct souls in the sell cart
+              const activeItems = Object.keys(sellCart).filter(k => sellCart[k] > 0);
+              for (const itemId of activeItems) {
+                const qty = sellCart[itemId];
+                const item = characterItems.find(c => c.id === itemId);
+                const maxQty = item ? item.quantity : 0;
+                
+                const btnLabel = new ButtonBuilder()
+                  .setCustomId(`sell_lbl_${itemId}_${userId}`)
+                  .setLabel(`${item ? item.name : itemId} (x${qty})`)
+                  .setStyle(ButtonStyle.Secondary)
+                  .setDisabled(true);
 
-              const btnPlus = new ButtonBuilder()
-                .setCustomId(`sell_plus_${userId}`)
-                .setLabel('➕ Add Qty')
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(!lastSelectedItemId || (sellCart[lastSelectedItemId] || 0) >= (characterItems.find(c => c.id === lastSelectedItemId)?.quantity || 0));
+                const btnMinus = new ButtonBuilder()
+                  .setCustomId(`sell_minus_${itemId}_${userId}`)
+                  .setLabel('➖')
+                  .setStyle(ButtonStyle.Primary)
+                  .setDisabled(isEnded);
 
-              const btnMinus = new ButtonBuilder()
-                .setCustomId(`sell_minus_${userId}`)
-                .setLabel('➖ Rem Qty')
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(!lastSelectedItemId || !sellCart[lastSelectedItemId]);
+                const btnPlus = new ButtonBuilder()
+                  .setCustomId(`sell_plus_${itemId}_${userId}`)
+                  .setLabel('➕')
+                  .setStyle(ButtonStyle.Primary)
+                  .setDisabled(qty >= maxQty || isEnded);
 
+                const productRow = new ActionRowBuilder().addComponents(btnLabel, btnMinus, btnPlus);
+                rows.push(productRow);
+              }
+
+              // Row 5: Checkout / Control Row
               const btnClear = new ButtonBuilder()
                 .setCustomId(`sell_clear_${userId}`)
                 .setLabel('🧹 Clear')
                 .setStyle(ButtonStyle.Danger)
-                .setDisabled(totalGross === 0);
+                .setDisabled(totalGross === 0 || isEnded);
 
               const btnSell = new ButtonBuilder()
                 .setCustomId(`sell_checkout_${userId}`)
                 .setLabel(totalGross > 0 ? `💰 Sell All (${totalGross})` : '💰 Sell All')
                 .setStyle(ButtonStyle.Success)
-                .setDisabled(totalGross === 0);
+                .setDisabled(totalGross === 0 || isEnded);
 
               const btnClose = new ButtonBuilder()
                 .setCustomId(`sell_close_${userId}`)
                 .setLabel('❌ Close')
-                .setStyle(ButtonStyle.Secondary);
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(isEnded);
 
-              const row2 = new ActionRowBuilder().addComponents(btnPlus, btnMinus, btnClear, btnSell, btnClose);
+              const controlRow = new ActionRowBuilder().addComponents(btnClear, btnSell, btnClose);
+              rows.push(controlRow);
 
-              return { selectId, rows: [row1, row2] };
+              return { selectId, rows };
             };
 
             const { embed: initialEmbed, totalGross: initialGross } = generateSellEmbed();
@@ -3755,38 +3808,43 @@ module.exports = {
             collector.on('collect', async (interaction) => {
               await interaction.deferUpdate();
 
+              const customId = interaction.customId;
+
               if (interaction.isStringSelectMenu()) {
                 if (interaction.customId === currentSelectId) {
                   const selectedItemId = interaction.values[0];
                   const item = characterItems.find(c => c.id === selectedItemId);
                   if (item) {
+                    const distinctCount = Object.keys(sellCart).filter(k => sellCart[k] > 0).length;
+                    if (!sellCart[selectedItemId] && distinctCount >= 3) {
+                      const errMsg = await message.channel.send(`❌ You can have a maximum of 3 distinct souls in your sell cart at a time. Please checkout or remove an item first.`);
+                      setTimeout(() => errMsg.delete().catch(() => {}), 5000);
+                      return;
+                    }
                     sellCart[selectedItemId] = Math.min(item.quantity, (sellCart[selectedItemId] || 0) + 1);
-                    lastSelectedItemId = selectedItemId;
                   }
                 }
               } else if (interaction.isButton()) {
-                const customId = interaction.customId;
-                if (customId === `sell_plus_${userId}`) {
-                  if (lastSelectedItemId) {
-                    const item = characterItems.find(c => c.id === lastSelectedItemId);
-                    if (item && (sellCart[lastSelectedItemId] || 0) < item.quantity) {
-                      sellCart[lastSelectedItemId] = (sellCart[lastSelectedItemId] || 0) + 1;
-                    }
+                if (customId.startsWith(`sell_plus_`)) {
+                  const parts = customId.split('_');
+                  const itemId = parts[2];
+                  const item = characterItems.find(c => c.id === itemId);
+                  if (item && (sellCart[itemId] || 0) < item.quantity) {
+                    sellCart[itemId] = (sellCart[itemId] || 0) + 1;
                   }
-                } else if (customId === `sell_minus_${userId}`) {
-                  if (lastSelectedItemId && sellCart[lastSelectedItemId] > 0) {
-                    sellCart[lastSelectedItemId]--;
-                    if (sellCart[lastSelectedItemId] === 0) {
-                      delete sellCart[lastSelectedItemId];
-                      const keys = Object.keys(sellCart);
-                      lastSelectedItemId = keys.length > 0 ? keys[keys.length - 1] : null;
+                } else if (customId.startsWith(`sell_minus_`)) {
+                  const parts = customId.split('_');
+                  const itemId = parts[2];
+                  if (sellCart[itemId] > 0) {
+                    sellCart[itemId]--;
+                    if (sellCart[itemId] === 0) {
+                      delete sellCart[itemId];
                     }
                   }
                 } else if (customId === `sell_clear_${userId}`) {
                   for (const key of Object.keys(sellCart)) {
                     delete sellCart[key];
                   }
-                  lastSelectedItemId = null;
                 } else if (customId === `sell_close_${userId}`) {
                   collector.stop('user_closed');
                   return;
@@ -3819,12 +3877,9 @@ module.exports = {
                     for (const key of Object.keys(sellCart)) {
                       delete sellCart[key];
                     }
-                    lastSelectedItemId = null;
 
                     // Disable all components and show success
-                    const { rows: disabledRows } = generateComponents(0);
-                    disabledRows[0].components[0].setDisabled(true).setPlaceholder('Sale completed.');
-                    disabledRows[1].components.forEach(btn => btn.setDisabled(true));
+                    const { rows: disabledRows } = generateComponents(0, true);
 
                     await sellMessage.edit({
                       embeds: [successEmbed],
@@ -3869,9 +3924,7 @@ module.exports = {
               }
               // Otherwise, session expired
               const { embed: finalEmbed, totalGross: finalGross } = generateSellEmbed();
-              const { rows: disabledRows } = generateComponents(finalGross);
-              disabledRows[0].components[0].setDisabled(true).setPlaceholder('Sell session expired. Type s sell to reopen.');
-              disabledRows[1].components.forEach(btn => btn.setDisabled(true));
+              const { rows: disabledRows } = generateComponents(finalGross, true);
 
               await sellMessage.edit({
                 embeds: [finalEmbed],
