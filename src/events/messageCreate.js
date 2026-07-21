@@ -3031,19 +3031,19 @@ module.exports = {
                 const qty = cart[itemId];
                 
                 const btnLabel = new ButtonBuilder()
-                  .setCustomId(`shop_lbl_${itemId}_${userId}`)
+                  .setCustomId(`shop:lbl:${itemId}:${userId}`)
                   .setLabel(`${itemNamesShort[itemId] || itemId} (x${qty})`)
                   .setStyle(ButtonStyle.Secondary)
                   .setDisabled(true);
 
                 const btnMinus = new ButtonBuilder()
-                  .setCustomId(`shop_minus_${itemId}_${userId}`)
+                  .setCustomId(`shop:minus:${itemId}:${userId}`)
                   .setLabel('➖')
                   .setStyle(ButtonStyle.Primary)
                   .setDisabled(isEnded);
 
                 const btnPlus = new ButtonBuilder()
-                  .setCustomId(`shop_plus_${itemId}_${userId}`)
+                  .setCustomId(`shop:plus:${itemId}:${userId}`)
                   .setLabel('➕')
                   .setStyle(ButtonStyle.Primary)
                   .setDisabled(isEnded);
@@ -3054,19 +3054,19 @@ module.exports = {
 
               // Row 5: Checkout row
               const btnClear = new ButtonBuilder()
-                .setCustomId(`shop_clear_${userId}`)
+                .setCustomId(`shop:clear:${userId}`)
                 .setLabel('🧹 Clear')
                 .setStyle(ButtonStyle.Danger)
                 .setDisabled(totalCost === 0 || isEnded);
 
               const btnCheckout = new ButtonBuilder()
-                .setCustomId(`shop_checkout_${userId}`)
+                .setCustomId(`shop:checkout:${userId}`)
                 .setLabel(totalCost > 0 ? `💳 Checkout (${totalCost})` : '💳 Checkout')
                 .setStyle(ButtonStyle.Success)
                 .setDisabled(totalCost === 0 || isEnded);
 
               const btnClose = new ButtonBuilder()
-                .setCustomId(`shop_close_${userId}`)
+                .setCustomId(`shop:close:${userId}`)
                 .setLabel('❌ Close')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(isEnded);
@@ -3113,27 +3113,29 @@ module.exports = {
                   cart[selectedItemId] = (cart[selectedItemId] || 0) + 1;
                 }
               } else if (interaction.isButton()) {
-                if (customId.startsWith(`shop_plus_`)) {
-                  const parts = customId.split('_');
-                  const itemId = parts[2];
-                  cart[itemId] = (cart[itemId] || 0) + 1;
-                } else if (customId.startsWith(`shop_minus_`)) {
-                  const parts = customId.split('_');
-                  const itemId = parts[2];
-                  if (cart[itemId] > 0) {
-                    cart[itemId]--;
-                    if (cart[itemId] === 0) {
-                      delete cart[itemId];
+                if (customId.startsWith(`shop:`)) {
+                  const parts = customId.split(':');
+                  const action = parts[1];
+                  
+                  if (action === 'plus') {
+                    const itemId = parts[2];
+                    cart[itemId] = (cart[itemId] || 0) + 1;
+                  } else if (action === 'minus') {
+                    const itemId = parts[2];
+                    if (cart[itemId] > 0) {
+                      cart[itemId]--;
+                      if (cart[itemId] === 0) {
+                        delete cart[itemId];
+                      }
                     }
-                  }
-                } else if (customId === `shop_clear_${userId}`) {
-                  for (const key of Object.keys(cart)) {
-                    delete cart[key];
-                  }
-                } else if (customId === `shop_close_${userId}`) {
-                  collector.stop('user_closed');
-                  return;
-                } else if (customId === `shop_checkout_${userId}`) {
+                  } else if (action === 'clear') {
+                    for (const key of Object.keys(cart)) {
+                      delete cart[key];
+                    }
+                  } else if (action === 'close') {
+                    collector.stop('user_closed');
+                    return;
+                  } else if (action === 'checkout') {
                   // Perform cart checkout!
                   const result = await checkoutCart(userId, serverId, cart);
                   if (result.success) {
@@ -3583,8 +3585,37 @@ module.exports = {
               return a.name.localeCompare(b.name);
             });
 
-            // If args are provided, do the single-item quick sell
+            // If args are provided, do quick sell or sell all
             if (args.length > 0) {
+              if (args[0].toLowerCase() === 'all') {
+                if (characterItems.length === 0) {
+                  return message.reply('❌ Your inventory is currently empty! Catch some drops first.').catch(() => {});
+                }
+                
+                const salesList = characterItems.map(item => ({
+                  characterId: item.id,
+                  value: item.value,
+                  qty: item.quantity
+                }));
+                
+                const result = await bulkSellCharacters(userId, serverId, salesList);
+                if (result.success) {
+                  const successEmbed = new EmbedBuilder()
+                    .setColor('#00ffaa')
+                    .setTitle('💰 Bulk Sale Successful (All Souls)!')
+                    .setDescription(`Successfully sold all souls in your inventory for a net total of **${result.totalNetEarnings}** ${currencyIcon} ${currencyName}!`)
+                    .addFields(
+                      { name: 'Sold Items', value: result.soldItemsSummary.map(item => `✨ ${item.qty}x **${characterItems.find(c => c.id === item.characterId)?.name}** (Net: +${item.netEarnings} Souls)`).join('\n') },
+                      { name: 'Reaper\'s Cut Paid', value: `✂️ **${result.totalTaxAmount}** Souls siphoned to the Server Vault` },
+                      { name: 'New Wallet Balance', value: `🏦 **${result.newBalance}** ${currencyIcon} ${currencyName}` }
+                    )
+                    .setTimestamp();
+                  return await message.reply({ embeds: [successEmbed] }).catch(() => {});
+                } else {
+                  return message.reply('❌ Failed to bulk sell your inventory.').catch(() => {});
+                }
+              }
+
               // Resolve target item and quantity
               let targetItem = null;
               let sellQty = 1;
@@ -3744,19 +3775,19 @@ module.exports = {
                 const maxQty = item ? item.quantity : 0;
                 
                 const btnLabel = new ButtonBuilder()
-                  .setCustomId(`sell_lbl_${itemId}_${userId}`)
+                  .setCustomId(`sell:lbl:${itemId}:${userId}`)
                   .setLabel(`${item ? item.name : itemId} (x${qty})`)
                   .setStyle(ButtonStyle.Secondary)
                   .setDisabled(true);
 
                 const btnMinus = new ButtonBuilder()
-                  .setCustomId(`sell_minus_${itemId}_${userId}`)
+                  .setCustomId(`sell:minus:${itemId}:${userId}`)
                   .setLabel('➖')
                   .setStyle(ButtonStyle.Primary)
                   .setDisabled(isEnded);
 
                 const btnPlus = new ButtonBuilder()
-                  .setCustomId(`sell_plus_${itemId}_${userId}`)
+                  .setCustomId(`sell:plus:${itemId}:${userId}`)
                   .setLabel('➕')
                   .setStyle(ButtonStyle.Primary)
                   .setDisabled(qty >= maxQty || isEnded);
@@ -3767,19 +3798,19 @@ module.exports = {
 
               // Row 5: Checkout / Control Row
               const btnClear = new ButtonBuilder()
-                .setCustomId(`sell_clear_${userId}`)
+                .setCustomId(`sell:clear:${userId}`)
                 .setLabel('🧹 Clear')
                 .setStyle(ButtonStyle.Danger)
                 .setDisabled(totalGross === 0 || isEnded);
 
               const btnSell = new ButtonBuilder()
-                .setCustomId(`sell_checkout_${userId}`)
+                .setCustomId(`sell:checkout:${userId}`)
                 .setLabel(totalGross > 0 ? `💰 Sell All (${totalGross})` : '💰 Sell All')
                 .setStyle(ButtonStyle.Success)
                 .setDisabled(totalGross === 0 || isEnded);
 
               const btnClose = new ButtonBuilder()
-                .setCustomId(`sell_close_${userId}`)
+                .setCustomId(`sell:close:${userId}`)
                 .setLabel('❌ Close')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(isEnded);
@@ -3825,30 +3856,32 @@ module.exports = {
                   }
                 }
               } else if (interaction.isButton()) {
-                if (customId.startsWith(`sell_plus_`)) {
-                  const parts = customId.split('_');
-                  const itemId = parts[2];
-                  const item = characterItems.find(c => c.id === itemId);
-                  if (item && (sellCart[itemId] || 0) < item.quantity) {
-                    sellCart[itemId] = (sellCart[itemId] || 0) + 1;
-                  }
-                } else if (customId.startsWith(`sell_minus_`)) {
-                  const parts = customId.split('_');
-                  const itemId = parts[2];
-                  if (sellCart[itemId] > 0) {
-                    sellCart[itemId]--;
-                    if (sellCart[itemId] === 0) {
-                      delete sellCart[itemId];
+                if (customId.startsWith(`sell:`)) {
+                  const parts = customId.split(':');
+                  const action = parts[1];
+                  
+                  if (action === 'plus') {
+                    const itemId = parts[2];
+                    const item = characterItems.find(c => c.id === itemId);
+                    if (item && (sellCart[itemId] || 0) < item.quantity) {
+                      sellCart[itemId] = (sellCart[itemId] || 0) + 1;
                     }
-                  }
-                } else if (customId === `sell_clear_${userId}`) {
-                  for (const key of Object.keys(sellCart)) {
-                    delete sellCart[key];
-                  }
-                } else if (customId === `sell_close_${userId}`) {
-                  collector.stop('user_closed');
-                  return;
-                } else if (customId === `sell_checkout_${userId}`) {
+                  } else if (action === 'minus') {
+                    const itemId = parts[2];
+                    if (sellCart[itemId] > 0) {
+                      sellCart[itemId]--;
+                      if (sellCart[itemId] === 0) {
+                        delete sellCart[itemId];
+                      }
+                    }
+                  } else if (action === 'clear') {
+                    for (const key of Object.keys(sellCart)) {
+                      delete sellCart[key];
+                    }
+                  } else if (action === 'close') {
+                    collector.stop('user_closed');
+                    return;
+                  } else if (action === 'checkout') {
                   // Perform bulk sell database checkout!
                   const salesList = [];
                   for (const [itemId, qty] of Object.entries(sellCart)) {
