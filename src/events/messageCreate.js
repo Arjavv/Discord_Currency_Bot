@@ -2159,6 +2159,9 @@ module.exports = {
                         `\`\`\`\n` +
                         `┌──────────────────────────────────────────────┐\n` +
                         `│ STATUS:           VOID                       │\n` +
+                        `│ ASSET:            ${(txType === 'coins' ? 'Souls Currency' : (selectedCharacter ? selectedCharacter.name : 'None Selected')).substring(0, 25).padEnd(26)} │\n` +
+                        `│ AMOUNT/QTY:       ${(txType === 'coins' ? `${formatChequeVal(amount)} Souls` : `${amount}x`).substring(0, 25).padEnd(26)} │\n` +
+                        `├──────────────────────────────────────────────┤\n` +
                         `│ THIS CHEQUE HAS BEEN CANCELLED BY DRAWER      │\n` +
                         `└──────────────────────────────────────────────┘\n` +
                         `\`\`\``
@@ -2184,6 +2187,9 @@ module.exports = {
                             `\`\`\`\n` +
                             `┌──────────────────────────────────────────────┐\n` +
                             `│ STATUS:           CLEARED / PAID             │\n` +
+                            `│ AMOUNT:           ${`${formatChequeVal(amount)} Souls`.padEnd(26)} │\n` +
+                            `│ TO:               ${targetUser.username.substring(0, 25).padEnd(26)} │\n` +
+                            `├──────────────────────────────────────────────┤\n` +
                             `│ TRANSACTION CLEARED ON THE SOUL ECONOMY      │\n` +
                             `└──────────────────────────────────────────────┘\n` +
                             `\`\`\``
@@ -2220,6 +2226,10 @@ module.exports = {
                             `\`\`\`\n` +
                             `┌──────────────────────────────────────────────┐\n` +
                             `│ STATUS:           CLEARED / DELIVERED        │\n` +
+                            `│ ASSET:            ${`${selectedCharacter.name} (${selectedCharacter.tier})`.substring(0, 25).padEnd(26)} │\n` +
+                            `│ QTY:              ${`${amount}x`.padEnd(26)} │\n` +
+                            `│ TO:               ${targetUser.username.substring(0, 25).padEnd(26)} │\n` +
+                            `├──────────────────────────────────────────────┤\n` +
                             `│ SOUL CARD TRANSFERRED TO PAYEE INVENTORY     │\n` +
                             `└──────────────────────────────────────────────┘\n` +
                             `\`\`\``
@@ -2254,6 +2264,9 @@ module.exports = {
                       `\`\`\`\n` +
                       `┌──────────────────────────────────────────────┐\n` +
                       `│ STATUS:           EXPIRED                    │\n` +
+                      `│ ASSET:            ${(txType === 'coins' ? 'Souls Currency' : (selectedCharacter ? selectedCharacter.name : 'None Selected')).substring(0, 25).padEnd(26)} │\n` +
+                      `│ AMOUNT/QTY:       ${(txType === 'coins' ? `${formatChequeVal(amount)} Souls` : `${amount}x`).substring(0, 25).padEnd(26)} │\n` +
+                      `├──────────────────────────────────────────────┤\n` +
                       `│ TRANSACTION CANCELLED DUE TO INACTIVITY      │\n` +
                       `└──────────────────────────────────────────────┘\n` +
                       `\`\`\``
