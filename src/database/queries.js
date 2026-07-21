@@ -1574,6 +1574,122 @@ async function purchaseShopItem(discordId, serverId, itemId) {
 }
 
 /**
+ * Deducts currency and processes the checkout of multiple items and quantities in a single transaction.
+ * @param {string} discordId - User's Discord ID
+ * @param {string} serverId - Server ID
+ * @param {Object} cart - Object mapping item IDs to quantities
+ * @returns {Promise<Object>}
+ */
+async function checkoutCart(discordId, serverId, cart) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const prices = await getShopPrices(serverId);
+    let totalCost = 0;
+    
+    for (const [itemId, qty] of Object.entries(cart)) {
+      if (qty <= 0) continue;
+      const cost = prices[itemId];
+      if (cost === undefined) {
+        await client.query('ROLLBACK');
+        return { success: false, reason: 'invalid_item', itemId };
+      }
+      totalCost += cost * qty;
+    }
+
+    if (totalCost <= 0) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'empty_cart' };
+    }
+
+    // Ensure stats exist globally
+    await ensureUserStats(client, discordId, 'GLOBAL');
+
+    // Get user wallet balance with lock globally
+    const balanceRes = await client.query(`
+      SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = 'GLOBAL' FOR UPDATE
+    `, [discordId]);
+
+    if (balanceRes.rows.length === 0 || balanceRes.rows[0].coin_balance < totalCost) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'insufficient_funds', totalCost };
+    }
+
+    // Deduct coins globally
+    await client.query(`
+      UPDATE users SET coin_balance = coin_balance - $1 WHERE discord_id = $2 AND server_id = 'GLOBAL'
+    `, [totalCost, discordId]);
+
+    // Process each cart item
+    const purchasedItems = [];
+    for (const [itemId, qty] of Object.entries(cart)) {
+      if (qty <= 0) continue;
+      const itemCost = prices[itemId] * qty;
+
+      // Log transaction globally
+      await client.query(`
+        INSERT INTO transactions (user_id, server_id, amount, source)
+        VALUES ($1, 'GLOBAL', $2, $3)
+      `, [discordId, -itemCost, `buy_${itemId}_qty_${qty}`]);
+
+      if (['dumbbell', 'vest', 'shoes', 'tome'].includes(itemId)) {
+        let field = '';
+        if (itemId === 'dumbbell') field = 'boost_strength';
+        else if (itemId === 'vest') field = 'boost_defense';
+        else if (itemId === 'shoes') field = 'boost_speed';
+        else if (itemId === 'tome') field = 'boost_magic';
+
+        await client.query(`
+          UPDATE user_stats
+          SET ${field} = ${field} + $1
+          WHERE discord_id = $2 AND server_id = 'GLOBAL'
+        `, [5 * qty, discordId]);
+        
+        purchasedItems.push(`${qty}x ${itemId.toUpperCase()} (+${5 * qty} Boost)`);
+      } else if (['rage', 'aegis', 'adrenaline', 'mana'].includes(itemId)) {
+        let type = '';
+        if (itemId === 'rage') type = 'strength';
+        else if (itemId === 'aegis') type = 'defense';
+        else if (itemId === 'adrenaline') type = 'speed';
+        else if (itemId === 'mana') type = 'magic';
+
+        for (let q = 0; q < qty; q++) {
+          await client.query(`
+            INSERT INTO active_boosts (discord_id, server_id, stat_type, amount, expires_at)
+            VALUES ($1, 'GLOBAL', $2, 15, NOW() + INTERVAL '24 hours')
+          `, [discordId, type]);
+        }
+        purchasedItems.push(`${qty}x ${itemId.toUpperCase()} (+15 boost, 24h stackable)`);
+      } else if (itemId === 'shield') {
+        await client.query(`
+          INSERT INTO user_inventory (discord_id, server_id, item_id, quantity)
+          VALUES ($1, 'GLOBAL', 'shield', $2)
+          ON CONFLICT (discord_id, server_id, item_id)
+          DO UPDATE SET quantity = user_inventory.quantity + EXCLUDED.quantity
+        `, [discordId, qty]);
+        
+        purchasedItems.push(`${qty}x DIVINE SHIELD`);
+      }
+    }
+
+    const finalBalanceRes = await client.query(`
+      SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = 'GLOBAL'
+    `, [discordId]);
+    const newBalance = finalBalanceRes.rows[0].coin_balance;
+
+    await client.query('COMMIT');
+    return { success: true, newBalance, totalCost, purchasedItems };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in checkoutCart:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Sets the last_duel_loss_at timestamp to now globally, initiating a 6-hour cooldown.
  */
 async function recordDuelLoss(discordId, serverId) {
@@ -2317,6 +2433,7 @@ module.exports = {
   sellCharacter,
   giftCharacter,
   purchaseShopItem,
+  checkoutCart,
   recordDuelLoss,
   getGlobalSettings,
   setGlobalSetting,

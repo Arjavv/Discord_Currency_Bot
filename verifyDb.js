@@ -350,6 +350,40 @@ function mockQueryExecutor(sql, params) {
     return { rows: [{ coin_balance: user.coin_balance }] };
   }
 
+  // 6.6. UPDATE users (subtraction / shop purchases)
+  if (normalizedSql.includes('UPDATE users SET coin_balance = coin_balance - $1')) {
+    const [amount, discordId] = params;
+    const key = `${discordId}_GLOBAL`;
+    const user = mockState.users.get(key);
+    if (user) {
+      user.coin_balance = (BigInt(user.coin_balance) - BigInt(amount)).toString();
+      user.coin_balance = parseInt(user.coin_balance, 10);
+    }
+    return { rows: [{ coin_balance: user ? user.coin_balance : 0 }] };
+  }
+
+  // 6.61. UPDATE user_stats
+  if (normalizedSql.includes('UPDATE user_stats')) {
+    return { rows: [] };
+  }
+
+  // 6.62. INSERT INTO active_boosts
+  if (normalizedSql.includes('INSERT INTO active_boosts')) {
+    return { rows: [] };
+  }
+
+  // 6.63. INSERT INTO user_inventory (e.g. shield purchase)
+  if (normalizedSql.includes('INSERT INTO user_inventory') && normalizedSql.includes('ON CONFLICT')) {
+    const discordId = params[0];
+    const itemId = params[2];
+    const qty = params[3];
+    const key = `${discordId}_GLOBAL_${itemId}`;
+    const item = mockState.user_inventory.get(key) || { discord_id: discordId, server_id: 'GLOBAL', item_id: itemId, quantity: 0 };
+    item.quantity += qty;
+    mockState.user_inventory.set(key, item);
+    return { rows: [] };
+  }
+
   // 6.7. UPDATE users (reset all balances to 0 during cycle reset)
   if (normalizedSql.includes('UPDATE users SET coin_balance = 0, last_checkin_at = NULL')) {
     mockState.users.forEach((user, key) => {
@@ -948,6 +982,32 @@ async function runTests() {
     }
 
     console.log('✔ Server vault tax tests passed.');
+
+    // 5.9 Testing Shop Cart Checkout (Multiple items & quantities)
+    console.log('\nTesting Shop Cart Checkout (Multiple items & quantities)...');
+    const { checkoutCart } = require('./src/database/queries');
+    
+    // Set User 1 balance to 1000 to afford the cart items
+    if (!useMock) {
+      await pool.query("UPDATE users SET coin_balance = 1000 WHERE discord_id = $1 AND server_id = 'GLOBAL'", [TEST_USER_1]);
+    } else {
+      mockState.users.get(`${TEST_USER_1}_GLOBAL`).coin_balance = 1000;
+    }
+    
+    const cart = {
+      dumbbell: 2, // 300 coins (150 each fallback)
+      shield: 1    // 500 coins (500 each fallback)
+    }; // Total cost: 800 coins
+
+    const checkoutRes = await checkoutCart(TEST_USER_1, TEST_SERVER, cart);
+    console.log('Checkout result:', checkoutRes);
+    if (!checkoutRes.success || checkoutRes.totalCost !== 800 || checkoutRes.newBalance !== 200) {
+      throw new Error('Failed to checkout cart with correct total cost and balance deduction');
+    }
+    if (checkoutRes.purchasedItems.length !== 2) {
+      throw new Error('Purchased items list count incorrect');
+    }
+    console.log('✔ Shop cart checkout test passed.');
 
     // 6. Reset Cycle Test (Now succeeds under dashboard/owner controls)
     console.log('\nTesting Cycle Reset (should succeed and clear balances)...');

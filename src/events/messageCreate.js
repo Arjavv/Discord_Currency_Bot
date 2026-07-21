@@ -24,6 +24,7 @@ const {
   sellCharacter,
   giftCharacter,
   purchaseShopItem,
+  checkoutCart,
   recordDuelLoss,
   getGlobalSettings,
   getTreasury,
@@ -2867,11 +2868,20 @@ module.exports = {
 
           if (commandName === 'shop') {
             const prices = await getShopPrices(serverId);
-            const embed = new EmbedBuilder()
-              .setColor('#ffd700')
-              .setTitle(`🛒 The Soul Shop`)
-              .setDescription(`Enhance your stats or buy defense systems! Prices can be configured by server administrators.`)
-              .addFields(
+            
+            // In-memory cart state for this interaction
+            const cart = {}; // itemId -> quantity
+            let lastSelectedItemId = null;
+
+            // Helper to generate the shop/cart embed
+            const generateShopEmbed = () => {
+              const embed = new EmbedBuilder()
+                .setColor('#ffd700')
+                .setTitle(`🛒 The Soul Shop`)
+                .setDescription(`Enhance your stats or buy defense systems! Add multiple items to your cart, set quantities, and checkout when ready.`);
+              
+              // Standard listing fields
+              embed.addFields(
                 {
                   name: '🏋️ Category A: Weekly Upgrades (Resets Sunday Midnight)',
                   value: 
@@ -2902,109 +2912,267 @@ module.exports = {
                     `🔮 **Divine Shield** (ID: \`shield\`) — **${prices.shield}** ${currencyIcon}\n` +
                     `*Effect: Automatically blocks 1 robbery attempt. Consumed on use.*`
                 }
-              )
-              .setFooter({ text: 'Usage: s buy <item_id> OR select an option from the menu below to purchase!' })
-              .setTimestamp();
-
-            // Create interactive select menu for purchases
-            const selectId = `shop_select_${userId}_${Date.now()}`;
-            const selectMenu = new StringSelectMenuBuilder()
-              .setCustomId(selectId)
-              .setPlaceholder('🛒 Select an item to purchase...')
-              .addOptions(
-                new StringSelectMenuOptionBuilder()
-                  .setLabel('Iron Dumbbell (+5 Strength)')
-                  .setDescription(`Cost: ${prices.dumbbell} coins`)
-                  .setValue('dumbbell')
-                  .setEmoji('🏋️'),
-                new StringSelectMenuOptionBuilder()
-                  .setLabel('Kevlar Vest (+5 Defense)')
-                  .setDescription(`Cost: ${prices.vest} coins`)
-                  .setValue('vest')
-                  .setEmoji('🛡️'),
-                new StringSelectMenuOptionBuilder()
-                  .setLabel('Running Shoes (+5 Speed)')
-                  .setDescription(`Cost: ${prices.shoes} coins`)
-                  .setValue('shoes')
-                  .setEmoji('👟'),
-                new StringSelectMenuOptionBuilder()
-                  .setLabel('Ancient Tome (+5 Magic)')
-                  .setDescription(`Cost: ${prices.tome} coins`)
-                  .setValue('tome')
-                  .setEmoji('📘'),
-                new StringSelectMenuOptionBuilder()
-                  .setLabel('Rage Elixir (+15 Strength/24h)')
-                  .setDescription(`Cost: ${prices.rage} coins`)
-                  .setValue('rage')
-                  .setEmoji('🧪'),
-                new StringSelectMenuOptionBuilder()
-                  .setLabel('Aegis Serum (+15 Defense/24h)')
-                  .setDescription(`Cost: ${prices.aegis} coins`)
-                  .setValue('aegis')
-                  .setEmoji('🛡️'),
-                new StringSelectMenuOptionBuilder()
-                  .setLabel('Adrenaline Pill (+15 Speed/24h)')
-                  .setDescription(`Cost: ${prices.adrenaline} coins`)
-                  .setValue('adrenaline')
-                  .setEmoji('💊'),
-                new StringSelectMenuOptionBuilder()
-                  .setLabel('Mana Elixir (+15 Magic/24h)')
-                  .setDescription(`Cost: ${prices.mana} coins`)
-                  .setValue('mana')
-                  .setEmoji('🔮'),
-                new StringSelectMenuOptionBuilder()
-                  .setLabel('Divine Shield (Robbery Block)')
-                  .setDescription(`Cost: ${prices.shield} coins`)
-                  .setValue('shield')
-                  .setEmoji('🔮')
               );
 
-            const row = new ActionRowBuilder().addComponents(selectMenu);
+              // Cart Section
+              const cartLines = [];
+              let totalCost = 0;
+              
+              const itemNames = {
+                dumbbell: 'Iron Dumbbell 🏋️',
+                vest: 'Kevlar Vest 🛡️',
+                shoes: 'Running Shoes 👟',
+                tome: 'Ancient Tome 📘',
+                rage: 'Rage Elixir 🧪',
+                aegis: 'Aegis Serum 🧪',
+                adrenaline: 'Adrenaline Pill 💊',
+                mana: 'Mana Elixir 🧪',
+                shield: 'Divine Shield 🔮'
+              };
+
+              for (const [itemId, qty] of Object.entries(cart)) {
+                if (qty > 0) {
+                  const itemCost = prices[itemId] * qty;
+                  cartLines.push(`• **${itemNames[itemId] || itemId}** x${qty} — **${itemCost}** ${currencyIcon}`);
+                  totalCost += itemCost;
+                }
+              }
+
+              if (cartLines.length > 0) {
+                embed.addFields({
+                  name: '🛒 Your Shopping Cart',
+                  value: cartLines.join('\n') + `\n\n💰 **Total Cost:** **${totalCost}** ${currencyIcon} ${currencyName}`
+                });
+              } else {
+                embed.addFields({
+                  name: '🛒 Your Shopping Cart',
+                  value: '*Your cart is currently empty. Use the menu below to add products!*'
+                });
+              }
+
+              embed.setFooter({ text: 'Use the select menu to add items. Adjust quantities using ➕/➖. Click Checkout to purchase!' });
+              embed.setTimestamp();
+              return { embed, totalCost };
+            };
+
+            // Helper to generate components (dropdown select + buttons row)
+            const generateComponents = (totalCost) => {
+              const selectId = `shop_select_${userId}_${Date.now()}`;
+              const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(selectId)
+                .setPlaceholder('🛒 Select a product to add to cart...')
+                .addOptions(
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Iron Dumbbell (+5 Strength)')
+                    .setDescription(`Cost: ${prices.dumbbell} coins`)
+                    .setValue('dumbbell')
+                    .setEmoji('🏋️'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Kevlar Vest (+5 Defense)')
+                    .setDescription(`Cost: ${prices.vest} coins`)
+                    .setValue('vest')
+                    .setEmoji('🛡️'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Running Shoes (+5 Speed)')
+                    .setDescription(`Cost: ${prices.shoes} coins`)
+                    .setValue('shoes')
+                    .setEmoji('👟'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Ancient Tome (+5 Magic)')
+                    .setDescription(`Cost: ${prices.tome} coins`)
+                    .setValue('tome')
+                    .setEmoji('📘'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Rage Elixir (+15 Strength/24h)')
+                    .setDescription(`Cost: ${prices.rage} coins`)
+                    .setValue('rage')
+                    .setEmoji('🧪'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Aegis Serum (+15 Defense/24h)')
+                    .setDescription(`Cost: ${prices.aegis} coins`)
+                    .setValue('aegis')
+                    .setEmoji('🛡️'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Adrenaline Pill (+15 Speed/24h)')
+                    .setDescription(`Cost: ${prices.adrenaline} coins`)
+                    .setValue('adrenaline')
+                    .setEmoji('💊'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Mana Elixir (+15 Magic/24h)')
+                    .setDescription(`Cost: ${prices.mana} coins`)
+                    .setValue('mana')
+                    .setEmoji('🔮'),
+                  new StringSelectMenuOptionBuilder()
+                    .setLabel('Divine Shield (Robbery Block)')
+                    .setDescription(`Cost: ${prices.shield} coins`)
+                    .setValue('shield')
+                    .setEmoji('🔮')
+                );
+
+              const row1 = new ActionRowBuilder().addComponents(selectMenu);
+
+              const btnPlus = new ButtonBuilder()
+                .setCustomId(`shop_plus_${userId}`)
+                .setLabel('➕ Add Qty')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(!lastSelectedItemId);
+
+              const btnMinus = new ButtonBuilder()
+                .setCustomId(`shop_minus_${userId}`)
+                .setLabel('➖ Rem Qty')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(!lastSelectedItemId || !cart[lastSelectedItemId]);
+
+              const btnClear = new ButtonBuilder()
+                .setCustomId(`shop_clear_${userId}`)
+                .setLabel('🧹 Clear')
+                .setStyle(ButtonStyle.Danger)
+                .setDisabled(totalCost === 0);
+
+              const btnCheckout = new ButtonBuilder()
+                .setCustomId(`shop_checkout_${userId}`)
+                .setLabel(totalCost > 0 ? `💳 Checkout (${totalCost})` : '💳 Checkout')
+                .setStyle(ButtonStyle.Success)
+                .setDisabled(totalCost === 0);
+
+              const btnClose = new ButtonBuilder()
+                .setCustomId(`shop_close_${userId}`)
+                .setLabel('❌ Close')
+                .setStyle(ButtonStyle.Secondary);
+
+              const row2 = new ActionRowBuilder().addComponents(btnPlus, btnMinus, btnClear, btnCheckout, btnClose);
+
+              return { selectId, rows: [row1, row2] };
+            };
+
+            const { embed: initialEmbed, totalCost: initialCost } = generateShopEmbed();
+            const { selectId: initialSelectId, rows: initialRows } = generateComponents(initialCost);
 
             const shopMessage = await message.reply({
-              embeds: [embed],
-              components: [row]
+              embeds: [initialEmbed],
+              components: initialRows
             });
 
-            // Create collector
+            // Collector for StringSelect and Buttons
             const collector = shopMessage.createMessageComponentCollector({
-              componentType: ComponentType.StringSelect,
-              time: 60000,
-              filter: (i) => i.user.id === userId && i.customId === selectId
+              time: 300000, // 5 minutes cart session
+              filter: (i) => i.user.id === userId
             });
 
-            collector.on('collect', async (menuInteraction) => {
-              const selectedItemId = menuInteraction.values[0];
-              await menuInteraction.deferReply({ ephemeral: true });
+            let currentSelectId = initialSelectId;
 
-              const result = await purchaseShopItem(userId, serverId, selectedItemId);
-              if (result.success) {
-                const successEmbed = new EmbedBuilder()
-                  .setColor('#00ffaa')
-                  .setTitle('🛒 Purchase Successful!')
-                  .setDescription(`Successfully bought **${selectedItemId}** for **${result.cost}** ${currencyIcon} ${currencyName}.`)
-                  .addFields(
-                    { name: 'Effect', value: `✨ ${result.message}` },
-                    { name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` }
-                  )
-                  .setTimestamp();
-                await menuInteraction.followUp({ embeds: [successEmbed], ephemeral: true });
-              } else {
-                let errorText = '❌ An error occurred processing your purchase.';
-                if (result.reason === 'insufficient_funds') {
-                  errorText = `❌ Insufficient funds! You need **${result.cost}** ${currencyIcon} to buy this item.`;
-                } else if (result.reason === 'invalid_item') {
-                  errorText = `❌ Invalid Item ID!`;
+            collector.on('collect', async (interaction) => {
+              await interaction.deferUpdate();
+
+              if (interaction.isStringSelectMenu()) {
+                if (interaction.customId === currentSelectId) {
+                  const selectedItemId = interaction.values[0];
+                  cart[selectedItemId] = (cart[selectedItemId] || 0) + 1;
+                  lastSelectedItemId = selectedItemId;
                 }
-                await menuInteraction.followUp({ content: errorText, ephemeral: true });
+              } else if (interaction.isButton()) {
+                const customId = interaction.customId;
+                if (customId === `shop_plus_${userId}`) {
+                  if (lastSelectedItemId) {
+                    cart[lastSelectedItemId] = (cart[lastSelectedItemId] || 0) + 1;
+                  }
+                } else if (customId === `shop_minus_${userId}`) {
+                  if (lastSelectedItemId && cart[lastSelectedItemId] > 0) {
+                    cart[lastSelectedItemId]--;
+                    if (cart[lastSelectedItemId] === 0) {
+                      delete cart[lastSelectedItemId];
+                      // Find another item in the cart to set as last selected
+                      const keys = Object.keys(cart);
+                      lastSelectedItemId = keys.length > 0 ? keys[keys.length - 1] : null;
+                    }
+                  }
+                } else if (customId === `shop_clear_${userId}`) {
+                  for (const key of Object.keys(cart)) {
+                    delete cart[key];
+                  }
+                  lastSelectedItemId = null;
+                } else if (customId === `shop_close_${userId}`) {
+                  collector.stop('user_closed');
+                  return;
+                } else if (customId === `shop_checkout_${userId}`) {
+                  // Perform cart checkout!
+                  const result = await checkoutCart(userId, serverId, cart);
+                  if (result.success) {
+                    const successEmbed = new EmbedBuilder()
+                      .setColor('#00ffaa')
+                      .setTitle('🛒 Purchase Successful!')
+                      .setDescription(`Successfully purchased all items from your cart for **${result.totalCost}** ${currencyIcon} ${currencyName}.`)
+                      .addFields(
+                        { name: 'Purchased Items', value: result.purchasedItems.map(item => `✨ ${item}`).join('\n') },
+                        { name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` }
+                      )
+                      .setTimestamp();
+                    
+                    // Clear the cart on successful checkout
+                    for (const key of Object.keys(cart)) {
+                      delete cart[key];
+                    }
+                    lastSelectedItemId = null;
+                    
+                    // Disable all components and show success
+                    const { rows: disabledRows } = generateComponents(0);
+                    disabledRows[0].components[0].setDisabled(true).setPlaceholder('Checkout completed.');
+                    disabledRows[1].components.forEach(btn => btn.setDisabled(true));
+
+                    await shopMessage.edit({
+                      embeds: [successEmbed],
+                      components: disabledRows
+                    }).catch(() => {});
+                    
+                    collector.stop('checkout_completed');
+                    return;
+                  } else {
+                    let errorText = '❌ An error occurred processing your checkout.';
+                    if (result.reason === 'insufficient_funds') {
+                      errorText = `❌ Insufficient funds! Total cart cost is **${result.totalCost}** ${currencyIcon}, but you do not have enough coins.`;
+                    } else if (result.reason === 'invalid_item') {
+                      errorText = `❌ Invalid Item ID **${result.itemId}** in cart.`;
+                    } else if (result.reason === 'empty_cart') {
+                      errorText = `❌ Your cart is empty!`;
+                    }
+                    
+                    // Send temporary error message to channel
+                    const errMsg = await message.channel.send(errorText);
+                    setTimeout(() => errMsg.delete().catch(() => {}), 5000);
+                  }
+                }
               }
+
+              // Regenerate view and update
+              const { embed: updatedEmbed, totalCost: updatedCost } = generateShopEmbed();
+              const { selectId: newSelectId, rows: updatedRows } = generateComponents(updatedCost);
+              currentSelectId = newSelectId;
+
+              await shopMessage.edit({
+                embeds: [updatedEmbed],
+                components: updatedRows
+              }).catch(() => {});
             });
 
-            collector.on('end', async () => {
-              // Disable select menu on timeout
-              selectMenu.setDisabled(true).setPlaceholder('Shop session expired. Type s shop to reopen.');
-              const disabledRow = new ActionRowBuilder().addComponents(selectMenu);
-              await shopMessage.edit({ components: [disabledRow] }).catch(() => {});
+            collector.on('end', async (collected, reason) => {
+              if (reason === 'checkout_completed' || reason === 'user_closed') {
+                if (reason === 'user_closed') {
+                  const { embed: finalEmbed } = generateShopEmbed();
+                  finalEmbed.setDescription('❌ *Shop session closed.*');
+                  await shopMessage.edit({ embeds: [finalEmbed], components: [] }).catch(() => {});
+                }
+                return;
+              }
+              // Otherwise, session expired
+              const { embed: finalEmbed, totalCost: finalCost } = generateShopEmbed();
+              const { rows: disabledRows } = generateComponents(finalCost);
+              disabledRows[0].components[0].setDisabled(true).setPlaceholder('Shop session expired. Type s shop to reopen.');
+              disabledRows[1].components.forEach(btn => btn.setDisabled(true));
+              
+              await shopMessage.edit({
+                embeds: [finalEmbed],
+                components: disabledRows
+              }).catch(() => {});
             });
 
             return;
@@ -3013,24 +3181,33 @@ module.exports = {
           if (commandName === 'buy') {
             const itemId = args[0];
             if (!itemId) {
-              return message.reply('❌ **Usage**: `s buy <item_id>` (check IDs using `s shop`)').catch(() => { });
+              return message.reply('❌ **Usage**: `s buy <item_id> [quantity]` (check IDs using `s shop`)').catch(() => { });
             }
 
-            const result = await purchaseShopItem(userId, serverId, itemId);
+            let qty = 1;
+            if (args[1]) {
+              qty = parseInt(args[1], 10);
+              if (isNaN(qty) || qty <= 0) {
+                return message.reply('❌ Please specify a valid positive quantity to purchase!').catch(() => {});
+              }
+            }
+
+            const cart = { [itemId]: qty };
+            const result = await checkoutCart(userId, serverId, cart);
             if (result.success) {
               const embed = new EmbedBuilder()
                 .setColor('#00ffaa')
                 .setTitle('🛒 Purchase Successful!')
-                .setDescription(`Successfully bought **${itemId}** for **${result.cost}** ${currencyIcon} ${currencyName}.`)
+                .setDescription(`Successfully bought **${qty}x ${itemId}** for **${result.totalCost}** ${currencyIcon} ${currencyName}.`)
                 .addFields(
-                  { name: 'Effect', value: `✨ ${result.message}` },
+                  { name: 'Purchased Items', value: result.purchasedItems.map(item => `✨ ${item}`).join('\n') },
                   { name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` }
                 )
                 .setTimestamp();
               return await message.reply({ embeds: [embed] }).catch(() => { });
             } else {
               if (result.reason === 'insufficient_funds') {
-                return sendTempMessage(message.channel, `❌ Insufficient funds! You need **${result.cost}** ${currencyIcon} to buy this item.`);
+                return sendTempMessage(message.channel, `❌ Insufficient funds! You need **${result.totalCost}** ${currencyIcon} to buy this.`);
               } else if (result.reason === 'invalid_item') {
                 return sendTempMessage(message.channel, `❌ Invalid Item ID! Use \`s shop\` to check valid item IDs.`);
               } else {
