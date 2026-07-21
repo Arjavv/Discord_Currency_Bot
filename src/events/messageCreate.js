@@ -3180,6 +3180,7 @@ module.exports = {
                   }
                 }
               }
+              }
 
               // Regenerate view and update
               const { embed: updatedEmbed, totalCost: updatedCost } = generateShopEmbed();
@@ -3933,6 +3934,7 @@ module.exports = {
                     setTimeout(() => errMsg.delete().catch(() => {}), 5000);
                   }
                 }
+              }
               }
 
               // Regenerate view and update
