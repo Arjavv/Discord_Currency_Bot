@@ -22,6 +22,7 @@ const {
   getUserInventory,
   addCharacterToInventory,
   sellCharacter,
+  bulkSellCharacters,
   giftCharacter,
   purchaseShopItem,
   checkoutCart,
@@ -3511,21 +3512,30 @@ module.exports = {
           }
 
           if (['sell'].includes(commandName)) {
-            if (args.length === 0) {
-              return message.reply('❌ **Usage:** \`s sell <index/name> [quantity]\`\nExample: \`s sell 1\` or \`s sell Blossom Soul 2\`').catch(() => {});
-            }
-            
             // Get sender inventory to resolve indices/names
             const userInv = await getUserInventory(userId, serverId);
             const characterItems = [];
+            
+            const settings = await getGlobalSettings();
+            
             for (const [itemId, qty] of Object.entries(userInv)) {
               const charDef = CHARACTER_SPAWNS.find(c => c.id === itemId);
               if (charDef) {
+                // Determine sell price: collectible (admin-set premium) or default character value
+                const isCollectible = settings[`collectible_active_${charDef.id}`] === 'true';
+                const collectiblePrice = settings[`collectible_price_${charDef.id}`] !== undefined
+                  ? parseInt(settings[`collectible_price_${charDef.id}`], 10)
+                  : null;
+                const sellPrice = (isCollectible && collectiblePrice !== null && !isNaN(collectiblePrice))
+                  ? collectiblePrice
+                  : charDef.value;
+
                 characterItems.push({
                   id: charDef.id,
                   name: charDef.name,
                   tier: charDef.tier,
-                  value: charDef.value,
+                  value: sellPrice,
+                  isCollectible,
                   quantity: qty
                 });
               }
@@ -3539,83 +3549,337 @@ module.exports = {
               if (orderA !== orderB) return orderA - orderB;
               return a.name.localeCompare(b.name);
             });
-            
-            // Resolve target item and quantity
-            let targetItem = null;
-            let sellQty = 1;
-            
-            // Try checking if first arg is an index
-            const indexVal = parseInt(args[0]);
-            if (!isNaN(indexVal) && indexVal >= 1 && indexVal <= characterItems.length) {
-              targetItem = characterItems[indexVal - 1];
-              if (args[1]) {
-                const qtyVal = parseInt(args[1]);
-                if (!isNaN(qtyVal) && qtyVal > 0) {
-                  sellQty = qtyVal;
+
+            // If args are provided, do the single-item quick sell
+            if (args.length > 0) {
+              // Resolve target item and quantity
+              let targetItem = null;
+              let sellQty = 1;
+              
+              // Try checking if first arg is an index
+              const indexVal = parseInt(args[0]);
+              if (!isNaN(indexVal) && indexVal >= 1 && indexVal <= characterItems.length) {
+                targetItem = characterItems[indexVal - 1];
+                if (args[1]) {
+                  const qtyVal = parseInt(args[1]);
+                  if (!isNaN(qtyVal) && qtyVal > 0) {
+                    sellQty = qtyVal;
+                  }
                 }
-              }
-            } else {
-              // It is a name. Check if the last arg is a number representing quantity
-              let nameArgs = [...args];
-              const lastArg = nameArgs[nameArgs.length - 1];
-              const qtyVal = parseInt(lastArg);
-              if (!isNaN(qtyVal) && qtyVal > 0 && nameArgs.length > 1) {
-                sellQty = qtyVal;
-                nameArgs.pop(); // remove quantity from name
+              } else {
+                // It is a name. Check if the last arg is a number representing quantity
+                let nameArgs = [...args];
+                const lastArg = nameArgs[nameArgs.length - 1];
+                const qtyVal = parseInt(lastArg);
+                if (!isNaN(qtyVal) && qtyVal > 0 && nameArgs.length > 1) {
+                  sellQty = qtyVal;
+                  nameArgs.pop(); // remove quantity from name
+                }
+                
+                const searchName = nameArgs.join(' ').toLowerCase();
+                // Try to find exact or prefix match
+                targetItem = characterItems.find(c => c.name.toLowerCase() === searchName) ||
+                             characterItems.find(c => c.name.toLowerCase().includes(searchName)) ||
+                             characterItems.find(c => c.id.toLowerCase() === searchName);
               }
               
-              const searchName = nameArgs.join(' ').toLowerCase();
-              // Try to find exact or prefix match
-              targetItem = characterItems.find(c => c.name.toLowerCase() === searchName) ||
-                           characterItems.find(c => c.name.toLowerCase().includes(searchName)) ||
-                           characterItems.find(c => c.id.toLowerCase() === searchName);
-            }
-            
-            if (!targetItem) {
-              return message.reply('❌ Character not found in your inventory. Type \`s inv\` to view what you have caught.').catch(() => {});
-            }
-
-            // Determine sell price: collectible (admin-set premium) or default character value
-            const settings = await getGlobalSettings();
-            const isCollectible = settings[`collectible_active_${targetItem.id}`] === 'true';
-            const collectiblePrice = settings[`collectible_price_${targetItem.id}`] !== undefined
-              ? parseInt(settings[`collectible_price_${targetItem.id}`], 10)
-              : null;
-
-            // Use the collectible price if active AND a valid price is set, otherwise use default
-            const sellPrice = (isCollectible && collectiblePrice !== null && !isNaN(collectiblePrice))
-              ? collectiblePrice
-              : targetItem.value;
-
-            const priceLabel = (isCollectible && collectiblePrice !== null && !isNaN(collectiblePrice))
-              ? `💎 **Rare Collectible Price** (${sellPrice} ${currencyIcon})`
-              : `📦 **Default Price** (${sellPrice} ${currencyIcon})`;
-
-            if (sellQty > targetItem.quantity) {
-              return message.reply(`❌ You only have **${targetItem.quantity}** of **${targetItem.name}** in your inventory.`).catch(() => {});
-            }
-            
-            // Execute sell
-            const sellResult = await sellCharacter(userId, serverId, targetItem.id, sellPrice, sellQty);
-            if (sellResult.success) {
-              const totalEarned = sellPrice * sellQty;
-              let desc = `You sold **${sellQty}x ${targetItem.name}** for a total of **${totalEarned}** ${currencyIcon} ${currencyName}!\n${priceLabel}`;
-              if (sellResult.taxAmount > 0) {
-                desc += `\n\n*Reaper's Cut: **${sellResult.taxAmount}** Souls siphoned to the Soul Vault (Net earned: **${sellResult.netEarnings}** Souls).*`;
+              if (!targetItem) {
+                return message.reply('❌ Character not found in your inventory. Type \`s inv\` to view what you have caught.').catch(() => {});
               }
-              const embed = new EmbedBuilder()
-                .setColor(isCollectible ? '#ffd700' : '#00ffaa')
-                .setTitle(isCollectible ? '💎 Rare Collectible Sold!' : '💰 Spawn Sold Successfully!')
-                .setDescription(desc)
-                .addFields(
-                  { name: 'Remaining Quantity', value: `🎒 **${sellResult.newQty}**`, inline: true },
-                  { name: 'New Wallet Balance', value: `🏦 **${sellResult.newBalance}** ${currencyIcon} ${currencyName}`, inline: true }
-                )
-                .setTimestamp();
-              return await message.reply({ embeds: [embed] }).catch(() => {});
-            } else {
-              return message.reply('❌ Failed to sell the character.').catch(() => {});
+
+              if (sellQty > targetItem.quantity) {
+                return message.reply(`❌ You only have **${targetItem.quantity}** of **${targetItem.name}** in your inventory.`).catch(() => {});
+              }
+              
+              // Execute sell
+              const sellResult = await sellCharacter(userId, serverId, targetItem.id, targetItem.value, sellQty);
+              if (sellResult.success) {
+                const totalEarned = targetItem.value * sellQty;
+                const priceLabel = targetItem.isCollectible
+                  ? `💎 **Rare Collectible Price** (${targetItem.value} ${currencyIcon})`
+                  : `📦 **Default Price** (${targetItem.value} ${currencyIcon})`;
+
+                let desc = `You sold **${sellQty}x ${targetItem.name}** for a total of **${totalEarned}** ${currencyIcon} ${currencyName}!\n${priceLabel}`;
+                if (sellResult.taxAmount > 0) {
+                  desc += `\n\n*Reaper's Cut: **${sellResult.taxAmount}** Souls siphoned to the Soul Vault (Net earned: **${sellResult.netEarnings}** Souls).*`;
+                }
+                const embed = new EmbedBuilder()
+                  .setColor(targetItem.isCollectible ? '#ffd700' : '#00ffaa')
+                  .setTitle(targetItem.isCollectible ? '💎 Rare Collectible Sold!' : '💰 Spawn Sold Successfully!')
+                  .setDescription(desc)
+                  .addFields(
+                    { name: 'Remaining Quantity', value: `🎒 **${sellResult.newQty}**`, inline: true },
+                    { name: 'New Wallet Balance', value: `🏦 **${sellResult.newBalance}** ${currencyIcon} ${currencyName}`, inline: true }
+                  )
+                  .setTimestamp();
+                return await message.reply({ embeds: [embed] }).catch(() => {});
+              } else {
+                return message.reply('❌ Failed to sell the character.').catch(() => {});
+              }
             }
+
+            // Interactive Bulk Sell Cart (no args provided)
+            if (characterItems.length === 0) {
+              return message.reply('❌ Your inventory is currently empty! Catch some drops first.').catch(() => {});
+            }
+
+            // Get server tax rate
+            const treasuryInfo = await getTreasury(serverId);
+            const sellTaxRate = treasuryInfo.sellTaxRate;
+
+            const sellCart = {}; // itemId -> quantity
+            let lastSelectedItemId = null;
+
+            const generateSellEmbed = () => {
+              const embed = new EmbedBuilder()
+                .setColor('#a855f7')
+                .setTitle(`💰 Soul Sell Cart`)
+                .setDescription(`Select souls from your inventory to add them to your sell cart. Adjust quantities using the buttons and sell all in a single click!`);
+
+              // Cart Section
+              const cartLines = [];
+              let totalGross = 0;
+
+              for (const [itemId, qty] of Object.entries(sellCart)) {
+                if (qty > 0) {
+                  const item = characterItems.find(c => c.id === itemId);
+                  if (item) {
+                    const gross = item.value * qty;
+                    cartLines.push(`• **${item.name}** x${qty} — **${gross}** ${currencyIcon}`);
+                    totalGross += gross;
+                  }
+                }
+              }
+
+              const taxAmount = Math.max(0, Math.floor(totalGross * (sellTaxRate / 100.0)));
+              const netEarnings = totalGross - taxAmount;
+
+              if (cartLines.length > 0) {
+                embed.addFields({
+                  name: '🛒 Your Sell Cart',
+                  value: cartLines.join('\n') + 
+                    `\n\n💵 **Gross Value:** **${totalGross}** ${currencyIcon}\n` +
+                    `✂️ **Reaper's Cut (${sellTaxRate}%):** **${taxAmount}** ${currencyIcon}\n` +
+                    `💰 **Net Earnings:** **${netEarnings}** ${currencyIcon} ${currencyName}`
+                });
+              } else {
+                embed.addFields({
+                  name: '🛒 Your Sell Cart',
+                  value: '*Your sell cart is currently empty. Use the select menu to add souls!*'
+                });
+              }
+
+              // Inventory listing
+              const invLines = characterItems.map((item, idx) => {
+                const priceStr = item.isCollectible ? `💎 ${item.value} (Collectible)` : `📦 ${item.value}`;
+                const inCartStr = sellCart[item.id] ? ` *(In Cart: x${sellCart[item.id]})*` : '';
+                return `\`#${idx + 1}\` **${item.name}** — x${item.quantity} [${priceStr}]${inCartStr}`;
+              });
+
+              embed.addFields({
+                name: '🎒 Your Inventory',
+                value: invLines.slice(0, 15).join('\n') + (invLines.length > 15 ? `\n*...and ${invLines.length - 15} more types.*` : '')
+              });
+
+              embed.setFooter({ text: 'Use the select menu to add items. Adjust quantities using ➕/➖. Click Sell All to checkout!' });
+              embed.setTimestamp();
+              return { embed, totalGross, netEarnings, taxAmount };
+            };
+
+            const generateComponents = (totalGross) => {
+              const selectId = `sell_select_${userId}_${Date.now()}`;
+              const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(selectId)
+                .setPlaceholder('🎒 Select a soul to add to sell cart...');
+
+              // Add top 25 items to option menu
+              const options = characterItems.slice(0, 25).map(item => {
+                return new StringSelectMenuOptionBuilder()
+                  .setLabel(item.name)
+                  .setDescription(`Owned: x${item.quantity} | Value: ${item.value} each`)
+                  .setValue(item.id);
+              });
+              selectMenu.addOptions(options);
+
+              const row1 = new ActionRowBuilder().addComponents(selectMenu);
+
+              const btnPlus = new ButtonBuilder()
+                .setCustomId(`sell_plus_${userId}`)
+                .setLabel('➕ Add Qty')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(!lastSelectedItemId || (sellCart[lastSelectedItemId] || 0) >= (characterItems.find(c => c.id === lastSelectedItemId)?.quantity || 0));
+
+              const btnMinus = new ButtonBuilder()
+                .setCustomId(`sell_minus_${userId}`)
+                .setLabel('➖ Rem Qty')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(!lastSelectedItemId || !sellCart[lastSelectedItemId]);
+
+              const btnClear = new ButtonBuilder()
+                .setCustomId(`sell_clear_${userId}`)
+                .setLabel('🧹 Clear')
+                .setStyle(ButtonStyle.Danger)
+                .setDisabled(totalGross === 0);
+
+              const btnSell = new ButtonBuilder()
+                .setCustomId(`sell_checkout_${userId}`)
+                .setLabel(totalGross > 0 ? `💰 Sell All (${totalGross})` : '💰 Sell All')
+                .setStyle(ButtonStyle.Success)
+                .setDisabled(totalGross === 0);
+
+              const btnClose = new ButtonBuilder()
+                .setCustomId(`sell_close_${userId}`)
+                .setLabel('❌ Close')
+                .setStyle(ButtonStyle.Secondary);
+
+              const row2 = new ActionRowBuilder().addComponents(btnPlus, btnMinus, btnClear, btnSell, btnClose);
+
+              return { selectId, rows: [row1, row2] };
+            };
+
+            const { embed: initialEmbed, totalGross: initialGross } = generateSellEmbed();
+            const { selectId: initialSelectId, rows: initialRows } = generateComponents(initialGross);
+
+            const sellMessage = await message.reply({
+              embeds: [initialEmbed],
+              components: initialRows
+            });
+
+            const collector = sellMessage.createMessageComponentCollector({
+              time: 300000, // 5 minutes
+              filter: (i) => i.user.id === userId
+            });
+
+            let currentSelectId = initialSelectId;
+
+            collector.on('collect', async (interaction) => {
+              await interaction.deferUpdate();
+
+              if (interaction.isStringSelectMenu()) {
+                if (interaction.customId === currentSelectId) {
+                  const selectedItemId = interaction.values[0];
+                  const item = characterItems.find(c => c.id === selectedItemId);
+                  if (item) {
+                    sellCart[selectedItemId] = Math.min(item.quantity, (sellCart[selectedItemId] || 0) + 1);
+                    lastSelectedItemId = selectedItemId;
+                  }
+                }
+              } else if (interaction.isButton()) {
+                const customId = interaction.customId;
+                if (customId === `sell_plus_${userId}`) {
+                  if (lastSelectedItemId) {
+                    const item = characterItems.find(c => c.id === lastSelectedItemId);
+                    if (item && (sellCart[lastSelectedItemId] || 0) < item.quantity) {
+                      sellCart[lastSelectedItemId] = (sellCart[lastSelectedItemId] || 0) + 1;
+                    }
+                  }
+                } else if (customId === `sell_minus_${userId}`) {
+                  if (lastSelectedItemId && sellCart[lastSelectedItemId] > 0) {
+                    sellCart[lastSelectedItemId]--;
+                    if (sellCart[lastSelectedItemId] === 0) {
+                      delete sellCart[lastSelectedItemId];
+                      const keys = Object.keys(sellCart);
+                      lastSelectedItemId = keys.length > 0 ? keys[keys.length - 1] : null;
+                    }
+                  }
+                } else if (customId === `sell_clear_${userId}`) {
+                  for (const key of Object.keys(sellCart)) {
+                    delete sellCart[key];
+                  }
+                  lastSelectedItemId = null;
+                } else if (customId === `sell_close_${userId}`) {
+                  collector.stop('user_closed');
+                  return;
+                } else if (customId === `sell_checkout_${userId}`) {
+                  // Perform bulk sell database checkout!
+                  const salesList = [];
+                  for (const [itemId, qty] of Object.entries(sellCart)) {
+                    if (qty > 0) {
+                      const item = characterItems.find(c => c.id === itemId);
+                      if (item) {
+                        salesList.push({ characterId: itemId, value: item.value, qty });
+                      }
+                    }
+                  }
+
+                  const result = await bulkSellCharacters(userId, serverId, salesList);
+                  if (result.success) {
+                    const successEmbed = new EmbedBuilder()
+                      .setColor('#00ffaa')
+                      .setTitle('💰 Bulk Sale Successful!')
+                      .setDescription(`Successfully sold all selected souls for a net total of **${result.totalNetEarnings}** ${currencyIcon} ${currencyName}!`)
+                      .addFields(
+                        { name: 'Sold Items', value: result.soldItemsSummary.map(item => `✨ ${item.qty}x **${characterItems.find(c => c.id === item.characterId)?.name}** (Net: +${item.netEarnings} Souls)`).join('\n') },
+                        { name: 'Reaper\'s Cut Paid', value: `✂️ **${result.totalTaxAmount}** Souls siphoned to the Server Vault` },
+                        { name: 'New Wallet Balance', value: `🏦 **${result.newBalance}** ${currencyIcon} ${currencyName}` }
+                      )
+                      .setTimestamp();
+
+                    // Clear the cart on successful checkout
+                    for (const key of Object.keys(sellCart)) {
+                      delete sellCart[key];
+                    }
+                    lastSelectedItemId = null;
+
+                    // Disable all components and show success
+                    const { rows: disabledRows } = generateComponents(0);
+                    disabledRows[0].components[0].setDisabled(true).setPlaceholder('Sale completed.');
+                    disabledRows[1].components.forEach(btn => btn.setDisabled(true));
+
+                    await sellMessage.edit({
+                      embeds: [successEmbed],
+                      components: disabledRows
+                    }).catch(() => {});
+
+                    collector.stop('checkout_completed');
+                    return;
+                  } else {
+                    let errorText = '❌ An error occurred processing your bulk sale.';
+                    if (result.reason === 'insufficient_quantity') {
+                      errorText = `❌ Insufficient inventory quantity for item ${result.characterId}!`;
+                    } else if (result.reason === 'empty_sales') {
+                      errorText = `❌ Your sell cart is empty!`;
+                    }
+                    
+                    const errMsg = await message.channel.send(errorText);
+                    setTimeout(() => errMsg.delete().catch(() => {}), 5000);
+                  }
+                }
+              }
+
+              // Regenerate view and update
+              const { embed: updatedEmbed, totalGross: updatedGross } = generateSellEmbed();
+              const { selectId: newSelectId, rows: updatedRows } = generateComponents(updatedGross);
+              currentSelectId = newSelectId;
+
+              await sellMessage.edit({
+                embeds: [updatedEmbed],
+                components: updatedRows
+              }).catch(() => {});
+            });
+
+            collector.on('end', async (collected, reason) => {
+              if (reason === 'checkout_completed' || reason === 'user_closed') {
+                if (reason === 'user_closed') {
+                  const { embed: finalEmbed } = generateSellEmbed();
+                  finalEmbed.setDescription('❌ *Sell session closed.*');
+                  await sellMessage.edit({ embeds: [finalEmbed], components: [] }).catch(() => {});
+                }
+                return;
+              }
+              // Otherwise, session expired
+              const { embed: finalEmbed, totalGross: finalGross } = generateSellEmbed();
+              const { rows: disabledRows } = generateComponents(finalGross);
+              disabledRows[0].components[0].setDisabled(true).setPlaceholder('Sell session expired. Type s sell to reopen.');
+              disabledRows[1].components.forEach(btn => btn.setDisabled(true));
+
+              await sellMessage.edit({
+                embeds: [finalEmbed],
+                components: disabledRows
+              }).catch(() => {});
+            });
+
+            return;
           }
 
           if (['giveaway', 'giveaways'].includes(commandName)) {

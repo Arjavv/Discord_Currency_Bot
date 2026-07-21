@@ -899,6 +899,52 @@ async function runTests() {
     }
     console.log('✔ Sell tax test passed.');
 
+    // Test Bulk Sell Characters (Multiple souls/quantities)
+    console.log('Testing Bulk Sell Characters (Multiple items & quantities)...');
+    const { bulkSellCharacters } = require('./src/database/queries');
+
+    // Add another item to inventory for User 1
+    if (!useMock) {
+      await pool.query(`
+        INSERT INTO user_inventory (discord_id, server_id, item_id, quantity)
+        VALUES ($1, 'GLOBAL', 'common_soul', 5)
+        ON CONFLICT (discord_id, server_id, item_id) DO UPDATE SET quantity = 5
+      `, [TEST_USER_1]);
+    } else {
+      mockState.user_inventory.set(`${TEST_USER_1}_GLOBAL_common_soul`, {
+        discord_id: TEST_USER_1,
+        server_id: 'GLOBAL',
+        item_id: 'common_soul',
+        quantity: 5
+      });
+    }
+
+    const bulkSales = [
+      { characterId: 'dumbbell_soul', value: 200, qty: 1 }, // Gross: 200, Tax (5%): 10, Net: 190
+      { characterId: 'common_soul', value: 100, qty: 3 }     // Gross: 300, Tax (5%): 15, Net: 285
+    ]; // Total gross: 500, Total tax (5%): 25, Total net: 475
+    // Balance before bulk sell: 375 (from sell character test). Expected after: 375 + 475 = 850
+
+    const bulkSellRes = await bulkSellCharacters(TEST_USER_1, TEST_SERVER, bulkSales);
+    console.log('Bulk sell result:', bulkSellRes);
+    if (!bulkSellRes.success || bulkSellRes.totalTaxAmount !== 25 || bulkSellRes.totalNetEarnings !== 475 || bulkSellRes.newBalance !== 850) {
+      throw new Error('Bulk sell was not executed correctly');
+    }
+    treasury = await getTreasury(TEST_SERVER);
+    if (parseInt(treasury.balance, 10) !== 100050) {
+      throw new Error(`Treasury balance incorrect after bulk sell. Expected 100050, got ${treasury.balance}`);
+    }
+    
+    // Set User 1 balance back to 375 and restore treasury balance to 100025 so subsequent daily tax tests match expected math
+    if (!useMock) {
+      await pool.query("UPDATE users SET coin_balance = 375 WHERE discord_id = $1 AND server_id = 'GLOBAL'", [TEST_USER_1]);
+      await pool.query("UPDATE server_treasury SET balance = 100025 WHERE server_id = $1", [TEST_SERVER]);
+    } else {
+      mockState.users.get(`${TEST_USER_1}_GLOBAL`).coin_balance = 375;
+      mockState.server_treasury.get(TEST_SERVER).balance = "100025";
+    }
+    console.log('✔ Bulk sell test passed.');
+
     // Test Daily Tax / Tribute (2.5% daily tax configured)
     console.log('Testing Daily Tax / Tribute (2.5% daily tax)...');
     const dailyTax1 = await applyDailyTaxIfDue(TEST_USER_1, TEST_SERVER);

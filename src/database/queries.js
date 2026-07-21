@@ -1417,6 +1417,118 @@ async function sellCharacter(discordId, serverId, characterId, value, quantityTo
 }
 
 /**
+ * Processes a bulk sale of multiple characters/souls in a single PostgreSQL transaction.
+ * @param {string} discordId - User's Discord ID
+ * @param {string} serverId - Server ID
+ * @param {Array<Object>} sales - Array of { characterId, value, qty }
+ * @returns {Promise<Object>}
+ */
+async function bulkSellCharacters(discordId, serverId, sales) {
+  if (!sales || sales.length === 0) {
+    return { success: false, reason: 'empty_sales' };
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Get server sell tax rate
+    await ensureTreasuryExists(client, serverId);
+    const treasuryRes = await client.query(`
+      SELECT sell_tax_rate FROM server_treasury
+      WHERE server_id = $1
+      FOR UPDATE
+    `, [serverId]);
+    const sellTaxRate = treasuryRes.rows[0] ? parseFloat(treasuryRes.rows[0].sell_tax_rate) : 10.00;
+
+    let totalNetEarnings = 0;
+    let totalTaxAmount = 0;
+    const soldItemsSummary = [];
+
+    for (const sale of sales) {
+      const { characterId, value, qty } = sale;
+      if (qty <= 0) continue;
+
+      // Get current quantity
+      const invRes = await client.query(`
+        SELECT quantity FROM user_inventory
+        WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+        FOR UPDATE
+      `, [discordId, characterId]);
+
+      if (invRes.rows.length === 0 || invRes.rows[0].quantity < qty) {
+        await client.query('ROLLBACK');
+        return { success: false, reason: 'insufficient_quantity', characterId };
+      }
+
+      const currentQty = invRes.rows[0].quantity;
+      const newQty = currentQty - qty;
+
+      if (newQty === 0) {
+        await client.query(`
+          DELETE FROM user_inventory
+          WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+        `, [discordId, characterId]);
+      } else {
+        await client.query(`
+          UPDATE user_inventory
+          SET quantity = $3
+          WHERE discord_id = $1 AND server_id = 'GLOBAL' AND item_id = $2
+        `, [discordId, characterId, newQty]);
+      }
+
+      const totalCoins = value * qty;
+      const taxAmount = Math.max(0, Math.floor(totalCoins * (sellTaxRate / 100.0)));
+      const netEarnings = totalCoins - taxAmount;
+
+      totalNetEarnings += netEarnings;
+      totalTaxAmount += taxAmount;
+
+      // Log transaction
+      await client.query(`
+        INSERT INTO transactions (user_id, server_id, amount, source)
+        VALUES ($1, 'GLOBAL', $2, $3)
+      `, [discordId, netEarnings, `sell_${characterId}_qty_${qty}`]);
+
+      soldItemsSummary.push({ characterId, qty, netEarnings, newQty });
+    }
+
+    // Award coins globally
+    const balRes = await client.query(`
+      UPDATE users
+      SET coin_balance = coin_balance + $1
+      WHERE discord_id = $2 AND server_id = 'GLOBAL'
+      RETURNING coin_balance
+    `, [totalNetEarnings, discordId]);
+
+    const newBalance = balRes.rows[0].coin_balance;
+
+    if (totalTaxAmount > 0) {
+      // Add tax to server treasury
+      await client.query(`
+        UPDATE server_treasury SET balance = balance + $1
+        WHERE server_id = $2
+      `, [totalTaxAmount, serverId]);
+
+      // Log tax transaction
+      await client.query(`
+        INSERT INTO transactions (user_id, server_id, amount, source)
+        VALUES ($1, 'GLOBAL', $2, 'sell_tribute_paid')
+      `, [discordId, -totalTaxAmount]);
+    }
+
+    await client.query('COMMIT');
+    return { success: true, newBalance, totalNetEarnings, totalTaxAmount, soldItemsSummary };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in bulkSellCharacters for user ${discordId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Transfers a character from one user to another.
  */
 async function giftCharacter(senderId, receiverId, characterId, quantityToGift = 1) {
@@ -2431,6 +2543,7 @@ module.exports = {
   getUserInventory,
   addCharacterToInventory,
   sellCharacter,
+  bulkSellCharacters,
   giftCharacter,
   purchaseShopItem,
   checkoutCart,
