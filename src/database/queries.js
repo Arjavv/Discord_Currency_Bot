@@ -2573,6 +2573,149 @@ async function refuelServerVault(discordId, serverId, amount) {
   }
 }
 
+async function createCoupon({ code, rewardType = 'souls', rewardValue, maxUses = null, expiresAt = null }) {
+  const client = await pool.connect();
+  try {
+    const cleanCode = code.trim().toUpperCase();
+    const query = `
+      INSERT INTO coupons (code, reward_type, reward_value, max_uses, expires_at, is_active)
+      VALUES ($1, $2, $3, $4, $5, TRUE)
+      ON CONFLICT (code) DO UPDATE SET
+        reward_type = EXCLUDED.reward_type,
+        reward_value = EXCLUDED.reward_value,
+        max_uses = EXCLUDED.max_uses,
+        expires_at = EXCLUDED.expires_at,
+        is_active = TRUE
+      RETURNING *
+    `;
+    const res = await client.query(query, [cleanCode, rewardType, String(rewardValue), maxUses || null, expiresAt || null]);
+    return res.rows[0];
+  } catch (error) {
+    console.error('Error creating coupon:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function getCoupons() {
+  const client = await pool.connect();
+  try {
+    const query = `
+      SELECT code, reward_type, reward_value, max_uses, uses_count, created_at, expires_at, is_active
+      FROM coupons
+      ORDER BY created_at DESC
+    `;
+    const res = await client.query(query);
+    return res.rows;
+  } catch (error) {
+    console.error('Error fetching coupons:', error);
+    return [];
+  } finally {
+    client.release();
+  }
+}
+
+async function deleteCoupon(code) {
+  const client = await pool.connect();
+  try {
+    const cleanCode = code.trim().toUpperCase();
+    await client.query(`DELETE FROM coupons WHERE UPPER(code) = $1`, [cleanCode]);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting coupon:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function redeemCoupon(code, userId, serverId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const cleanCode = code.trim().toUpperCase();
+
+    // 1. Fetch coupon details
+    const couponRes = await client.query(`SELECT * FROM coupons WHERE UPPER(code) = $1 FOR UPDATE`, [cleanCode]);
+    if (couponRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'not_found' };
+    }
+
+    const coupon = couponRes.rows[0];
+    if (!coupon.is_active) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'inactive' };
+    }
+
+    // 2. Check expiration
+    if (coupon.expires_at && new Date() > new Date(coupon.expires_at)) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'expired' };
+    }
+
+    // 3. Check max uses limit
+    if (coupon.max_uses !== null && coupon.uses_count >= coupon.max_uses) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'max_uses' };
+    }
+
+    // 4. Check if user already claimed this coupon code
+    const claimRes = await client.query(
+      `SELECT 1 FROM coupon_claims WHERE UPPER(code) = $1 AND user_id = $2`,
+      [cleanCode, userId]
+    );
+    if (claimRes.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'already_claimed' };
+    }
+
+    // 5. Record claim & increment uses_count
+    await client.query(`INSERT INTO coupon_claims (code, user_id) VALUES ($1, $2)`, [coupon.code, userId]);
+    await client.query(`UPDATE coupons SET uses_count = uses_count + 1 WHERE code = $1`, [coupon.code]);
+
+    // 6. Award reward
+    let rewardDetails = {};
+    if (coupon.reward_type === 'souls') {
+      const amount = parseInt(coupon.reward_value, 10) || 0;
+      await ensureUserExists(client, userId, 'GLOBAL');
+      await client.query(
+        `UPDATE users SET coin_balance = coin_balance + $1 WHERE discord_id = $2 AND server_id = 'GLOBAL'`,
+        [amount, userId]
+      );
+      await client.query(
+        `INSERT INTO transactions (user_id, server_id, amount, source) VALUES ($1, 'GLOBAL', $2, 'coupon_redeem')`,
+        [userId, amount]
+      );
+      const userRes = await client.query(
+        `SELECT coin_balance FROM users WHERE discord_id = $1 AND server_id = 'GLOBAL'`,
+        [userId]
+      );
+      rewardDetails = { newBalance: parseInt(userRes.rows[0].coin_balance, 10), amount };
+    } else if (coupon.reward_type === 'character') {
+      const charId = coupon.reward_value;
+      const addRes = await addCharacterToInventory(userId, charId, 1);
+      rewardDetails = { characterId: charId, newQty: addRes.newQty };
+    }
+
+    await client.query('COMMIT');
+    return {
+      success: true,
+      code: coupon.code,
+      rewardType: coupon.reward_type,
+      rewardValue: coupon.reward_value,
+      ...rewardDetails
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Error in redeemCoupon for user ${userId}:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   refuelServerVault,
   getServerSettings,
@@ -2621,6 +2764,10 @@ module.exports = {
   getFluctuatingTaxRate,
   applyServerVaultTaxIfDue,
   triggerServerVaultTaxDeduction,
-  updateServerVaultCustomTaxRate
+  updateServerVaultCustomTaxRate,
+  createCoupon,
+  getCoupons,
+  deleteCoupon,
+  redeemCoupon
 };
 

@@ -32,7 +32,8 @@ const {
   updateTreasuryRates,
   applyDailyTaxIfDue,
   applyServerVaultTaxIfDue,
-  getFluctuatingTaxRate
+  getFluctuatingTaxRate,
+  redeemCoupon
 } = require('../database/queries');
 const { EmbedBuilder, AttachmentBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 
@@ -1531,11 +1532,11 @@ module.exports = {
         }
 
         // --- 2. USER COMMANDS ---
-        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'blackjack', 'bj', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul', 'ship', 'flex'].includes(commandName)) {
+        if (['daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb', 'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'blackjack', 'bj', 'stats', 'profile', 'shop', 'buy', 'fight', 'gift', 'give', 'send', 'transfer', 'help', 'rob', 'steal', 'heist', 'inv', 'inventory', 'sell', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'soul', 'ship', 'flex', 'redeem', 'coupon', 'code'].includes(commandName)) {
           // Lock user commands to #soul-bot — EXCEPT 's help admin', 's soul lb', inventory/gifting, and treasury commands which can be run anywhere
           const isAdminHelpRequest = commandName === 'help' && args[0] && args[0].toLowerCase() === 'admin';
           const isSoulLbRequest = commandName === 'soul' && args[0] && args[0].toLowerCase() === 'lb';
-          const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'flex'].includes(commandName);
+          const isInventoryCommand = ['inv', 'inventory', 'sell', 'gift', 'give', 'send', 'transfer', 'rare', 'tax', 'tribute', 'vault', 'well', 'cut', 'flex', 'redeem', 'coupon', 'code'].includes(commandName);
           if (!isAdminHelpRequest && !isSoulLbRequest && !isInventoryCommand) {
             const settings = await getServerSettings(serverId);
             const customBotChannelId = settings.bot_channel_id;
@@ -1546,6 +1547,54 @@ module.exports = {
             } else {
               if (!message.channel.name.toLowerCase().includes('soul-bot')) {
                 return sendTempMessage(message.channel, '❌ This command can only be used in the **#soul-bot** channel.');
+              }
+            }
+          }
+
+          if (['redeem', 'coupon', 'code'].includes(commandName)) {
+            const couponCode = args[0];
+            if (!couponCode) {
+              return sendTempMessage(message.channel, '❌ Please specify a coupon code to redeem. Example: `s redeem WELCOME100`');
+            }
+
+            const result = await redeemCoupon(couponCode, userId, serverId);
+            if (result.success) {
+              const settings = await getServerSettings(serverId);
+              const currencyName = settings.currency_name;
+              const currencyIcon = settings.currency_icon_url;
+
+              if (result.rewardType === 'souls') {
+                const embed = new EmbedBuilder()
+                  .setColor('#10b981')
+                  .setTitle('🎟️ COUPON REDEEMED!')
+                  .setDescription(`Congratulations! You redeemed code **${result.code}** and received **${result.amount}** ${currencyIcon} ${currencyName}!`)
+                  .addFields({ name: '💰 Wallet Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` })
+                  .setFooter({ text: 'Soul Economy Coupon Service' })
+                  .setTimestamp();
+                return await message.reply({ embeds: [embed] }).catch(() => {});
+              } else {
+                const { ALL_CHARACTERS } = require('../utils/characters');
+                const charObj = ALL_CHARACTERS.find(c => c.id === result.rewardValue) || { name: result.rewardValue, tier: 'RARE' };
+                const embed = new EmbedBuilder()
+                  .setColor('#a855f7')
+                  .setTitle('🎟️ COUPON REDEEMED!')
+                  .setDescription(`Congratulations! You redeemed code **${result.code}** and received a **${charObj.name}** (${charObj.tier}) card!`)
+                  .addFields({ name: '🎒 Inventory', value: `Card added to your inventory (**${result.newQty}** total)` })
+                  .setFooter({ text: 'Soul Economy Coupon Service' })
+                  .setTimestamp();
+                return await message.reply({ embeds: [embed] }).catch(() => {});
+              }
+            } else {
+              if (result.reason === 'not_found' || result.reason === 'inactive') {
+                return sendTempMessage(message.channel, '❌ Invalid or expired coupon code.');
+              } else if (result.reason === 'already_claimed') {
+                return sendTempMessage(message.channel, '❌ You have already redeemed this coupon code!');
+              } else if (result.reason === 'expired') {
+                return sendTempMessage(message.channel, '❌ This coupon code has expired.');
+              } else if (result.reason === 'max_uses') {
+                return sendTempMessage(message.channel, '❌ This coupon code has reached its maximum claim limit.');
+              } else {
+                return sendTempMessage(message.channel, '❌ Failed to redeem coupon code.');
               }
             }
           }

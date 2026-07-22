@@ -385,6 +385,8 @@
       <div class="nav-item" data-panel="collectibles"><i class="fa-solid fa-gem"></i> Collectibles</div>
       <div class="nav-item" data-panel="drops-manager"><i class="fa-solid fa-gift"></i> Auto Drops Manager</div>
       <div class="nav-item" data-panel="giveaways-manager"><i class="fa-solid fa-trophy"></i> Sweepstakes Manager</div>
+      <div class="nav-item" data-panel="announcements"><i class="fa-solid fa-bullhorn"></i> Announcements</div>
+      <div class="nav-item" data-panel="coupons"><i class="fa-solid fa-ticket"></i> Coupon Codes</div>
     </nav>
     <div class="sidebar-footer">
       <button class="btn-logout" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
@@ -830,6 +832,126 @@
         </div>
       </div>
     </div>
+
+    <!-- PANEL 8: ANNOUNCEMENTS & BROADCASTS -->
+    <div class="panel" id="panel-announcements">
+      <div class="panel-header">
+        <h2><i class="fa-solid fa-bullhorn" style="color:var(--violet);font-size:1.1rem;margin-right:8px"></i>Announcement Center</h2>
+        <p>Broadcast custom text or fancy glassmorphism embeds to specific server channels with pings</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-server"></i> Target Server & Channel</div>
+        <div class="server-selector-row" style="margin-bottom: 14px;">
+          <select id="anc-server-select" style="flex:1; min-width:200px;"><option value="">-- Select Target Server --</option></select>
+          <select id="anc-channel-select" style="flex:1; min-width:200px;"><option value="">-- Select Target Channel --</option></select>
+        </div>
+
+        <div class="section-title" style="margin-top:20px"><i class="fa-solid fa-bell"></i> Ping Options & Audience</div>
+        <div class="input-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 16px;">
+          <div class="input-group" style="margin:0;">
+            <label>Mention / Ping Type</label>
+            <select id="anc-ping-type" style="width:100%; padding:10px; background:var(--bg2); border:1px solid var(--card-border); border-radius:8px; color:var(--text); font-size:0.88rem;">
+              <option value="none">No Ping (Silent Announcement)</option>
+              <option value="everyone">@everyone (Server-wide notification)</option>
+              <option value="here">@here (Online members notification)</option>
+              <option value="user">Specific User (@mention)</option>
+              <option value="role">Specific Role (@role)</option>
+            </select>
+          </div>
+          <div class="input-group" id="anc-target-wrap" style="margin:0; display:none;">
+            <label id="anc-target-label">Target ID</label>
+            <input type="text" id="anc-target-id" placeholder="Enter User ID or Role ID">
+          </div>
+          <div class="input-group" style="margin:0;">
+            <label>Message Style</label>
+            <select id="anc-style" style="width:100%; padding:10px; background:var(--bg2); border:1px solid var(--card-border); border-radius:8px; color:var(--text); font-size:0.88rem;">
+              <option value="embed">Fancy Embed Card</option>
+              <option value="plain">Plain Text Message</option>
+            </select>
+          </div>
+          <div class="input-group" id="anc-color-wrap" style="margin:0;">
+            <label>Embed Accent Color</label>
+            <input type="color" id="anc-color" value="#8b5cf6" style="height:41px; padding:4px; cursor:pointer; width:100%;">
+          </div>
+        </div>
+
+        <div class="section-title"><i class="fa-solid fa-pen-to-square"></i> Message Composition</div>
+        <div class="input-group" id="anc-title-wrap" style="margin-bottom:12px;">
+          <label>Embed Header Title (Optional)</label>
+          <input type="text" id="anc-title" placeholder="e.g. 🎉 SPECIAL COMMUNITY UPDATE!">
+        </div>
+        <div class="maint-msg-wrap" style="margin-bottom:16px;">
+          <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Announcement Message Body</label>
+          <textarea id="anc-content" style="min-height:120px;" placeholder="Write your message here... Formatting like **bold**, *italics*, and custom emojis are supported."></textarea>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="section-title"><i class="fa-solid fa-eye"></i> Live Message Preview</div>
+        <div id="anc-preview" style="background:var(--bg2); border:1px solid var(--card-border); border-radius:10px; padding:16px; margin-bottom:16px; min-height:80px;">
+          <div style="font-size:0.8rem; color:var(--muted)">Preview will appear here as you type...</div>
+        </div>
+
+        <button class="save-btn" id="send-anc-btn" style="width:100%; justify-content:center; padding:12px; font-size:0.95rem;"><i class="fa-solid fa-paper-plane"></i> Broadcast Announcement Now</button>
+      </div>
+    </div>
+
+    <!-- PANEL 9: COUPON CODES MANAGER -->
+    <div class="panel" id="panel-coupons">
+      <div class="panel-header">
+        <h2><i class="fa-solid fa-ticket" style="color:var(--violet);font-size:1.1rem;margin-right:8px"></i>Coupon Codes Manager</h2>
+        <p>Create custom coupon codes with custom reward values for players to claim via <code>s redeem &lt;code&gt;</code></p>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-circle-plus"></i> Create New Coupon Code</div>
+        <div class="input-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom:16px;">
+          <div class="input-group" style="margin:0;">
+            <label>Coupon Code Name</label>
+            <input type="text" id="cpn-code" placeholder="e.g. SUMMER2026, WELCOME500" style="text-transform:uppercase;">
+          </div>
+          <div class="input-group" style="margin:0;">
+            <label>Reward Type</label>
+            <select id="cpn-type" style="width:100%; padding:10px; background:var(--bg2); border:1px solid var(--card-border); border-radius:8px; color:var(--text); font-size:0.88rem;">
+              <option value="souls">💰 Souls Currency</option>
+              <option value="character">🎴 Character Card</option>
+            </select>
+          </div>
+          <div class="input-group" style="margin:0;">
+            <label id="cpn-val-label">Reward Amount (Souls)</label>
+            <input type="text" id="cpn-val" placeholder="e.g. 1000">
+          </div>
+          <div class="input-group" style="margin:0;">
+            <label>Max Uses Limit (Optional)</label>
+            <input type="number" id="cpn-max-uses" placeholder="Leave empty for unlimited">
+          </div>
+        </div>
+
+        <button class="save-btn" id="create-cpn-btn" style="width:100%; justify-content:center; padding:12px;"><i class="fa-solid fa-plus"></i> Generate Coupon Code</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><i class="fa-solid fa-list-check"></i> Active & Past Coupon Codes</div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Coupon Code</th>
+                <th>Reward Type</th>
+                <th>Reward Value</th>
+                <th>Redemptions</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="coupons-list">
+              <tr><td colspan="7" class="empty-state loading-dots">Loading coupons</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -953,6 +1075,8 @@ document.querySelectorAll('.nav-item').forEach(el => {
     if (el.dataset.panel === 'collectibles') loadCollectibles();
     if (el.dataset.panel === 'drops-manager') loadDropsManager();
     if (el.dataset.panel === 'giveaways-manager') loadGiveawaysManager();
+    if (el.dataset.panel === 'announcements') loadAnnouncements();
+    if (el.dataset.panel === 'coupons') loadCoupons();
   });
 });
 
@@ -2204,6 +2328,198 @@ $('reset-cycle-confirm-btn').onclick = async () => {
     btn.textContent = 'Confirm Reset';
   }
 };
+
+// ---- ANNOUNCEMENT CENTER ----
+async function loadAnnouncements() {
+  try {
+    const servers = await api('/api/servers-info');
+    const select = $('anc-server-select');
+    select.innerHTML = '<option value="">-- Select Target Server --</option>' + 
+      servers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  } catch (e) {
+    console.error('Error loading announcement servers:', e);
+  }
+}
+
+$('anc-server-select').onchange = async () => {
+  const serverId = $('anc-server-select').value;
+  const chanSelect = $('anc-channel-select');
+  if (!serverId) {
+    chanSelect.innerHTML = '<option value="">-- Select Target Channel --</option>';
+    return;
+  }
+  chanSelect.innerHTML = '<option value="">Loading channels...</option>';
+  try {
+    const channels = await api(`/api/server/${serverId}/channels`);
+    chanSelect.innerHTML = '<option value="">-- Select Target Channel --</option>' + 
+      channels.map(c => `<option value="${c.id}">#${c.name}</option>`).join('');
+  } catch (e) {
+    chanSelect.innerHTML = '<option value="">Failed to load channels</option>';
+  }
+};
+
+$('anc-ping-type').onchange = () => {
+  const pType = $('anc-ping-type').value;
+  const targetWrap = $('anc-target-wrap');
+  const targetLabel = $('anc-target-label');
+  if (pType === 'user' || pType === 'role') {
+    targetWrap.style.display = 'block';
+    targetLabel.textContent = pType === 'user' ? 'Target Discord User ID' : 'Target Role ID';
+  } else {
+    targetWrap.style.display = 'none';
+  }
+  updateAncPreview();
+};
+
+$('anc-style').onchange = () => {
+  const style = $('anc-style').value;
+  $('anc-title-wrap').style.display = style === 'embed' ? 'block' : 'none';
+  $('anc-color-wrap').style.display = style === 'embed' ? 'block' : 'none';
+  updateAncPreview();
+};
+
+['anc-title', 'anc-content', 'anc-color', 'anc-target-id'].forEach(id => {
+  const el = $(id);
+  if (el) el.oninput = updateAncPreview;
+});
+
+function updateAncPreview() {
+  const pType = $('anc-ping-type').value;
+  const targetId = $('anc-target-id').value.trim();
+  const style = $('anc-style').value;
+  const title = $('anc-title').value.trim();
+  const content = $('anc-content').value;
+  const color = $('anc-color').value;
+
+  let pingStr = '';
+  if (pType === 'everyone') pingStr = '<span style="color:#f59e0b;font-weight:bold">@everyone</span> ';
+  else if (pType === 'here') pingStr = '<span style="color:#f59e0b;font-weight:bold">@here</span> ';
+  else if (pType === 'user' && targetId) pingStr = `<span style="color:#8b5cf6;font-weight:bold">@${targetId}</span> `;
+  else if (pType === 'role' && targetId) pingStr = `<span style="color:#06b6d4;font-weight:bold">@Role(${targetId})</span> `;
+
+  const previewBox = $('anc-preview');
+  if (!content) {
+    previewBox.innerHTML = '<div style="font-size:0.8rem; color:var(--muted)">Preview will appear here as you type...</div>';
+    return;
+  }
+
+  if (style === 'embed') {
+    previewBox.innerHTML = `
+      ${pingStr ? `<div style="margin-bottom:8px;font-size:0.85rem;">${pingStr}</div>` : ''}
+      <div style="border-left: 4px solid ${color}; background: rgba(255,255,255,0.02); padding: 12px 16px; border-radius: 4px 8px 8px 4px;">
+        ${title ? `<div style="font-weight:bold; font-size:0.95rem; color:var(--text); margin-bottom:6px;">${title}</div>` : ''}
+        <div style="font-size:0.85rem; color:var(--text); white-space:pre-wrap; line-height:1.5;">${content}</div>
+        <div style="font-size:0.68rem; color:var(--muted); margin-top:8px;">Official Announcement • Soul Economy</div>
+      </div>
+    `;
+  } else {
+    previewBox.innerHTML = `
+      <div style="font-size:0.85rem; color:var(--text); white-space:pre-wrap; line-height:1.5;">
+        ${pingStr ? `${pingStr}<br><br>` : ''}${content}
+      </div>
+    `;
+  }
+}
+
+$('send-anc-btn').onclick = () => saveBtn($('send-anc-btn'), async () => {
+  const serverId = $('anc-server-select').value;
+  const channelId = $('anc-channel-select').value;
+  const content = $('anc-content').value.trim();
+
+  if (!serverId) throw new Error('Please select a target server.');
+  if (!channelId) throw new Error('Please select a target channel.');
+  if (!content) throw new Error('Please enter announcement message content.');
+
+  const payload = {
+    serverId,
+    channelId,
+    pingType: $('anc-ping-type').value,
+    targetId: $('anc-target-id').value.trim(),
+    messageStyle: $('anc-style').value,
+    title: $('anc-title').value.trim(),
+    content: content,
+    color: $('anc-color').value
+  };
+
+  const res = await api('/api/admin/send-message', 'POST', payload);
+  toast(`Announcement sent successfully to #${res.channelName}! ✓`);
+  $('anc-content').value = '';
+  $('anc-title').value = '';
+  updateAncPreview();
+});
+
+// ---- COUPON CODES MANAGER ----
+$('cpn-type').onchange = () => {
+  const type = $('cpn-type').value;
+  $('cpn-val-label').textContent = type === 'souls' ? 'Reward Amount (Souls)' : 'Character ID (e.g. divine_soul)';
+  $('cpn-val').placeholder = type === 'souls' ? 'e.g. 1000' : 'e.g. divine_soul';
+};
+
+async function loadCoupons() {
+  try {
+    const coupons = await api('/api/admin/coupons');
+    const tbody = $('coupons-list');
+    if (!coupons || coupons.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-ticket"></i>No coupon codes created yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = coupons.map(c => {
+      const usesStr = c.max_uses ? `${c.uses_count} / ${c.max_uses}` : `${c.uses_count} / Unlimited`;
+      const typeBadge = c.reward_type === 'souls' 
+        ? '<span class="source-chip checkin">💰 Souls</span>' 
+        : '<span class="source-chip drop_catch">🎴 Character</span>';
+      return `<tr>
+        <td class="mono" style="font-weight:bold; color:var(--violet); font-size:0.9rem;">${c.code}</td>
+        <td>${typeBadge}</td>
+        <td class="mono">${c.reward_value}</td>
+        <td class="mono">${usesStr}</td>
+        <td><span class="dot green"></span>Active</td>
+        <td class="mono" style="color:var(--muted); font-size:0.75rem;">${fmtDate(c.created_at)}</td>
+        <td>
+          <button class="inv-qty-btn" onclick="deleteCouponCode('${c.code}')" style="color:var(--red); width:auto; padding:2px 8px;" title="Delete Coupon">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    $('coupons-list').innerHTML = `<tr><td colspan="7" class="empty-state" style="color:var(--red);">Error loading coupons: ${e.message}</td></tr>`;
+  }
+}
+
+$('create-cpn-btn').onclick = () => saveBtn($('create-cpn-btn'), async () => {
+  const code = $('cpn-code').value.trim();
+  const rewardType = $('cpn-type').value;
+  const rewardValue = $('cpn-val').value.trim();
+  const maxUses = $('cpn-max-uses').value.trim();
+
+  if (!code) throw new Error('Please enter a coupon code name.');
+  if (!rewardValue) throw new Error('Please enter a reward value.');
+
+  await api('/api/admin/coupons', 'POST', {
+    code,
+    rewardType,
+    rewardValue,
+    maxUses: maxUses || null
+  });
+
+  toast(`Coupon ${code.toUpperCase()} generated successfully! ✓`);
+  $('cpn-code').value = '';
+  $('cpn-val').value = '';
+  $('cpn-max-uses').value = '';
+  loadCoupons();
+});
+
+async function deleteCouponCode(code) {
+  if (!confirm(`Are you sure you want to delete coupon code "${code}"?`)) return;
+  try {
+    await api(`/api/admin/coupons/${code}`, 'DELETE');
+    toast(`Coupon ${code} deleted ✓`);
+    loadCoupons();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
 </script>
 </body>
 </html>

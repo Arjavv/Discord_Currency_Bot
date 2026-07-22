@@ -121,7 +121,7 @@ if (fs.existsSync(eventsPath)) {
 // Serve the docs/ website, admin dashboard, and endpoints
 const express = require('express');
 const session = require('express-session');
-const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, adminUpdateUser, getShopPrices, setShopPrice, resetCycle, getDatabaseSize, getTreasury, updateServerVaultCustomTaxRate, triggerServerVaultTaxDeduction, getFluctuatingTaxRate } = require('./database/queries');
+const { getGlobalSettings, setGlobalSetting, getGlobalEconomyStats, getServerSettings, toggleAutoDrops, updateDropChannel, getServerFeatureOverrides, setServerFeatureOverride, getServerDetail, getUserInspect, adminUpdateUser, getShopPrices, setShopPrice, resetCycle, getDatabaseSize, getTreasury, updateServerVaultCustomTaxRate, triggerServerVaultTaxDeduction, getFluctuatingTaxRate, createCoupon, getCoupons, deleteCoupon } = require('./database/queries');
 const { getBotControlState } = require('./utils/botControl');
 const { scheduleNextDrop, triggerDrop, nextDropTimers } = require('./utils/drops');
 
@@ -748,6 +748,119 @@ app.post('/api/server/:serverId/vault/add-funds', requireLogin, async (req, res)
   } catch (err) {
     console.error('Error adding funds to server vault:', err);
     res.status(500).json({ error: 'Failed to add funds: ' + err.message });
+  }
+});
+
+// Fetch text channels for a specific server (Protected)
+app.get('/api/server/:serverId/channels', requireLogin, async (req, res) => {
+  const { serverId } = req.params;
+  try {
+    const guild = client.guilds.cache.get(serverId) || await client.guilds.fetch(serverId).catch(() => null);
+    if (!guild) return res.status(404).json({ error: 'Server not found' });
+    
+    const channels = await guild.channels.fetch().catch(() => guild.channels.cache);
+    const textChannels = [];
+    channels.forEach(c => {
+      if (c && (c.type === 0 || (c.isTextBased && c.isTextBased()))) {
+        textChannels.push({ id: c.id, name: c.name });
+      }
+    });
+    textChannels.sort((a, b) => a.name.localeCompare(b.name));
+      
+    res.json(textChannels);
+  } catch (err) {
+    console.error('Error fetching server channels:', err);
+    res.status(500).json({ error: 'Failed to fetch server channels' });
+  }
+});
+
+// Send custom announcement message to specific channel (Protected)
+app.post('/api/admin/send-message', requireLogin, async (req, res) => {
+  const { serverId, channelId, pingType, targetId, messageStyle, title, content, color } = req.body;
+  if (!serverId || !channelId || !content) {
+    return res.status(400).json({ error: 'Server, channel, and message content are required.' });
+  }
+
+  try {
+    const guild = client.guilds.cache.get(serverId) || await client.guilds.fetch(serverId).catch(() => null);
+    if (!guild) return res.status(404).json({ error: 'Target server not found' });
+
+    const channel = guild.channels.cache.get(channelId) || await guild.channels.fetch(channelId).catch(() => null);
+    if (!channel || !channel.isTextBased()) {
+      return res.status(400).json({ error: 'Target text channel not found or invalid.' });
+    }
+
+    let pingPrefix = '';
+    if (pingType === 'everyone') pingPrefix = '@everyone';
+    else if (pingType === 'here') pingPrefix = '@here';
+    else if (pingType === 'user' && targetId) pingPrefix = `<@${targetId.trim()}>`;
+    else if (pingType === 'role' && targetId) pingPrefix = `<@&${targetId.trim()}>`;
+
+    const { EmbedBuilder } = require('discord.js');
+    if (messageStyle === 'embed') {
+      const embed = new EmbedBuilder()
+        .setColor(color || '#8b5cf6')
+        .setDescription(content)
+        .setTimestamp()
+        .setFooter({ text: `Official Announcement • ${guild.name}` });
+
+      if (title && title.trim()) embed.setTitle(title.trim());
+
+      const payload = { embeds: [embed] };
+      if (pingPrefix) payload.content = pingPrefix;
+
+      const sentMsg = await channel.send(payload);
+      return res.json({ success: true, messageId: sentMsg.id, channelName: channel.name });
+    } else {
+      const text = pingPrefix ? `${pingPrefix}\n\n${content}` : content;
+      const sentMsg = await channel.send({ content: text });
+      return res.json({ success: true, messageId: sentMsg.id, channelName: channel.name });
+    }
+  } catch (err) {
+    console.error('Error sending custom message from admin panel:', err);
+    res.status(500).json({ error: 'Failed to send message: ' + err.message });
+  }
+});
+
+// Coupons API Endpoints (Protected)
+app.get('/api/admin/coupons', requireLogin, async (req, res) => {
+  try {
+    const coupons = await getCoupons();
+    res.json(coupons);
+  } catch (err) {
+    console.error('Error fetching coupons:', err);
+    res.status(500).json({ error: 'Failed to fetch coupons' });
+  }
+});
+
+app.post('/api/admin/coupons', requireLogin, async (req, res) => {
+  const { code, rewardType, rewardValue, maxUses, expiresAt } = req.body;
+  if (!code || !rewardValue) {
+    return res.status(400).json({ error: 'Coupon code and reward value are required.' });
+  }
+  try {
+    const coupon = await createCoupon({
+      code,
+      rewardType: rewardType || 'souls',
+      rewardValue,
+      maxUses: maxUses ? parseInt(maxUses, 10) : null,
+      expiresAt: expiresAt || null
+    });
+    res.json({ success: true, coupon });
+  } catch (err) {
+    console.error('Error creating coupon:', err);
+    res.status(500).json({ error: 'Failed to create coupon: ' + err.message });
+  }
+});
+
+app.delete('/api/admin/coupons/:code', requireLogin, async (req, res) => {
+  const { code } = req.params;
+  try {
+    await deleteCoupon(code);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting coupon:', err);
+    res.status(500).json({ error: 'Failed to delete coupon' });
   }
 });
 

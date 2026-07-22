@@ -190,4 +190,25 @@ ALTER TABLE server_treasury ADD COLUMN IF NOT EXISTS today_tax_paid BIGINT NOT N
 ALTER TABLE server_treasury ADD COLUMN IF NOT EXISTS last_tax_deduction_at TIMESTAMP;
 ALTER TABLE server_treasury ADD COLUMN IF NOT EXISTS custom_tax_rate NUMERIC(5, 2) DEFAULT NULL;
 
+-- 16. Coupon Codes and Redemptions
+CREATE TABLE IF NOT EXISTS coupons (
+    code VARCHAR(64) PRIMARY KEY,
+    reward_type VARCHAR(32) NOT NULL DEFAULT 'souls',
+    reward_value VARCHAR(64) NOT NULL,
+    max_uses INT DEFAULT NULL,
+    uses_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP DEFAULT NULL,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS coupon_claims (
+    code VARCHAR(64) NOT NULL,
+    user_id VARCHAR(64) NOT NULL,
+    claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (code, user_id),
+    FOREIGN KEY (code) REFERENCES coupons(code) ON DELETE CASCADE
+);
+
+
 
