@@ -7,6 +7,8 @@ const fs = require('fs');
 // In-memory drop states shared across the bot process
 const activeDrops = new Map(); // key: channelId -> { value, character, messageId, timestamp, timeoutId }
 const nextDropTimers = new Map(); // key: serverId -> timeoutId
+const channelDropHistory = new Map(); // key: channelId -> Array of timestamps within last 10 mins
+const channelDropCooldowns = new Map(); // key: channelId -> timestamp when 24h penalty cooldown expires
 
 /**
  * Triggers a drop in the specified channel.
@@ -19,6 +21,46 @@ async function triggerDrop(client, guildId, channel) {
   try {
     const control = await getBotControlState();
     if (control.maintenanceMode || !control.features.drops) {
+      return null;
+    }
+
+    // Check 24-hour drop spam penalty cooldown for the channel
+    const now = Date.now();
+    if (channelDropCooldowns.has(channel.id)) {
+      const cooldownUntil = channelDropCooldowns.get(channel.id);
+      if (now < cooldownUntil) {
+        console.log(`[Drops] Blocked drop in channel ${channel.id} due to active 24h drop spam penalty cooldown.`);
+        return null;
+      } else {
+        channelDropCooldowns.delete(channel.id);
+      }
+    }
+
+    // Track drop timestamps to detect spam (3+ drops within 10 minutes)
+    const history = channelDropHistory.get(channel.id) || [];
+    const recentHistory = history.filter(t => now - t <= 10 * 60 * 1000);
+    recentHistory.push(now);
+    channelDropHistory.set(channel.id, recentHistory);
+
+    if (recentHistory.length >= 3) {
+      const penaltyUntil = now + 24 * 60 * 60 * 1000; // 24 hours
+      channelDropCooldowns.set(channel.id, penaltyUntil);
+      channelDropHistory.set(channel.id, []);
+
+      // Notify the channel about the 24-hour penalty cooldown
+      const spamEmbed = new EmbedBuilder()
+        .setColor('#ef4444')
+        .setTitle('🛑 AUTOMATIC DROP SPAM PROTECTION')
+        .setDescription(
+          `⚠️ **Drop spam detected in this channel!**\n\n` +
+          `Auto drops have been triggered **3 or more times within 10 minutes**.\n` +
+          `To protect the economy balance, auto drops in <#${channel.id}> have been placed on a **24-hour penalty cooldown**.\n\n` +
+          `⏰ **Auto drops will automatically resume after 24 hours.**`
+        )
+        .setFooter({ text: 'Soul Economy Anti-Spam Guard' })
+        .setTimestamp();
+
+      await channel.send({ embeds: [spamEmbed] }).catch(() => {});
       return null;
     }
 
@@ -159,6 +201,7 @@ function scheduleNextDrop(client, guildId, channelId) {
 module.exports = {
   activeDrops,
   nextDropTimers,
+  channelDropCooldowns,
   triggerDrop,
   scheduleNextDrop
 };

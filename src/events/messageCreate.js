@@ -2401,6 +2401,14 @@ module.exports = {
                 return sendTempMessage(message.channel, `❌ You need at least 20 ${currencyIcon} ${currencyName} to attempt a robbery (gotta buy the lockpicks).`);
               } else if (result.reason === 'target_poor') {
                 return sendTempMessage(message.channel, `❌ ${targetUser.username} is too poor to be robbed (they have less than 20 ${currencyName}). Pick on someone your own size!`);
+              } else if (result.reason === 'shield_blocked') {
+                const embed = new EmbedBuilder()
+                  .setColor('#8b5cf6')
+                  .setTitle('🛡️ Bank Heist: BLOCKED!')
+                  .setDescription(`You tried to rob ${targetUser}, but their **Divine Shield** activated and protected their wallet from theft!`)
+                  .setFooter({ text: 'The Divine Shield was consumed in the defense.' })
+                  .setTimestamp();
+                return await message.reply({ embeds: [embed] }).catch(() => { });
               } else if (result.reason === 'caught') {
                 // Failed and paid fine
                 const embed = new EmbedBuilder()
@@ -2408,6 +2416,13 @@ module.exports = {
                   .setTitle('🚨 Bank Heist: CAUGHT!')
                   .setDescription(`You tripped the alarm and got caught trying to rob ${targetUser}!\n\nYou were forced to pay them a fine of **${result.amount}** ${currencyIcon} ${currencyName} (5% of your wallet).`)
                   .addFields({ name: 'Your New Balance', value: `**${result.newBalance}** ${currencyIcon} ${currencyName}` })
+                  .setTimestamp();
+                return await message.reply({ embeds: [embed] }).catch(() => { });
+              } else {
+                const embed = new EmbedBuilder()
+                  .setColor('#ef4444')
+                  .setTitle('❌ Bank Heist: FAILED!')
+                  .setDescription(`Your attempt to rob ${targetUser} failed! You were spotted before you could steal any ${currencyName}.`)
                   .setTimestamp();
                 return await message.reply({ embeds: [embed] }).catch(() => { });
               }
