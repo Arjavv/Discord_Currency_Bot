@@ -1001,36 +1001,7 @@ module.exports = {
       (firstWord === 's' && secondWord === 'soul' && catchWords.length === 2);
 
     if (isSoulCatch) {
-      let reactEmoji = null;
-      if (message.guild) {
-        try {
-          reactEmoji = message.guild.emojis.cache.find(e => e.name === 'soul_react');
-          if (!reactEmoji) {
-            // Check client-wide emoji cache across all guilds the bot belongs to
-            reactEmoji = message.client.emojis.cache.find(e => e.name === 'soul_react');
-          }
-          if (!reactEmoji) {
-            const imgPath = path.join(__dirname, '../../docs/assets/soul_react.jpg');
-            if (fs.existsSync(imgPath)) {
-              reactEmoji = await message.guild.emojis.create({ attachment: imgPath, name: 'soul_react' });
-              console.log(`[EMOJI] Created custom emoji soul_react in guild ${message.guild.name}`);
-            }
-          }
-        } catch (err) {
-          console.warn(`[EMOJI] Could not resolve/create custom emoji 'soul_react' in guild:`, err.message);
-        }
-      }
-
-      if (reactEmoji) {
-        await message.react(reactEmoji).catch(() => {});
-      } else {
-        // Fallback to random troll emoji if custom emoji creation is blocked
-        const trollEmojis = ['🤡', '😂', '💀', '🤣', '🤫'];
-        const randomEmoji = trollEmojis[Math.floor(Math.random() * trollEmojis.length)];
-        await message.react(randomEmoji).catch(() => {});
-      }
-
-      // If there is an active drop, claim it
+      // If there is an active drop, claim it (no reaction on winner's message)
       if (activeDrops.has(message.channel.id)) {
         const dropControl = await getBotControlState(serverId);
         if (dropControl.maintenanceMode || !dropControl.features.drops) {
@@ -1084,6 +1055,33 @@ module.exports = {
           await message.reply({ content: congratulateText, embeds: [] }).catch(() => { });
         } catch (err) {
           console.error(`Error claiming drop for user ${userId}:`, err);
+        }
+      } else {
+        // If no active drop was present in the channel, react on the message
+        let reactEmoji = null;
+        if (message.guild) {
+          try {
+            reactEmoji = message.guild.emojis.cache.find(e => e.name === 'soul_react');
+            if (!reactEmoji) {
+              reactEmoji = message.client.emojis.cache.find(e => e.name === 'soul_react');
+            }
+            if (!reactEmoji) {
+              const imgPath = path.join(__dirname, '../../docs/assets/soul_react.jpg');
+              if (fs.existsSync(imgPath)) {
+                reactEmoji = await message.guild.emojis.create({ attachment: imgPath, name: 'soul_react' });
+              }
+            }
+          } catch (err) {
+            console.warn(`[EMOJI] Could not resolve/create custom emoji 'soul_react' in guild:`, err.message);
+          }
+        }
+
+        if (reactEmoji) {
+          await message.react(reactEmoji).catch(() => {});
+        } else {
+          const trollEmojis = ['🤡', '😂', '💀', '🤣', '🤫'];
+          const randomEmoji = trollEmojis[Math.floor(Math.random() * trollEmojis.length)];
+          await message.react(randomEmoji).catch(() => {});
         }
       }
 
