@@ -237,6 +237,96 @@
     .inv-add-form { display: flex; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border); align-items: flex-end; flex-wrap: wrap; }
     .inv-add-form select { flex: 1; min-width: 180px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--card-border); border-radius: 9px; color: var(--text); font-size: 0.88rem; outline: none; cursor: pointer; }
     .inv-add-form select option { background: #1e1e2e; color: var(--text); }
+
+    /* RESPONSIVE LAYOUT & MOBILE NAVIGATION */
+    .mobile-header { display: none; }
+    .sidebar-overlay { display: none; }
+
+    @media (max-width: 868px) {
+      #app { flex-direction: column !important; overflow: hidden; height: 100vh; }
+      
+      .mobile-header {
+        display: flex !important; align-items: center; justify-content: space-between;
+        padding: 12px 16px; background: var(--bg2); border-bottom: 1px solid var(--card-border);
+        height: 56px; flex-shrink: 0; z-index: 100; position: relative;
+      }
+      .mobile-menu-btn {
+        background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
+        border-radius: 8px; color: var(--text); padding: 8px 12px; font-size: 1.1rem;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        transition: background 0.2s;
+      }
+      .mobile-menu-btn:hover { background: rgba(255,255,255,0.1); }
+      .mobile-brand {
+        display: flex; align-items: center; gap: 8px; font-family: 'Orbitron', monospace;
+        font-size: 0.95rem; font-weight: 700; color: var(--text);
+      }
+      .mobile-brand .icon { color: var(--violet); font-size: 1.2rem; }
+      
+      .sidebar {
+        position: fixed; top: 0; left: 0; bottom: 0; width: 280px; max-width: 85vw;
+        z-index: 1001; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 10px 0 40px rgba(0,0,0,0.6); background: var(--bg2);
+      }
+      .sidebar.open { transform: translateX(0); }
+      
+      .sidebar-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+        backdrop-filter: blur(4px); z-index: 1000; transition: opacity 0.3s;
+      }
+      .sidebar-overlay.show { display: block !important; }
+      
+      .main { flex: 1; overflow-y: auto; width: 100%; }
+      .panel { padding: 18px 16px; }
+      .panel-header h2 { font-size: 1.18rem; }
+      .panel-header p { font-size: 0.8rem; }
+      .section, .danger-zone { padding: 16px 14px; margin-bottom: 14px; }
+    }
+
+    @media (max-width: 600px) {
+      .panel { padding: 14px 12px; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; margin-bottom: 16px; }
+      .stat-card { padding: 14px 12px; }
+      .stat-card .sc-value { font-size: 1.25rem; margin: 4px 0 2px; }
+      .stat-card .sc-icon { font-size: 1.1rem; top: 12px; right: 12px; }
+      .stat-card .sc-label { font-size: 0.65rem; }
+      .stat-card .sc-sub { font-size: 0.68rem; }
+
+      .toggle-grid { grid-template-columns: 1fr !important; }
+      .input-grid { grid-template-columns: 1fr !important; }
+      .user-stat-row { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
+      
+      .card-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 8px; gap: 4px; -webkit-overflow-scrolling: touch; }
+      .card-tab { padding: 6px 12px; font-size: 0.78rem; flex-shrink: 0; }
+      
+      .server-selector-row { flex-direction: column; align-items: stretch; gap: 8px; }
+      #server-select, #giveaway-server-select { max-width: 100%; width: 100%; }
+      
+      .user-search-row { flex-direction: column; gap: 8px; }
+      .user-card-header { flex-direction: column; text-align: center; gap: 12px; }
+      .user-card-header > div:last-child { margin-left: 0 !important; text-align: center !important; margin-top: 6px; }
+      
+      .inv-add-form { flex-direction: column; align-items: stretch; gap: 10px; }
+      .inv-add-form > div { width: 100% !important; }
+      .inv-item-row { flex-direction: column; align-items: stretch; gap: 8px; }
+      .inv-qty-controls { justify-content: flex-end; width: 100%; }
+      
+      .maintenance-toggle { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .danger-action { flex-direction: column; align-items: stretch; gap: 12px; }
+      .btn-danger { width: 100%; justify-content: center; }
+      
+      .save-btn, .btn-primary, .btn-search { width: 100%; justify-content: center; }
+      .login-box { padding: 36px 20px; width: 100%; max-width: 360px; margin: 0 12px; }
+      .modal-box { padding: 24px 18px; width: 100%; }
+      .modal-actions { flex-direction: column; }
+    }
+
+    @media (max-width: 380px) {
+      .stat-grid { grid-template-columns: 1fr !important; }
+      .user-stat-row { grid-template-columns: 1fr !important; }
+    }
+
+    .data-table th, .data-table td { white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -255,6 +345,23 @@
 
 <!-- APP -->
 <div id="app">
+  <!-- MOBILE HEADER -->
+  <header class="mobile-header">
+    <button class="mobile-menu-btn" id="mobile-menu-toggle" aria-label="Toggle Navigation">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="mobile-brand">
+      <span class="icon">&#x1FAC0;</span>
+      <span class="label">SOUL ECONOMY</span>
+    </div>
+    <div>
+      <span class="dot green"></span>
+    </div>
+  </header>
+
+  <!-- SIDEBAR OVERLAY FOR MOBILE -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
   <aside class="sidebar">
     <div class="sidebar-logo">
       <div class="icon">&#x1FAC0;</div>
@@ -803,10 +910,29 @@ $('login-btn').onclick = async () => {
 };
 $('pwd-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('login-btn').click(); });
 
+// Mobile menu drawer toggle logic
+const mobileToggleBtn = $('mobile-menu-toggle');
+const sidebarOverlay = $('sidebar-overlay');
+const sidebar = document.querySelector('.sidebar');
+
+if (mobileToggleBtn && sidebar && sidebarOverlay) {
+  mobileToggleBtn.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    sidebarOverlay.classList.toggle('show');
+  });
+
+  sidebarOverlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('show');
+  });
+}
+
 $('logout-btn').onclick = async () => {
   await api('/api/logout', 'POST').catch(()=>{});
   $('app').style.display = 'none';
   $('login-screen').style.display = 'flex';
+  if (sidebar) sidebar.classList.remove('open');
+  if (sidebarOverlay) sidebarOverlay.classList.remove('show');
 };
 
 function showApp() {
@@ -821,6 +947,8 @@ document.querySelectorAll('.nav-item').forEach(el => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     el.classList.add('active');
     $('panel-' + el.dataset.panel).classList.add('active');
+    if (sidebar) sidebar.classList.remove('open');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('show');
     if (el.dataset.panel === 'analytics') loadAnalytics();
     if (el.dataset.panel === 'collectibles') loadCollectibles();
     if (el.dataset.panel === 'drops-manager') loadDropsManager();
