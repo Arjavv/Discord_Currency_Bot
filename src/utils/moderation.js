@@ -88,8 +88,7 @@ async function buildAdminPanelPayload(guild, moderatorUser) {
       { label: '➕ Create New Channel Instantly', description: 'Create a new dedicated channel (Drop, Bot, or Log) automatically', value: 'cfg_create_channel' },
       { label: '🎛️ Toggle Feature Overrides', description: 'Turn features ON/OFF for this server (Casino, Shop, Rob, etc.)', value: 'cfg_feature_toggles' },
       { label: '⛽ Soul Vault & Custom Tax Rate', description: 'Refuel vault or configure custom tax rate', value: 'cfg_vault_tax' },
-      { label: '🎁 Giveaway Templates', description: 'Customize ping and announcement text templates', value: 'cfg_giveaway_templates' },
-      { label: '🔄 Reset Monthly Economy Cycle', description: 'Reset coin balances and snapshot final rankings', value: 'cfg_reset_cycle' }
+      { label: '🎁 Giveaway Templates', description: 'Customize ping and announcement text templates', value: 'cfg_giveaway_templates' }
     ]);
 
   // Action Row 3: Quick System Control Buttons (NO force-drop)

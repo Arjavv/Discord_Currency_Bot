@@ -153,19 +153,7 @@ module.exports = {
         }
       }
 
-      // Admin Confirm Reset Cycle Button
-      if (interaction.customId === 'admin_confirm_reset_cycle') {
-        if (!checkAdminPerms()) return;
-        await interaction.deferReply({ ephemeral: true });
 
-        try {
-          const res = await resetCycle(interaction.guildId);
-          await sendModLog(interaction.guild, '🔄 Monthly Cycle Reset Executed', `Moderator <@${interaction.user.id}> reset the server monthly economy cycle. ${res.archivedCount} member balances archived.`, '#f59e0b');
-          return await interaction.editReply({ content: `🔄 **Cycle Reset Complete!** Standard user balances have been reset and top rankings archived.` });
-        } catch (err) {
-          return await interaction.editReply({ content: `❌ Cycle reset failed: ${err.message}` });
-        }
-      }
 
       // Admin Clear Warnings Button
       if (interaction.customId.startsWith('admin_clear_warns_')) {
@@ -470,19 +458,6 @@ module.exports = {
             new ActionRowBuilder().addComponents(descInput)
           );
           return await interaction.showModal(modal);
-        }
-
-        if (cfgAction === 'cfg_reset_cycle') {
-          const confirmBtn = new ButtonBuilder()
-            .setCustomId('admin_confirm_reset_cycle')
-            .setLabel('Confirm Cycle Reset')
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('⚠️');
-          return await interaction.reply({
-            content: '⚠️ **WARNING**: Resetting the monthly cycle will snapshot all member rankings and reset user coin balances to zero. Are you sure?',
-            components: [new ActionRowBuilder().addComponents(confirmBtn)],
-            ephemeral: true
-          });
         }
       }
 
