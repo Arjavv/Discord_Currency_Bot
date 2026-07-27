@@ -210,5 +210,17 @@ CREATE TABLE IF NOT EXISTS coupon_claims (
     FOREIGN KEY (code) REFERENCES coupons(code) ON DELETE CASCADE
 );
 
+-- 17. Server Moderation Warnings
+CREATE TABLE IF NOT EXISTS mod_warnings (
+    id SERIAL PRIMARY KEY,
+    server_id VARCHAR(64) NOT NULL,
+    user_id VARCHAR(64) NOT NULL,
+    moderator_id VARCHAR(64) NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_mod_warnings_user ON mod_warnings (server_id, user_id);
+
+
 
 

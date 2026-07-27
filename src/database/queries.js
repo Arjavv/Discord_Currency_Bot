@@ -2768,6 +2768,58 @@ module.exports = {
   createCoupon,
   getCoupons,
   deleteCoupon,
-  redeemCoupon
+  redeemCoupon,
+  addWarning,
+  getUserWarnings,
+  clearUserWarnings
 };
+
+/**
+ * Adds a moderation warning for a user.
+ */
+async function addWarning(serverId, userId, moderatorId, reason) {
+  try {
+    const res = await pool.query(
+      `INSERT INTO mod_warnings (server_id, user_id, moderator_id, reason) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [serverId, userId, moderatorId, reason]
+    );
+    return res.rows[0];
+  } catch (error) {
+    console.error('Error adding moderation warning:', error);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves all moderation warnings for a user in a server.
+ */
+async function getUserWarnings(serverId, userId) {
+  try {
+    const res = await pool.query(
+      `SELECT * FROM mod_warnings WHERE server_id = $1 AND user_id = $2 ORDER BY created_at DESC`,
+      [serverId, userId]
+    );
+    return res.rows;
+  } catch (error) {
+    console.error('Error fetching user warnings:', error);
+    return [];
+  }
+}
+
+/**
+ * Clears all moderation warnings for a user in a server.
+ */
+async function clearUserWarnings(serverId, userId) {
+  try {
+    await pool.query(
+      `DELETE FROM mod_warnings WHERE server_id = $1 AND user_id = $2`,
+      [serverId, userId]
+    );
+    return true;
+  } catch (error) {
+    console.error('Error clearing user warnings:', error);
+    return false;
+  }
+}
+
 

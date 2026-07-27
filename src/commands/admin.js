@@ -9,6 +9,11 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Restricts visibility to server admins by default
     .addSubcommand(subcommand =>
       subcommand
+        .setName('panel')
+        .setDescription('Open the interactive Admin & Moderation Control Panel')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
         .setName('setup')
         .setDescription('Create the Soul Currency channels and category in this server')
     )
@@ -78,6 +83,12 @@ module.exports = {
     await interaction.deferReply();
 
     try {
+      if (subcommand === 'panel') {
+        const { buildAdminPanelPayload } = require('../utils/moderation');
+        const payload = await buildAdminPanelPayload(interaction.guild, interaction.user);
+        return await interaction.editReply(payload);
+      }
+
       if (subcommand === 'setup') {
         const guild = interaction.guild;
 

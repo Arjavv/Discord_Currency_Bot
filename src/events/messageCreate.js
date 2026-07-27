@@ -49,6 +49,7 @@ const fs = require('fs');
 const { activeDrops, triggerDrop, scheduleNextDrop } = require('../utils/drops');
 const { CHARACTER_SPAWNS } = require('../utils/characters');
 const { renderInventoryImage } = require('../utils/inventoryRenderer');
+const { buildAdminPanelPayload } = require('../utils/moderation');
 const {
   getBotControlState,
   isAdminPrefixCommand,
@@ -1095,7 +1096,7 @@ module.exports = {
       console.log(`[Command Trigger] prefix: "s", command: "${commandName}", args:`, args);
 
       const VALID_PREFIX_COMMANDS = [
-        'setup', 'reset-cycle', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop', 'auto-drops', 'help',
+        'admin', 'mod', 'setup', 'reset-cycle', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop', 'auto-drops', 'help',
         'daily', 'checkin', 'claim', 'cash', 'balance', 'bal', 'money', 'leaderboard', 'lb',
         'rich', 'flip', 'casino', 'bet', 'crash', 'mines', 'blackjack', 'bj', 'stats', 'profile', 'shop', 'buy',
         'fight', 'gift', 'give', 'send', 'transfer', 'rob', 'steal', 'heist', 'inv', 'inventory',
@@ -1264,14 +1265,14 @@ module.exports = {
         }
 
         // --- 1. ADMIN COMMANDS ---
-        if (['setup', 'reset-cycle', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop'].includes(commandName)) {
+        if (['admin', 'mod', 'setup', 'reset-cycle', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop'].includes(commandName)) {
           // Check administrator permission
           if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => { });
           }
 
-          // setup, set-drop-channel, set-bot-channel, set-log-channel, and force-drop can be run anywhere; other admin commands are restricted to #soul-logs
-          if (!['setup', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop'].includes(commandName)) {
+          // admin, setup, set-drop-channel, set-bot-channel, set-log-channel, and force-drop can be run anywhere; other admin commands are restricted to #soul-logs
+          if (!['admin', 'mod', 'setup', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop'].includes(commandName)) {
             const settings = await getServerSettings(serverId);
             const customLogChannelId = settings.log_channel_id;
             if (customLogChannelId) {
@@ -1283,6 +1284,12 @@ module.exports = {
                 return sendTempMessage(message.channel, '❌ This administrative command can only be used in the **#soul-logs** channel.');
               }
             }
+          }
+
+          // Interactive Admin & Moderation Panel
+          if (commandName === 'admin' || commandName === 'mod') {
+            const panelPayload = await buildAdminPanelPayload(message.guild, message.author);
+            return await message.reply(panelPayload).catch(() => { });
           }
 
           // Execute admin commands
