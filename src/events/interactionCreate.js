@@ -155,6 +155,39 @@ module.exports = {
 
 
 
+      // Welcome Guide Buttons
+      if (interaction.customId === 'welcome_btn_admin_info') {
+        const adminEmbed = new EmbedBuilder()
+          .setColor('#c084fc')
+          .setTitle('👑 Server Administrator Quick Guide')
+          .setDescription(
+            `**1. Open Admin Panel:** Type \`s admin\` or \`/admin panel\` in any chat.\n` +
+            `**2. Auto-Setup:** Click \`⚙️ Auto-Setup Channels\` in the admin panel to automatically create \`#soul-bot\` and \`#soul-logs\` channels.\n` +
+            `**3. Configure Channels:** Use the **Server Configurations** menu to select or create a Drop Channel, Bot Channel, or Log Channel.\n` +
+            `**4. Feature Overrides:** Toggle Casino, Shop, Robbery, Duels, or Drops ON/OFF for your server anytime!`
+          )
+          .setTimestamp();
+        return await interaction.reply({ embeds: [adminEmbed], ephemeral: true });
+      }
+
+      if (interaction.customId === 'welcome_btn_player_info') {
+        const playerEmbed = new EmbedBuilder()
+          .setColor('#c084fc')
+          .setTitle('🎀 Member Commands Guide')
+          .setDescription(
+            `• **\`s checkin\` / \`s daily\`** — Claim daily Soul rewards & build streaks.\n` +
+            `• **\`s balance\` / \`s bal\`** — Check your balance & Soul Vault status.\n` +
+            `• **\`s shop\`** — Buy anime/gaming characters & boosts.\n` +
+            `• **\`s inv\` / \`s inventory\`** — Inspect your character card collection.\n` +
+            `• **\`s flip <bet>\` / \`s slots\`** — Play casino games.\n` +
+            `• **\`s duel @user <bet>\`** — Challenge members to 1v1 duels.\n` +
+            `• **\`s drop\`** — Spawn or catch character drops in `#soul-drops`!\n` +
+            `• **\`s invite\`** — Get a bot invite link to add to other servers for Souls!`
+          )
+          .setTimestamp();
+        return await interaction.reply({ embeds: [playerEmbed], ephemeral: true });
+      }
+
       // Admin Clear Warnings Button
       if (interaction.customId.startsWith('admin_clear_warns_')) {
         if (!checkAdminPerms()) return;
