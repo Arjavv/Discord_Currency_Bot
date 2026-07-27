@@ -197,6 +197,26 @@ module.exports = {
         modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
         return await interaction.showModal(modal);
       }
+
+      // Admin Trigger Manual Input Channel Modal Button (drop, bot, log)
+      if (interaction.customId.startsWith('admin_btn_input_channel_')) {
+        if (!checkAdminPerms()) return;
+        const channelType = interaction.customId.replace('admin_btn_input_channel_', '');
+
+        const modal = new ModalBuilder()
+          .setCustomId(`admin_modal_input_channel_${channelType}`)
+          .setTitle(`Set ${channelType.toUpperCase()} Channel`);
+
+        const inputField = new TextInputBuilder()
+          .setCustomId('channel_query')
+          .setLabel('Enter Channel Mention (#channel), Name, or ID')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('#soul-logs, general, or 123456789012345678')
+          .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(inputField));
+        return await interaction.showModal(modal);
+      }
     }
 
     // =========================================================================
@@ -291,19 +311,24 @@ module.exports = {
           const channelSelect = new ChannelSelectMenuBuilder()
             .setCustomId('admin_channel_select_drop')
             .setPlaceholder('📢 Select Drop Channel...')
-            .setChannelTypes(ChannelType.GuildText)
+            .setChannelTypes([ChannelType.GuildText, ChannelType.GuildAnnouncement])
             .setMinValues(1)
             .setMaxValues(1);
+          const inputBtn = new ButtonBuilder()
+            .setCustomId('admin_btn_input_channel_drop')
+            .setLabel('Enter Name / Mention / ID')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('✏️');
           const createBtn = new ButtonBuilder()
             .setCustomId('admin_btn_create_channel_drop')
-            .setLabel('Create New Drop Channel')
+            .setLabel('Create New Channel')
             .setStyle(ButtonStyle.Success)
             .setEmoji('➕');
           return await interaction.reply({
-            content: '📢 **Configure Drop Channel**: Pick an existing channel below, or click to create a brand new text channel:',
+            content: '📢 **Configure Drop Channel**: Select a text channel below, type any channel name/ID, or create a new channel:',
             components: [
               new ActionRowBuilder().addComponents(channelSelect),
-              new ActionRowBuilder().addComponents(createBtn)
+              new ActionRowBuilder().addComponents(inputBtn, createBtn)
             ],
             ephemeral: true
           });
@@ -313,19 +338,24 @@ module.exports = {
           const channelSelect = new ChannelSelectMenuBuilder()
             .setCustomId('admin_channel_select_bot')
             .setPlaceholder('🤖 Select Bot Command Channel...')
-            .setChannelTypes(ChannelType.GuildText)
+            .setChannelTypes([ChannelType.GuildText, ChannelType.GuildAnnouncement])
             .setMinValues(1)
             .setMaxValues(1);
+          const inputBtn = new ButtonBuilder()
+            .setCustomId('admin_btn_input_channel_bot')
+            .setLabel('Enter Name / Mention / ID')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('✏️');
           const createBtn = new ButtonBuilder()
             .setCustomId('admin_btn_create_channel_bot')
-            .setLabel('Create New Bot Channel')
+            .setLabel('Create New Channel')
             .setStyle(ButtonStyle.Success)
             .setEmoji('➕');
           return await interaction.reply({
-            content: '🤖 **Configure Bot Command Channel**: Pick an existing channel below, or click to create a brand new text channel:',
+            content: '🤖 **Configure Bot Command Channel**: Select a text channel below, type any channel name/ID, or create a new channel:',
             components: [
               new ActionRowBuilder().addComponents(channelSelect),
-              new ActionRowBuilder().addComponents(createBtn)
+              new ActionRowBuilder().addComponents(inputBtn, createBtn)
             ],
             ephemeral: true
           });
@@ -335,19 +365,24 @@ module.exports = {
           const channelSelect = new ChannelSelectMenuBuilder()
             .setCustomId('admin_channel_select_log')
             .setPlaceholder('📜 Select Admin Log Channel...')
-            .setChannelTypes(ChannelType.GuildText)
+            .setChannelTypes([ChannelType.GuildText, ChannelType.GuildAnnouncement])
             .setMinValues(1)
             .setMaxValues(1);
+          const inputBtn = new ButtonBuilder()
+            .setCustomId('admin_btn_input_channel_log')
+            .setLabel('Enter Name / Mention / ID')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('✏️');
           const createBtn = new ButtonBuilder()
             .setCustomId('admin_btn_create_channel_log')
-            .setLabel('Create New Log Channel')
+            .setLabel('Create New Channel')
             .setStyle(ButtonStyle.Success)
             .setEmoji('➕');
           return await interaction.reply({
-            content: '📜 **Configure Log Channel**: Pick an existing channel below, or click to create a brand new private text channel:',
+            content: '📜 **Configure Log Channel**: Select a text channel below, type any channel name/ID, or create a new private channel:',
             components: [
               new ActionRowBuilder().addComponents(channelSelect),
-              new ActionRowBuilder().addComponents(createBtn)
+              new ActionRowBuilder().addComponents(inputBtn, createBtn)
             ],
             ephemeral: true
           });
@@ -649,6 +684,56 @@ module.exports = {
     // 5. MODAL SUBMISSIONS
     // =========================================================================
     if (interaction.isModalSubmit()) {
+
+      // Modal Manual Input Channel (drop, bot, log)
+      if (interaction.customId.startsWith('admin_modal_input_channel_')) {
+        if (!checkAdminPerms()) return;
+        const channelType = interaction.customId.replace('admin_modal_input_channel_', '');
+        const query = interaction.fields.getTextInputValue('channel_query').trim();
+
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+          const guild = interaction.guild;
+          let targetChannel = null;
+
+          // 1. Check if input is channel mention e.g. <#123456789> or raw ID digits
+          const mentionMatch = query.match(/^<#(\d+)>$/);
+          const rawId = mentionMatch ? mentionMatch[1] : (!isNaN(query) ? query : null);
+
+          if (rawId) {
+            targetChannel = guild.channels.cache.get(rawId) || await guild.channels.fetch(rawId).catch(() => null);
+          }
+
+          // 2. If not found by ID, search by channel name case-insensitive across ALL guild channels
+          if (!targetChannel) {
+            const allChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
+            targetChannel = allChannels.find(
+              c => c && c.isTextBased() && c.name.toLowerCase() === query.toLowerCase().replace(/^#/, '')
+            );
+          }
+
+          if (!targetChannel || !targetChannel.isTextBased()) {
+            return await interaction.editReply({
+              content: `❌ **Channel Not Found**: Could not find a text channel matching \`${query}\` in this server.\n\n*Tip: Please check the channel name or paste the exact Channel ID (Right-click channel ➔ Copy Channel ID).*`
+            });
+          }
+
+          // Update database settings
+          if (channelType === 'drop') {
+            await updateDropChannel(interaction.guildId, targetChannel.id);
+          } else if (channelType === 'bot') {
+            await updateServerChannels(interaction.guildId, targetChannel.id, null);
+          } else if (channelType === 'log') {
+            await updateServerChannels(interaction.guildId, null, targetChannel.id);
+          }
+
+          await sendModLog(guild, '⚙️ Channel Configured via Name/ID Input', `**Type:** \`${channelType.toUpperCase()}\`\n**Channel:** <#${targetChannel.id}>\n**Moderator:** <@${interaction.user.id}>`, '#00ffaa');
+          return await interaction.editReply({ content: `✅ **Active ${channelType.toUpperCase()} Channel updated** to <#${targetChannel.id}>!` });
+        } catch (err) {
+          return await interaction.editReply({ content: `❌ Error setting channel: ${err.message}` });
+        }
+      }
 
       // Modal Create New Channel (drop, bot, log)
       if (interaction.customId.startsWith('admin_modal_create_channel_')) {
