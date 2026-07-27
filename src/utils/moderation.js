@@ -5,50 +5,62 @@ const {
   ButtonStyle,
   UserSelectMenuBuilder,
   StringSelectMenuBuilder,
+  AttachmentBuilder,
   PermissionFlagsBits
 } = require('discord.js');
+const path = require('path');
+const fs = require('fs');
 const { addWarning, getUserWarnings, clearUserWarnings, getServerSettings } = require('../database/queries');
 
 /**
- * Builds the interactive Admin & Moderation Panel embed and action rows.
+ * Builds the cute interactive Admin & Moderation Panel embed and action rows.
  */
 async function buildAdminPanelPayload(guild, moderatorUser) {
   const settings = await getServerSettings(guild.id);
   const memberCount = guild.memberCount;
 
   const embed = new EmbedBuilder()
-    .setColor('#5865F2')
-    .setTitle('🛡️ Admin & Moderation Control Center')
+    .setColor('#c084fc') // Beautiful pastel lavender purple
+    .setTitle('✨ 👑 Soul Royal Admin & Moderation Realm 💜 ✨')
     .setDescription(
-      `Welcome **${moderatorUser.username}**! Use the interactive controls below to perform moderation actions or manage bot configurations.\n\n` +
-      `📌 **Server Info:** \`${guild.name}\` (${memberCount} members)\n` +
+      `Welcome back, **${moderatorUser.username}**! 🐾💜\n` +
+      `Here is your administrative control sanctuary. Select a moderation tool or system control below!\n\n` +
+      `🌸 **Server:** \`${guild.name}\` (**${memberCount}** souls)\n` +
       `📢 **Drop Channel:** ${settings.drop_channel_id ? `<#${settings.drop_channel_id}>` : '*Not Set*'}\n` +
       `🤖 **Bot Channel:** ${settings.bot_channel_id ? `<#${settings.bot_channel_id}>` : '*Not Set*'}\n` +
       `📜 **Log Channel:** ${settings.log_channel_id ? `<#${settings.log_channel_id}>` : '*Not Set*'}\n` +
-      `⚡ **Auto Drops:** \`${settings.auto_drops_enabled ? 'Active (10m cycle)' : 'Disabled'}\``
+      `⚡ **Auto Drops:** \`${settings.auto_drops_enabled ? 'Active (10m cycle) ✨' : 'Disabled 💤'}\``
     )
     .addFields(
       {
-        name: '🔨 Member Moderation Tools',
-        value: '• **Kick / Ban**: Remove a user from the server\n• **Timeout / Mute**: Temporarily mute a user\n• **Warn / History**: Issue warnings & check warning records\n• **Purge**: Bulk delete messages in channel',
+        name: '🎀 Member Moderation Tools',
+        value: '• **Kick / Ban**: Soft or permanent member removal\n• **Timeout / Mute**: Temporarily silence a member\n• **Warn / History**: Issue warnings & view warning logs\n• **Purge**: Bulk delete messages in current channel',
         inline: false
       },
       {
-        name: '⚙️ Quick Bot Commands',
-        value: '• Use the buttons below to trigger manual drops, setup channels, or toggle auto-drops.',
+        name: '🔮 Quick System Controls',
+        value: '• Use the buttons below to trigger manual drops, auto-setup channels, or toggle auto-drops.',
         inline: false
       }
     )
-    .setFooter({ text: 'Soul Admin Guard • Select an action below', iconURL: guild.iconURL({ dynamic: true }) })
+    .setFooter({ text: '✦ Soul Admin Guard • Cute Moderation Sanctuary ✦', iconURL: guild.iconURL({ dynamic: true }) })
     .setTimestamp();
+
+  // Attach cute anime banner if present
+  const files = [];
+  const bannerPath = path.join(__dirname, '..', 'assets', 'admin_banner.png');
+  if (fs.existsSync(bannerPath)) {
+    files.push(new AttachmentBuilder(bannerPath, { name: 'admin_banner.png' }));
+    embed.setImage('attachment://admin_banner.png');
+  }
 
   // Action Row 1: Moderation Action Select Menu
   const modActionSelect = new StringSelectMenuBuilder()
     .setCustomId('admin_mod_action_select')
-    .setPlaceholder('🛠️ Choose a Moderation Action...')
+    .setPlaceholder('🔮 Select a Moderation Command...')
     .addOptions([
-      { label: '🔨 Kick Member', description: 'Kick a member from the server', value: 'mod_kick' },
-      { label: '🚫 Ban Member', description: 'Ban a member permanently or with reason', value: 'mod_ban' },
+      { label: '🎀 Kick Member', description: 'Kick a member from the server', value: 'mod_kick' },
+      { label: '🚫 Ban Member', description: 'Ban a member permanently', value: 'mod_ban' },
       { label: '🔇 Mute / Timeout Member', description: 'Temporarily mute a member with custom duration', value: 'mod_timeout' },
       { label: '🔊 Remove Timeout (Unmute)', description: 'Remove active timeout from a member', value: 'mod_untimeout' },
       { label: '⚠️ Warn Member', description: 'Issue a formal warning to a user', value: 'mod_warn' },
@@ -78,13 +90,13 @@ async function buildAdminPanelPayload(guild, moderatorUser) {
   const row1 = new ActionRowBuilder().addComponents(modActionSelect);
   const row2 = new ActionRowBuilder().addComponents(btnSetup, btnForceDrop, btnToggleAutoDrop);
 
-  return { embeds: [embed], components: [row1, row2] };
+  return { embeds: [embed], components: [row1, row2], files };
 }
 
 /**
  * Sends a structured audit log entry to the server's #soul-logs channel.
  */
-async function sendModLog(guild, title, description, color = '#ffaa00', fields = []) {
+async function sendModLog(guild, title, description, color = '#c084fc', fields = []) {
   try {
     const settings = await getServerSettings(guild.id);
     let logChannel = null;
