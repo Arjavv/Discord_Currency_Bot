@@ -175,14 +175,14 @@ module.exports = {
           .setColor('#c084fc')
           .setTitle('🎀 Member Commands Guide')
           .setDescription(
-            `• **\`s checkin\` / \`s daily\`** — Claim daily Soul rewards & build streaks.\n` +
-            `• **\`s balance\` / \`s bal\`** — Check your balance & Soul Vault status.\n` +
-            `• **\`s shop\`** — Buy anime/gaming characters & boosts.\n` +
-            `• **\`s inv\` / \`s inventory\`** — Inspect your character card collection.\n` +
-            `• **\`s flip <bet>\` / \`s slots\`** — Play casino games.\n` +
-            `• **\`s duel @user <bet>\`** — Challenge members to 1v1 duels.\n` +
-            `• **\`s drop\`** — Spawn or catch character drops in `#soul-drops`!\n` +
-            `• **\`s invite\`** — Get a bot invite link to add to other servers for Souls!`
+            `• **s checkin** / **s daily** — Claim daily Soul rewards & build streaks.\n` +
+            `• **s balance** / **s bal** — Check your balance & Soul Vault status.\n` +
+            `• **s shop** — Buy anime/gaming characters & boosts.\n` +
+            `• **s inv** / **s inventory** — Inspect your character card collection.\n` +
+            `• **s flip <bet>** / **s slots** — Play casino games.\n` +
+            `• **s duel @user <bet>** — Challenge members to 1v1 duels.\n` +
+            `• **s drop** — Spawn or catch character drops in #soul-drops!\n` +
+            `• **s invite** — Get a bot invite link to add to other servers for Souls!`
           )
           .setTimestamp();
         return await interaction.reply({ embeds: [playerEmbed], ephemeral: true });
