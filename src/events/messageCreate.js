@@ -1265,14 +1265,14 @@ module.exports = {
         }
 
         // --- 1. ADMIN COMMANDS ---
-        if (['admin', 'mod', 'setup', 'reset-cycle', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop'].includes(commandName)) {
+        if (['admin', 'mod', 'setup', 'reset-cycle', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'auto-drops'].includes(commandName)) {
           // Check administrator permission
           if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return message.reply('❌ You must have Administrator permissions to run admin commands.').catch(() => { });
           }
 
-          // admin, setup, set-drop-channel, set-bot-channel, set-log-channel, and force-drop can be run anywhere; other admin commands are restricted to #soul-logs
-          if (!['admin', 'mod', 'setup', 'set-drop-channel', 'set-bot-channel', 'set-log-channel', 'force-drop'].includes(commandName)) {
+          // admin, setup, set-drop-channel, set-bot-channel, and set-log-channel can be run anywhere; other admin commands are restricted to #soul-logs
+          if (!['admin', 'mod', 'setup', 'set-drop-channel', 'set-bot-channel', 'set-log-channel'].includes(commandName)) {
             const settings = await getServerSettings(serverId);
             const customLogChannelId = settings.log_channel_id;
             if (customLogChannelId) {
@@ -1507,32 +1507,6 @@ module.exports = {
               .setTimestamp();
 
             return await message.reply({ embeds: [embed] }).catch(() => { });
-          }
-
-          if (commandName === 'force-drop') {
-            const settings = await getServerSettings(serverId);
-            let dropChannel = null;
-
-            if (settings.drop_channel_id) {
-              dropChannel = message.guild.channels.cache.get(settings.drop_channel_id) ||
-                await message.guild.channels.fetch(settings.drop_channel_id).catch(() => null);
-            } else {
-              const currentChannels = await message.guild.channels.fetch().catch(() => message.guild.channels.cache);
-              dropChannel = currentChannels.find(
-                c => c.name.toLowerCase() === 'general' && c.type === ChannelType.GuildText
-              );
-            }
-
-            if (!dropChannel) {
-              return message.reply('❌ **Error**: Drop channel not configured or not found. Please set it using `s set-drop-channel <#channel>` or name a channel `#general`.').catch(() => { });
-            }
-
-            const dropResult = await triggerDrop(message.client, serverId, dropChannel);
-            if (dropResult) {
-              return message.reply(`✅ Successfully triggered a random coin drop in ${dropChannel}!`).catch(() => { });
-            } else {
-              return message.reply('❌ **Error**: Failed to send drop message. Please check permissions.').catch(() => { });
-            }
           }
         }
 

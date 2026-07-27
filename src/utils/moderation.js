@@ -10,36 +10,45 @@ const {
 } = require('discord.js');
 const path = require('path');
 const fs = require('fs');
-const { addWarning, getUserWarnings, clearUserWarnings, getServerSettings } = require('../database/queries');
+const {
+  addWarning,
+  getUserWarnings,
+  clearUserWarnings,
+  getServerSettings,
+  getTreasury
+} = require('../database/queries');
 
 /**
  * Builds the cute interactive Admin & Moderation Panel embed and action rows.
  */
 async function buildAdminPanelPayload(guild, moderatorUser) {
   const settings = await getServerSettings(guild.id);
+  const treasury = await getTreasury(guild.id);
   const memberCount = guild.memberCount;
+  const vaultBalance = treasury ? Number(treasury.balance).toLocaleString() : '100,000';
 
   const embed = new EmbedBuilder()
-    .setColor('#c084fc') // Beautiful pastel lavender purple
-    .setTitle('✨ 👑 Soul Royal Admin & Moderation Realm 💜 ✨')
+    .setColor('#c084fc') // Pastel lavender purple
+    .setTitle('✨ 👑 Soul Royal Admin & Configuration Sanctuary 💜 ✨')
     .setDescription(
       `Welcome back, **${moderatorUser.username}**! 🐾💜\n` +
-      `Here is your administrative control sanctuary. Select a moderation tool or system control below!\n\n` +
+      `Here is your administrative control sanctuary. Select a moderation tool or system configuration menu below!\n\n` +
       `🌸 **Server:** \`${guild.name}\` (**${memberCount}** souls)\n` +
       `📢 **Drop Channel:** ${settings.drop_channel_id ? `<#${settings.drop_channel_id}>` : '*Not Set*'}\n` +
       `🤖 **Bot Channel:** ${settings.bot_channel_id ? `<#${settings.bot_channel_id}>` : '*Not Set*'}\n` +
       `📜 **Log Channel:** ${settings.log_channel_id ? `<#${settings.log_channel_id}>` : '*Not Set*'}\n` +
+      `⛽ **Vault Fuel:** **${vaultBalance}** Souls\n` +
       `⚡ **Auto Drops:** \`${settings.auto_drops_enabled ? 'Active (10m cycle) ✨' : 'Disabled 💤'}\``
     )
     .addFields(
       {
         name: '🎀 Member Moderation Tools',
-        value: '• **Kick / Ban**: Soft or permanent member removal\n• **Timeout / Mute**: Temporarily silence a member\n• **Warn / History**: Issue warnings & view warning logs\n• **Purge**: Bulk delete messages in current channel',
+        value: '• Use **Moderation Actions** menu below to Kick, Ban, Timeout, Warn, or Purge messages.',
         inline: false
       },
       {
-        name: '🔮 Quick System Controls',
-        value: '• Use the buttons below to trigger manual drops, auto-setup channels, or toggle auto-drops.',
+        name: '⚙️ Server Configuration & System Controls',
+        value: '• Use **Server Configurations** menu to configure channels, feature toggles, vault tax, or giveaway templates.',
         inline: false
       }
     )
@@ -57,7 +66,7 @@ async function buildAdminPanelPayload(guild, moderatorUser) {
   // Action Row 1: Moderation Action Select Menu
   const modActionSelect = new StringSelectMenuBuilder()
     .setCustomId('admin_mod_action_select')
-    .setPlaceholder('🔮 Select a Moderation Command...')
+    .setPlaceholder('🔨 Choose a Moderation Action...')
     .addOptions([
       { label: '🎀 Kick Member', description: 'Kick a member from the server', value: 'mod_kick' },
       { label: '🚫 Ban Member', description: 'Ban a member permanently', value: 'mod_ban' },
@@ -68,18 +77,32 @@ async function buildAdminPanelPayload(guild, moderatorUser) {
       { label: '🧹 Clear / Purge Messages', description: 'Bulk delete 1 to 100 recent messages in this channel', value: 'mod_purge' }
     ]);
 
-  // Action Row 2: Quick System Controls
+  // Action Row 2: Server Configuration Select Menu
+  const configActionSelect = new StringSelectMenuBuilder()
+    .setCustomId('admin_config_action_select')
+    .setPlaceholder('⚙️ Choose Server Configuration...')
+    .addOptions([
+      { label: '📢 Set Drop Channel', description: 'Select text channel for automatic character spawns', value: 'cfg_drop_channel' },
+      { label: '🤖 Set Bot Command Channel', description: 'Restrict member commands to a designated channel', value: 'cfg_bot_channel' },
+      { label: '📜 Set Admin Log Channel', description: 'Set custom channel for administrative logs', value: 'cfg_log_channel' },
+      { label: '🎛️ Toggle Feature Overrides', description: 'Turn features ON/OFF for this server (Casino, Shop, Rob, etc.)', value: 'cfg_feature_toggles' },
+      { label: '⛽ Soul Vault & Custom Tax Rate', description: 'Refuel vault or configure custom tax rate', value: 'cfg_vault_tax' },
+      { label: '🎁 Giveaway Templates', description: 'Customize ping and announcement text templates', value: 'cfg_giveaway_templates' },
+      { label: '🔄 Reset Monthly Economy Cycle', description: 'Reset coin balances and snapshot final rankings', value: 'cfg_reset_cycle' }
+    ]);
+
+  // Action Row 3: Quick System Control Buttons (NO force-drop)
   const btnSetup = new ButtonBuilder()
     .setCustomId('admin_quick_setup')
     .setLabel('Auto-Setup Channels')
     .setStyle(ButtonStyle.Primary)
     .setEmoji('⚙️');
 
-  const btnForceDrop = new ButtonBuilder()
-    .setCustomId('admin_quick_forcedrop')
-    .setLabel('Force Coin Drop')
-    .setStyle(ButtonStyle.Success)
-    .setEmoji('📦');
+  const btnRefuelVault = new ButtonBuilder()
+    .setCustomId('refuel_vault_btn')
+    .setLabel('Refuel Vault')
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji('⛽');
 
   const btnToggleAutoDrop = new ButtonBuilder()
     .setCustomId('admin_quick_autodrop')
@@ -88,9 +111,10 @@ async function buildAdminPanelPayload(guild, moderatorUser) {
     .setEmoji(settings.auto_drops_enabled ? '⏹️' : '▶️');
 
   const row1 = new ActionRowBuilder().addComponents(modActionSelect);
-  const row2 = new ActionRowBuilder().addComponents(btnSetup, btnForceDrop, btnToggleAutoDrop);
+  const row2 = new ActionRowBuilder().addComponents(configActionSelect);
+  const row3 = new ActionRowBuilder().addComponents(btnSetup, btnRefuelVault, btnToggleAutoDrop);
 
-  return { embeds: [embed], components: [row1, row2], files };
+  return { embeds: [embed], components: [row1, row2, row3], files };
 }
 
 /**

@@ -7,6 +7,7 @@ const {
   TextInputStyle,
   UserSelectMenuBuilder,
   StringSelectMenuBuilder,
+  ChannelSelectMenuBuilder,
   EmbedBuilder,
   PermissionFlagsBits,
   ChannelType
@@ -18,7 +19,14 @@ const {
   clearUserWarnings,
   getServerSettings,
   toggleAutoDrops,
-  updateServerChannels
+  updateServerChannels,
+  updateDropChannel,
+  getServerFeatureOverrides,
+  setServerFeatureOverride,
+  updateServerVaultCustomTaxRate,
+  getServerGiveawaySettings,
+  setServerGiveawaySettings,
+  resetCycle
 } = require('../database/queries');
 
 const { buildAdminPanelPayload, sendModLog } = require('../utils/moderation');
@@ -29,11 +37,11 @@ module.exports = {
   once: false,
   async execute(interaction) {
 
-    // Helper to check Administrator permissions for moderation actions
+    // Helper to check Administrator permissions for moderation/admin actions
     const checkAdminPerms = () => {
       if (!interaction.member || !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         interaction.reply({
-          content: '❌ **Access Denied**: You must have Administrator permissions to perform moderation actions.',
+          content: '❌ **Access Denied**: You must have Administrator permissions to perform administrative or moderation actions.',
           ephemeral: true
         }).catch(() => {});
         return false;
@@ -66,9 +74,7 @@ module.exports = {
           .setPlaceholder('Enter amount (minimum 20,000)')
           .setRequired(true);
 
-        const row = new ActionRowBuilder().addComponents(amountInput);
-        modal.addComponents(row);
-
+        modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
         return await interaction.showModal(modal);
       }
 
@@ -112,37 +118,6 @@ module.exports = {
         }
       }
 
-      // Admin Quick Force Drop Button
-      if (interaction.customId === 'admin_quick_forcedrop') {
-        if (!checkAdminPerms()) return;
-        await interaction.deferReply({ ephemeral: true });
-
-        try {
-          const settings = await getServerSettings(interaction.guildId);
-          let dropChannel = null;
-          if (settings.drop_channel_id) {
-            dropChannel = interaction.guild.channels.cache.get(settings.drop_channel_id) ||
-                          await interaction.guild.channels.fetch(settings.drop_channel_id).catch(() => null);
-          } else {
-            dropChannel = interaction.guild.channels.cache.find(c => c.name.toLowerCase() === 'general' && c.isTextBased());
-          }
-
-          if (!dropChannel) {
-            return await interaction.editReply({ content: '❌ **Drop channel not found!** Please set a drop channel using `/admin set-drop-channel`.' });
-          }
-
-          const res = await triggerDrop(interaction.client, interaction.guildId, dropChannel);
-          if (res) {
-            await sendModLog(interaction.guild, '📦 Manual Force Drop Triggered', `Moderator <@${interaction.user.id}> triggered a manual coin drop in <#${dropChannel.id}>.`, '#ffa500');
-            return await interaction.editReply({ content: `📦 **Coin Drop Spawned** in <#${dropChannel.id}>!` });
-          } else {
-            return await interaction.editReply({ content: '❌ Failed to spawn drop. Check vault fuel or drop cooldowns.' });
-          }
-        } catch (err) {
-          return await interaction.editReply({ content: `❌ Force drop error: ${err.message}` });
-        }
-      }
-
       // Admin Quick Auto-Drop Toggle Button
       if (interaction.customId === 'admin_quick_autodrop') {
         if (!checkAdminPerms()) return;
@@ -178,6 +153,20 @@ module.exports = {
         }
       }
 
+      // Admin Confirm Reset Cycle Button
+      if (interaction.customId === 'admin_confirm_reset_cycle') {
+        if (!checkAdminPerms()) return;
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+          const res = await resetCycle(interaction.guildId);
+          await sendModLog(interaction.guild, '🔄 Monthly Cycle Reset Executed', `Moderator <@${interaction.user.id}> reset the server monthly economy cycle. ${res.archivedCount} member balances archived.`, '#f59e0b');
+          return await interaction.editReply({ content: `🔄 **Cycle Reset Complete!** Standard user balances have been reset and top rankings archived.` });
+        } catch (err) {
+          return await interaction.editReply({ content: `❌ Cycle reset failed: ${err.message}` });
+        }
+      }
+
       // Admin Clear Warnings Button
       if (interaction.customId.startsWith('admin_clear_warns_')) {
         if (!checkAdminPerms()) return;
@@ -194,7 +183,7 @@ module.exports = {
     // =========================================================================
     if (interaction.isStringSelectMenu()) {
 
-      // Main Admin Moderation Action Select Menu
+      // Moderation Actions Select Menu
       if (interaction.customId === 'admin_mod_action_select') {
         if (!checkAdminPerms()) return;
 
@@ -203,11 +192,10 @@ module.exports = {
         if (action === 'mod_kick') {
           const userSelect = new UserSelectMenuBuilder()
             .setCustomId('admin_user_select_kick')
-            .setPlaceholder('🔨 Select a member to kick...')
+            .setPlaceholder('🎀 Select a member to kick...')
             .setMinValues(1)
             .setMaxValues(1);
-          const row = new ActionRowBuilder().addComponents(userSelect);
-          return await interaction.reply({ content: '🔨 **Kick Member**: Select the member you wish to kick:', components: [row], ephemeral: true });
+          return await interaction.reply({ content: '🎀 **Kick Member**: Select the member you wish to kick:', components: [new ActionRowBuilder().addComponents(userSelect)], ephemeral: true });
         }
 
         if (action === 'mod_ban') {
@@ -216,8 +204,7 @@ module.exports = {
             .setPlaceholder('🚫 Select a member to ban...')
             .setMinValues(1)
             .setMaxValues(1);
-          const row = new ActionRowBuilder().addComponents(userSelect);
-          return await interaction.reply({ content: '🚫 **Ban Member**: Select the member you wish to ban:', components: [row], ephemeral: true });
+          return await interaction.reply({ content: '🚫 **Ban Member**: Select the member you wish to ban:', components: [new ActionRowBuilder().addComponents(userSelect)], ephemeral: true });
         }
 
         if (action === 'mod_timeout') {
@@ -226,8 +213,7 @@ module.exports = {
             .setPlaceholder('🔇 Select a member to mute / timeout...')
             .setMinValues(1)
             .setMaxValues(1);
-          const row = new ActionRowBuilder().addComponents(userSelect);
-          return await interaction.reply({ content: '🔇 **Timeout Member**: Select the member you wish to timeout:', components: [row], ephemeral: true });
+          return await interaction.reply({ content: '🔇 **Timeout Member**: Select the member you wish to timeout:', components: [new ActionRowBuilder().addComponents(userSelect)], ephemeral: true });
         }
 
         if (action === 'mod_untimeout') {
@@ -236,8 +222,7 @@ module.exports = {
             .setPlaceholder('🔊 Select a member to remove timeout...')
             .setMinValues(1)
             .setMaxValues(1);
-          const row = new ActionRowBuilder().addComponents(userSelect);
-          return await interaction.reply({ content: '🔊 **Remove Timeout**: Select the member to unmute:', components: [row], ephemeral: true });
+          return await interaction.reply({ content: '🔊 **Remove Timeout**: Select the member to unmute:', components: [new ActionRowBuilder().addComponents(userSelect)], ephemeral: true });
         }
 
         if (action === 'mod_warn') {
@@ -246,8 +231,7 @@ module.exports = {
             .setPlaceholder('⚠️ Select a member to warn...')
             .setMinValues(1)
             .setMaxValues(1);
-          const row = new ActionRowBuilder().addComponents(userSelect);
-          return await interaction.reply({ content: '⚠️ **Warn Member**: Select the member you wish to issue a warning to:', components: [row], ephemeral: true });
+          return await interaction.reply({ content: '⚠️ **Warn Member**: Select the member you wish to issue a warning to:', components: [new ActionRowBuilder().addComponents(userSelect)], ephemeral: true });
         }
 
         if (action === 'mod_view_warns') {
@@ -256,8 +240,7 @@ module.exports = {
             .setPlaceholder('📋 Select a member to view warnings...')
             .setMinValues(1)
             .setMaxValues(1);
-          const row = new ActionRowBuilder().addComponents(userSelect);
-          return await interaction.reply({ content: '📋 **View Warnings**: Select the member to inspect:', components: [row], ephemeral: true });
+          return await interaction.reply({ content: '📋 **View Warnings**: Select the member to inspect:', components: [new ActionRowBuilder().addComponents(userSelect)], ephemeral: true });
         }
 
         if (action === 'mod_purge') {
@@ -275,6 +258,132 @@ module.exports = {
           modal.addComponents(new ActionRowBuilder().addComponents(countInput));
           return await interaction.showModal(modal);
         }
+      }
+
+      // Server Configuration Actions Select Menu
+      if (interaction.customId === 'admin_config_action_select') {
+        if (!checkAdminPerms()) return;
+
+        const cfgAction = interaction.values[0];
+
+        if (cfgAction === 'cfg_drop_channel') {
+          const channelSelect = new ChannelSelectMenuBuilder()
+            .setCustomId('admin_channel_select_drop')
+            .setPlaceholder('📢 Select Drop Channel...')
+            .setChannelTypes(ChannelType.GuildText)
+            .setMinValues(1)
+            .setMaxValues(1);
+          return await interaction.reply({ content: '📢 **Configure Drop Channel**: Select the text channel for coin drops:', components: [new ActionRowBuilder().addComponents(channelSelect)], ephemeral: true });
+        }
+
+        if (cfgAction === 'cfg_bot_channel') {
+          const channelSelect = new ChannelSelectMenuBuilder()
+            .setCustomId('admin_channel_select_bot')
+            .setPlaceholder('🤖 Select Bot Command Channel...')
+            .setChannelTypes(ChannelType.GuildText)
+            .setMinValues(1)
+            .setMaxValues(1);
+          return await interaction.reply({ content: '🤖 **Configure Bot Command Channel**: Select the text channel for user commands:', components: [new ActionRowBuilder().addComponents(channelSelect)], ephemeral: true });
+        }
+
+        if (cfgAction === 'cfg_log_channel') {
+          const channelSelect = new ChannelSelectMenuBuilder()
+            .setCustomId('admin_channel_select_log')
+            .setPlaceholder('📜 Select Admin Log Channel...')
+            .setChannelTypes(ChannelType.GuildText)
+            .setMinValues(1)
+            .setMaxValues(1);
+          return await interaction.reply({ content: '📜 **Configure Log Channel**: Select the text channel for administrative log alerts:', components: [new ActionRowBuilder().addComponents(channelSelect)], ephemeral: true });
+        }
+
+        if (cfgAction === 'cfg_feature_toggles') {
+          const overrides = await getServerFeatureOverrides(interaction.guildId);
+          const featureSelect = new StringSelectMenuBuilder()
+            .setCustomId('admin_select_feature_toggle')
+            .setPlaceholder('🎛️ Choose a Feature to Toggle ON / OFF...')
+            .addOptions([
+              { label: `Daily Checkin (${overrides.checkin === false ? 'OFF ❌' : 'ON ✅'})`, value: 'checkin' },
+              { label: `Casino Games (${overrides.casino === false ? 'OFF ❌' : 'ON ✅'})`, value: 'casino' },
+              { label: `Item Shop (${overrides.shop === false ? 'OFF ❌' : 'ON ✅'})`, value: 'shop' },
+              { label: `Duels & Combat (${overrides.duels === false ? 'OFF ❌' : 'ON ✅'})`, value: 'duels' },
+              { label: `Robbery (${overrides.rob === false ? 'OFF ❌' : 'ON ✅'})`, value: 'rob' },
+              { label: `Coin Drops (${overrides.drops === false ? 'OFF ❌' : 'ON ✅'})`, value: 'drops' },
+              { label: `Transfers & Gifts (${overrides.transfers === false ? 'OFF ❌' : 'ON ✅'})`, value: 'transfers' }
+            ]);
+          return await interaction.reply({ content: '🎛️ **Server Feature Overrides**: Select a feature to flip its status for this server:', components: [new ActionRowBuilder().addComponents(featureSelect)], ephemeral: true });
+        }
+
+        if (cfgAction === 'cfg_vault_tax') {
+          const modal = new ModalBuilder()
+            .setCustomId('admin_modal_vault_tax')
+            .setTitle('Vault Custom Tax Rate');
+
+          const taxInput = new TextInputBuilder()
+            .setCustomId('tax_rate_input')
+            .setLabel('Custom Tax Rate % (0.0 to 20.0 or "default")')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('1.5')
+            .setRequired(true);
+
+          modal.addComponents(new ActionRowBuilder().addComponents(taxInput));
+          return await interaction.showModal(modal);
+        }
+
+        if (cfgAction === 'cfg_giveaway_templates') {
+          const settings = await getServerGiveawaySettings(interaction.guildId);
+          const modal = new ModalBuilder()
+            .setCustomId('admin_modal_giveaway_templates')
+            .setTitle('Giveaway Templates');
+
+          const pingInput = new TextInputBuilder()
+            .setCustomId('ping_template_input')
+            .setLabel('Giveaway Winner Ping Template')
+            .setStyle(TextInputStyle.Paragraph)
+            .setValue(settings.giveaway_ping_template || '🎉 CONGRATULATIONS {mention}! You won the {type} giveaway draw! 🎉')
+            .setRequired(true);
+
+          const descInput = new TextInputBuilder()
+            .setCustomId('desc_template_input')
+            .setLabel('Giveaway Description Template')
+            .setStyle(TextInputStyle.Paragraph)
+            .setValue(settings.giveaway_desc_template || 'A lucky server member has been chosen for the {type} sweepstakes! Winner: {tag} ({mention}) | Prize: {amount} Souls')
+            .setRequired(true);
+
+          modal.addComponents(
+            new ActionRowBuilder().addComponents(pingInput),
+            new ActionRowBuilder().addComponents(descInput)
+          );
+          return await interaction.showModal(modal);
+        }
+
+        if (cfgAction === 'cfg_reset_cycle') {
+          const confirmBtn = new ButtonBuilder()
+            .setCustomId('admin_confirm_reset_cycle')
+            .setLabel('Confirm Cycle Reset')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('⚠️');
+          return await interaction.reply({
+            content: '⚠️ **WARNING**: Resetting the monthly cycle will snapshot all member rankings and reset user coin balances to zero. Are you sure?',
+            components: [new ActionRowBuilder().addComponents(confirmBtn)],
+            ephemeral: true
+          });
+        }
+      }
+
+      // Feature Toggle Handling
+      if (interaction.customId === 'admin_select_feature_toggle') {
+        if (!checkAdminPerms()) return;
+        await interaction.deferReply({ ephemeral: true });
+
+        const featureKey = interaction.values[0];
+        const overrides = await getServerFeatureOverrides(interaction.guildId);
+        const currentVal = overrides[featureKey] !== false;
+        const newVal = !currentVal;
+
+        await setServerFeatureOverride(interaction.guildId, featureKey, newVal);
+        await sendModLog(interaction.guild, '🎛️ Feature Toggle Changed', `**Feature:** \`${featureKey}\`\n**Status:** ${newVal ? 'ENABLED ✅' : 'DISABLED ❌'}\n**Moderator:** <@${interaction.user.id}>`, '#c084fc');
+
+        return await interaction.editReply({ content: `✅ Feature **${featureKey}** is now **${newVal ? 'ENABLED' : 'DISABLED'}** for this server.` });
       }
 
       // Timeout Duration Selection
@@ -300,7 +409,35 @@ module.exports = {
     }
 
     // =========================================================================
-    // 3. USER SELECT MENU INTERACTIONS
+    // 3. CHANNEL SELECT MENU INTERACTIONS
+    // =========================================================================
+    if (interaction.isChannelSelectMenu()) {
+      if (!checkAdminPerms()) return;
+      await interaction.deferReply({ ephemeral: true });
+
+      const selectedChannelId = interaction.values[0];
+
+      if (interaction.customId === 'admin_channel_select_drop') {
+        await updateDropChannel(interaction.guildId, selectedChannelId);
+        await sendModLog(interaction.guild, '📢 Drop Channel Configured', `**New Drop Channel:** <#${selectedChannelId}>\n**Moderator:** <@${interaction.user.id}>`, '#00ffaa');
+        return await interaction.editReply({ content: `📢 **Drop Channel updated** to <#${selectedChannelId}>!` });
+      }
+
+      if (interaction.customId === 'admin_channel_select_bot') {
+        await updateServerChannels(interaction.guildId, selectedChannelId, null);
+        await sendModLog(interaction.guild, '🤖 Bot Channel Configured', `**New Bot Command Channel:** <#${selectedChannelId}>\n**Moderator:** <@${interaction.user.id}>`, '#00ffaa');
+        return await interaction.editReply({ content: `🤖 **Bot Command Channel updated** to <#${selectedChannelId}>!` });
+      }
+
+      if (interaction.customId === 'admin_channel_select_log') {
+        await updateServerChannels(interaction.guildId, null, selectedChannelId);
+        await sendModLog(interaction.guild, '📜 Log Channel Configured', `**New Log Channel:** <#${selectedChannelId}>\n**Moderator:** <@${interaction.user.id}>`, '#00ffaa');
+        return await interaction.editReply({ content: `📜 **Log Channel updated** to <#${selectedChannelId}>!` });
+      }
+    }
+
+    // =========================================================================
+    // 4. USER SELECT MENU INTERACTIONS
     // =========================================================================
     if (interaction.isUserSelectMenu()) {
       if (!checkAdminPerms()) return;
@@ -352,10 +489,9 @@ module.exports = {
             { label: '1 Week (7 Days)', value: '604800000' }
           ]);
 
-        const row = new ActionRowBuilder().addComponents(durationSelect);
         return await interaction.reply({
           content: `⏱️ Select timeout duration for <@${targetId}>:`,
-          components: [row],
+          components: [new ActionRowBuilder().addComponents(durationSelect)],
           ephemeral: true
         });
       }
@@ -396,7 +532,7 @@ module.exports = {
         const targetUser = await interaction.client.users.fetch(targetId).catch(() => null);
 
         const embed = new EmbedBuilder()
-          .setColor('#ffaa00')
+          .setColor('#c084fc')
           .setTitle(`📋 Warning History — ${targetUser ? targetUser.tag : targetId}`)
           .setThumbnail(targetUser ? targetUser.displayAvatarURL({ dynamic: true }) : null)
           .setDescription(`Total Warnings: **${warnings.length}**`)
@@ -429,7 +565,7 @@ module.exports = {
     }
 
     // =========================================================================
-    // 4. MODAL SUBMISSIONS
+    // 5. MODAL SUBMISSIONS
     // =========================================================================
     if (interaction.isModalSubmit()) {
 
@@ -455,6 +591,41 @@ module.exports = {
         } catch (err) {
           return await interaction.reply({ content: '❌ Error: ' + err.message, ephemeral: true });
         }
+      }
+
+      // Vault Custom Tax Rate Modal
+      if (interaction.customId === 'admin_modal_vault_tax') {
+        if (!checkAdminPerms()) return;
+        const valStr = interaction.fields.getTextInputValue('tax_rate_input').trim().toLowerCase();
+        await interaction.deferReply({ ephemeral: true });
+
+        let newRate = null;
+        if (valStr !== 'default') {
+          newRate = parseFloat(valStr);
+          if (isNaN(newRate) || newRate < 0 || newRate > 20) {
+            return await interaction.editReply({ content: '❌ Invalid tax rate. Must be between 0.0% and 20.0%, or "default".' });
+          }
+        }
+
+        await updateServerVaultCustomTaxRate(interaction.guildId, newRate);
+        await sendModLog(interaction.guild, '⛽ Custom Vault Tax Rate Updated', `**New Rate:** ${newRate === null ? 'Default (Fluctuating 0.5% - 2.0%)' : `${newRate}%`}\n**Moderator:** <@${interaction.user.id}>`, '#c084fc');
+        return await interaction.editReply({ content: `⛽ Custom Vault Tax Rate updated to: **${newRate === null ? 'Default (Fluctuating)' : `${newRate}%`}**.` });
+      }
+
+      // Giveaway Templates Modal
+      if (interaction.customId === 'admin_modal_giveaway_templates') {
+        if (!checkAdminPerms()) return;
+        const pingTpl = interaction.fields.getTextInputValue('ping_template_input');
+        const descTpl = interaction.fields.getTextInputValue('desc_template_input');
+
+        await interaction.deferReply({ ephemeral: true });
+        await setServerGiveawaySettings(interaction.guildId, {
+          giveaway_ping_template: pingTpl,
+          giveaway_desc_template: descTpl
+        });
+
+        await sendModLog(interaction.guild, '🎁 Giveaway Templates Updated', `**Moderator:** <@${interaction.user.id}>`, '#c084fc');
+        return await interaction.editReply({ content: `🎁 **Giveaway templates updated successfully!**` });
       }
 
       // Modal Kick
@@ -575,7 +746,7 @@ module.exports = {
     }
 
     // =========================================================================
-    // 5. SLASH COMMAND EXECUTOR
+    // 6. SLASH COMMAND EXECUTOR
     // =========================================================================
     if (!interaction.isChatInputCommand()) return;
 
