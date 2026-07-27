@@ -432,33 +432,6 @@ module.exports = {
           modal.addComponents(new ActionRowBuilder().addComponents(taxInput));
           return await interaction.showModal(modal);
         }
-
-        if (cfgAction === 'cfg_giveaway_templates') {
-          const settings = await getServerGiveawaySettings(interaction.guildId);
-          const modal = new ModalBuilder()
-            .setCustomId('admin_modal_giveaway_templates')
-            .setTitle('Giveaway Templates');
-
-          const pingInput = new TextInputBuilder()
-            .setCustomId('ping_template_input')
-            .setLabel('Giveaway Winner Ping Template')
-            .setStyle(TextInputStyle.Paragraph)
-            .setValue(settings.giveaway_ping_template || '🎉 CONGRATULATIONS {mention}! You won the {type} giveaway draw! 🎉')
-            .setRequired(true);
-
-          const descInput = new TextInputBuilder()
-            .setCustomId('desc_template_input')
-            .setLabel('Giveaway Description Template')
-            .setStyle(TextInputStyle.Paragraph)
-            .setValue(settings.giveaway_desc_template || 'A lucky server member has been chosen for the {type} sweepstakes! Winner: {tag} ({mention}) | Prize: {amount} Souls')
-            .setRequired(true);
-
-          modal.addComponents(
-            new ActionRowBuilder().addComponents(pingInput),
-            new ActionRowBuilder().addComponents(descInput)
-          );
-          return await interaction.showModal(modal);
-        }
       }
 
       // Feature Toggle Handling
@@ -802,22 +775,6 @@ module.exports = {
         await updateServerVaultCustomTaxRate(interaction.guildId, newRate);
         await sendModLog(interaction.guild, '⛽ Custom Vault Tax Rate Updated', `**New Rate:** ${newRate === null ? 'Default (Fluctuating 0.5% - 2.0%)' : `${newRate}%`}\n**Moderator:** <@${interaction.user.id}>`, '#c084fc');
         return await interaction.editReply({ content: `⛽ Custom Vault Tax Rate updated to: **${newRate === null ? 'Default (Fluctuating)' : `${newRate}%`}**.` });
-      }
-
-      // Giveaway Templates Modal
-      if (interaction.customId === 'admin_modal_giveaway_templates') {
-        if (!checkAdminPerms()) return;
-        const pingTpl = interaction.fields.getTextInputValue('ping_template_input');
-        const descTpl = interaction.fields.getTextInputValue('desc_template_input');
-
-        await interaction.deferReply({ ephemeral: true });
-        await setServerGiveawaySettings(interaction.guildId, {
-          giveaway_ping_template: pingTpl,
-          giveaway_desc_template: descTpl
-        });
-
-        await sendModLog(interaction.guild, '🎁 Giveaway Templates Updated', `**Moderator:** <@${interaction.user.id}>`, '#c084fc');
-        return await interaction.editReply({ content: `🎁 **Giveaway templates updated successfully!**` });
       }
 
       // Modal Kick
