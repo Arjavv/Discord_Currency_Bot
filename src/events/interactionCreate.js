@@ -176,6 +176,27 @@ module.exports = {
         await sendModLog(interaction.guild, '🧹 User Warnings Cleared', `Moderator <@${interaction.user.id}> cleared all warnings for <@${targetId}>.`, '#00ffaa');
         return await interaction.reply({ content: `✅ Successfully cleared all warnings for <@${targetId}>!`, ephemeral: true });
       }
+
+      // Admin Trigger Create Channel Modal Button (drop, bot, log)
+      if (interaction.customId.startsWith('admin_btn_create_channel_')) {
+        if (!checkAdminPerms()) return;
+        const channelType = interaction.customId.replace('admin_btn_create_channel_', '');
+
+        const defaultName = channelType === 'drop' ? 'soul-drops' : channelType === 'bot' ? 'soul-bot' : 'soul-logs';
+        const modal = new ModalBuilder()
+          .setCustomId(`admin_modal_create_channel_${channelType}`)
+          .setTitle(`Create New ${channelType.toUpperCase()} Channel`);
+
+        const nameInput = new TextInputBuilder()
+          .setCustomId('new_channel_name')
+          .setLabel('Channel Name')
+          .setStyle(TextInputStyle.Short)
+          .setValue(defaultName)
+          .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
+        return await interaction.showModal(modal);
+      }
     }
 
     // =========================================================================
@@ -273,7 +294,19 @@ module.exports = {
             .setChannelTypes(ChannelType.GuildText)
             .setMinValues(1)
             .setMaxValues(1);
-          return await interaction.reply({ content: '📢 **Configure Drop Channel**: Select the text channel for coin drops:', components: [new ActionRowBuilder().addComponents(channelSelect)], ephemeral: true });
+          const createBtn = new ButtonBuilder()
+            .setCustomId('admin_btn_create_channel_drop')
+            .setLabel('Create New Drop Channel')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('➕');
+          return await interaction.reply({
+            content: '📢 **Configure Drop Channel**: Pick an existing channel below, or click to create a brand new text channel:',
+            components: [
+              new ActionRowBuilder().addComponents(channelSelect),
+              new ActionRowBuilder().addComponents(createBtn)
+            ],
+            ephemeral: true
+          });
         }
 
         if (cfgAction === 'cfg_bot_channel') {
@@ -283,7 +316,19 @@ module.exports = {
             .setChannelTypes(ChannelType.GuildText)
             .setMinValues(1)
             .setMaxValues(1);
-          return await interaction.reply({ content: '🤖 **Configure Bot Command Channel**: Select the text channel for user commands:', components: [new ActionRowBuilder().addComponents(channelSelect)], ephemeral: true });
+          const createBtn = new ButtonBuilder()
+            .setCustomId('admin_btn_create_channel_bot')
+            .setLabel('Create New Bot Channel')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('➕');
+          return await interaction.reply({
+            content: '🤖 **Configure Bot Command Channel**: Pick an existing channel below, or click to create a brand new text channel:',
+            components: [
+              new ActionRowBuilder().addComponents(channelSelect),
+              new ActionRowBuilder().addComponents(createBtn)
+            ],
+            ephemeral: true
+          });
         }
 
         if (cfgAction === 'cfg_log_channel') {
@@ -293,7 +338,43 @@ module.exports = {
             .setChannelTypes(ChannelType.GuildText)
             .setMinValues(1)
             .setMaxValues(1);
-          return await interaction.reply({ content: '📜 **Configure Log Channel**: Select the text channel for administrative log alerts:', components: [new ActionRowBuilder().addComponents(channelSelect)], ephemeral: true });
+          const createBtn = new ButtonBuilder()
+            .setCustomId('admin_btn_create_channel_log')
+            .setLabel('Create New Log Channel')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('➕');
+          return await interaction.reply({
+            content: '📜 **Configure Log Channel**: Pick an existing channel below, or click to create a brand new private text channel:',
+            components: [
+              new ActionRowBuilder().addComponents(channelSelect),
+              new ActionRowBuilder().addComponents(createBtn)
+            ],
+            ephemeral: true
+          });
+        }
+
+        if (cfgAction === 'cfg_create_channel') {
+          const btnDrop = new ButtonBuilder()
+            .setCustomId('admin_btn_create_channel_drop')
+            .setLabel('Create Drop Channel')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('📢');
+          const btnBot = new ButtonBuilder()
+            .setCustomId('admin_btn_create_channel_bot')
+            .setLabel('Create Bot Channel')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🤖');
+          const btnLog = new ButtonBuilder()
+            .setCustomId('admin_btn_create_channel_log')
+            .setLabel('Create Log Channel')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('📜');
+
+          return await interaction.reply({
+            content: '➕ **Create New Channel**: Choose which type of dedicated channel you want to create:',
+            components: [new ActionRowBuilder().addComponents(btnDrop, btnBot, btnLog)],
+            ephemeral: true
+          });
         }
 
         if (cfgAction === 'cfg_feature_toggles') {
@@ -569,6 +650,57 @@ module.exports = {
     // =========================================================================
     if (interaction.isModalSubmit()) {
 
+      // Modal Create New Channel (drop, bot, log)
+      if (interaction.customId.startsWith('admin_modal_create_channel_')) {
+        if (!checkAdminPerms()) return;
+        const channelType = interaction.customId.replace('admin_modal_create_channel_', '');
+        const rawName = interaction.fields.getTextInputValue('new_channel_name').trim();
+        const cleanName = rawName.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+          const guild = interaction.guild;
+          const botMember = guild.members.me || await guild.members.fetch(interaction.client.user.id).catch(() => null);
+          if (botMember && !botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
+            return await interaction.editReply({ content: '❌ **Bot Permission Error**: The bot needs **Manage Channels** permission to create a new channel.' });
+          }
+
+          // Find or create category
+          const currentChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
+          let category = currentChannels.find(c => c.name.toLowerCase() === 'soul' && c.type === ChannelType.GuildCategory);
+          if (!category) {
+            category = await guild.channels.create({ name: 'Soul', type: ChannelType.GuildCategory });
+          }
+
+          const options = {
+            name: cleanName || `soul-${channelType}`,
+            type: ChannelType.GuildText,
+            parent: category.id
+          };
+
+          if (channelType === 'log') {
+            options.permissionOverwrites = [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }];
+          }
+
+          const newChannel = await guild.channels.create(options);
+
+          // Update database settings
+          if (channelType === 'drop') {
+            await updateDropChannel(interaction.guildId, newChannel.id);
+          } else if (channelType === 'bot') {
+            await updateServerChannels(interaction.guildId, newChannel.id, null);
+          } else if (channelType === 'log') {
+            await updateServerChannels(interaction.guildId, null, newChannel.id);
+          }
+
+          await sendModLog(guild, '➕ New Channel Created & Configured', `**Type:** \`${channelType.toUpperCase()}\`\n**Channel:** <#${newChannel.id}>\n**Moderator:** <@${interaction.user.id}>`, '#00ffaa');
+          return await interaction.editReply({ content: `✅ **Channel Created!** <#${newChannel.id}> has been created and set as your active **${channelType.toUpperCase()}** channel!` });
+        } catch (err) {
+          return await interaction.editReply({ content: `❌ Failed to create channel: ${err.message}` });
+        }
+      }
+
       // Vault Refuel Modal
       if (interaction.customId === 'refuel_vault_modal') {
         const amountStr = interaction.fields.getTextInputValue('refuel_amount');
@@ -643,7 +775,7 @@ module.exports = {
             return await interaction.editReply({ content: '❌ **Cannot Kick**: Bot has insufficient permission hierarchy over this user.' });
           }
 
-          await member.send(`👢 You have been **kicked** from **${interaction.guild.name}**.\n**Reason:** ${reason}`).catch(() => {});
+          await member.send(`boot You have been **kicked** from **${interaction.guild.name}**.\n**Reason:** ${reason}`).catch(() => {});
           await member.kick(reason);
 
           await sendModLog(interaction.guild, '👢 Member Kicked', `**Target:** <@${targetId}>\n**Moderator:** <@${interaction.user.id}>\n**Reason:** ${reason}`, '#ffaa00');

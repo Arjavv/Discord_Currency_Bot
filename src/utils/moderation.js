@@ -82,9 +82,10 @@ async function buildAdminPanelPayload(guild, moderatorUser) {
     .setCustomId('admin_config_action_select')
     .setPlaceholder('⚙️ Choose Server Configuration...')
     .addOptions([
-      { label: '📢 Set Drop Channel', description: 'Select text channel for automatic character spawns', value: 'cfg_drop_channel' },
-      { label: '🤖 Set Bot Command Channel', description: 'Restrict member commands to a designated channel', value: 'cfg_bot_channel' },
-      { label: '📜 Set Admin Log Channel', description: 'Set custom channel for administrative logs', value: 'cfg_log_channel' },
+      { label: '📢 Set / Create Drop Channel', description: 'Select or create text channel for automatic character spawns', value: 'cfg_drop_channel' },
+      { label: '🤖 Set / Create Bot Command Channel', description: 'Select or create text channel for user commands', value: 'cfg_bot_channel' },
+      { label: '📜 Set / Create Admin Log Channel', description: 'Select or create custom channel for administrative logs', value: 'cfg_log_channel' },
+      { label: '➕ Create New Channel Instantly', description: 'Create a new dedicated channel (Drop, Bot, or Log) automatically', value: 'cfg_create_channel' },
       { label: '🎛️ Toggle Feature Overrides', description: 'Turn features ON/OFF for this server (Casino, Shop, Rob, etc.)', value: 'cfg_feature_toggles' },
       { label: '⛽ Soul Vault & Custom Tax Rate', description: 'Refuel vault or configure custom tax rate', value: 'cfg_vault_tax' },
       { label: '🎁 Giveaway Templates', description: 'Customize ping and announcement text templates', value: 'cfg_giveaway_templates' },
