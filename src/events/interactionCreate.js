@@ -417,21 +417,6 @@ module.exports = {
           return await interaction.reply({ content: '🎛️ **Server Feature Overrides**: Select a feature to flip its status for this server:', components: [new ActionRowBuilder().addComponents(featureSelect)], ephemeral: true });
         }
 
-        if (cfgAction === 'cfg_vault_tax') {
-          const modal = new ModalBuilder()
-            .setCustomId('admin_modal_vault_tax')
-            .setTitle('Vault Custom Tax Rate');
-
-          const taxInput = new TextInputBuilder()
-            .setCustomId('tax_rate_input')
-            .setLabel('Custom Tax Rate % (0.0 to 20.0 or "default")')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('1.5')
-            .setRequired(true);
-
-          modal.addComponents(new ActionRowBuilder().addComponents(taxInput));
-          return await interaction.showModal(modal);
-        }
       }
 
       // Feature Toggle Handling
@@ -756,25 +741,6 @@ module.exports = {
         } catch (err) {
           return await interaction.reply({ content: '❌ Error: ' + err.message, ephemeral: true });
         }
-      }
-
-      // Vault Custom Tax Rate Modal
-      if (interaction.customId === 'admin_modal_vault_tax') {
-        if (!checkAdminPerms()) return;
-        const valStr = interaction.fields.getTextInputValue('tax_rate_input').trim().toLowerCase();
-        await interaction.deferReply({ ephemeral: true });
-
-        let newRate = null;
-        if (valStr !== 'default') {
-          newRate = parseFloat(valStr);
-          if (isNaN(newRate) || newRate < 0 || newRate > 20) {
-            return await interaction.editReply({ content: '❌ Invalid tax rate. Must be between 0.0% and 20.0%, or "default".' });
-          }
-        }
-
-        await updateServerVaultCustomTaxRate(interaction.guildId, newRate);
-        await sendModLog(interaction.guild, '⛽ Custom Vault Tax Rate Updated', `**New Rate:** ${newRate === null ? 'Default (Fluctuating 0.5% - 2.0%)' : `${newRate}%`}\n**Moderator:** <@${interaction.user.id}>`, '#c084fc');
-        return await interaction.editReply({ content: `⛽ Custom Vault Tax Rate updated to: **${newRate === null ? 'Default (Fluctuating)' : `${newRate}%`}**.` });
       }
 
       // Modal Kick
